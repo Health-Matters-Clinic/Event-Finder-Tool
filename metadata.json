@@ -1,0 +1,7 @@
+{
+  "name": "Health Matters Clinic Event Finder",
+  "description": "A production-ready event discovery and RSVP platform for Health Matters Clinic, featuring real-time map integration, event archiving, and bilingual support.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
