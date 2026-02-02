@@ -18,15 +18,29 @@ export interface ClinicEvent {
 }
 
 export interface RSVPPayload {
+  action?: 'preregister' | 'checkin';
   eventId: string;
   eventTitle: string;
-  eventDate: string;
+  eventDate: string; // display date is fine for UI; backend uses eventId to look up actual date
   name: string;
-  phone: string;
-  email: string;
-  contact_method: 'text' | 'email' | 'none';
-  sms_consent: boolean;
-  needs: string[];
+
+  // Either email OR phone is required. For minors, minorName may be used to allow multiple under one guardian contact.
+  phone?: string;
+  email?: string;
+
+  // RSVP preferences (collection only — reminders are handled elsewhere)
+  contact_method?: 'text' | 'email' | 'none';
+  sms_consent?: boolean;
+
+  // Optional: allow guardian to preregister a minor using the same email/phone
+  isMinor?: boolean;
+  minorName?: string;
+
+  needs?: string[];
   lang: Language;
   source: string;
+
+  // For check-in
+  checkinToken?: string;
 }
+
