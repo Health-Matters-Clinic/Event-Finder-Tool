@@ -135,13 +135,13 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white">
-      <header className="bg-white border-b border-black px-8 py-5 z-50 flex items-center justify-between shadow-sm">
+      <header className="bg-white border-b border-black px-4 sm:px-8 py-4 sm:py-5 z-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
         <div className="flex flex-col">
           <h1 className="text-3xl font-bold text-[#1a1a1a] tracking-tight leading-none mb-1">Event Finder</h1>
           <p className="text-xs text-gray-400 font-bold uppercase tracking-[0.15em]">{t.app_subtitle}</p>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
           <div className="flex bg-white border-[1px] border-black rounded-full overflow-hidden h-11">
             <button 
               onClick={() => setLang('en')} 
@@ -168,11 +168,11 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex flex-1 overflow-hidden relative">
-        <div className="flex-1 relative bg-[#e5e7eb]">
+      <main className="flex flex-1 overflow-hidden relative flex-col md:flex-row">
+        <div className="flex-1 relative bg-[#e5e7eb] h-[48vh] md:h-auto">
           <div id="map-container" className="h-full w-full"></div>
           {selectedEvent && (
-            <div className="absolute bottom-8 left-8 z-[40] bg-[#f5f3ef] rounded-3xl p-8 w-[400px] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border-[1px] border-black/10 animate-in slide-in-from-bottom-8 duration-500">
+            <div className="absolute bottom-4 left-4 right-4 md:bottom-8 md:left-8 md:right-auto z-[40] bg-[#f5f3ef] rounded-3xl p-6 sm:p-8 md:w-[400px] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border-[1px] border-black/10 animate-in slide-in-from-bottom-8 duration-500 max-h-[44vh] md:max-h-none overflow-auto">
               <button onClick={() => setSelectedEvent(null)} className="absolute top-6 right-6 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-200 transition-all">✕</button>
               
               <div className="flex items-center gap-2 mb-4">
@@ -223,8 +223,8 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <aside className="w-[460px] bg-[#f5f3ef] border-l border-black flex flex-col z-30 shadow-[-10px_0_30px_rgba(0,0,0,0.03)]">
-          <div className="p-8 border-b border-black/10 space-y-5">
+        <aside className="w-full md:w-[460px] bg-[#f5f3ef] border-l md:border-l border-t md:border-t-0 border-black flex flex-col z-30 shadow-[-10px_0_30px_rgba(0,0,0,0.03)] h-[52vh] md:h-auto">
+          <div className="p-4 sm:p-8 border-b border-black/10 space-y-4 sm:space-y-5">
             <div className="relative group">
               <input 
                 type="text"
@@ -282,7 +282,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="p-4 px-8 border-b border-black/10 flex justify-between items-center bg-[#f5f3ef]">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">{t.showing_events(filteredEvents.length)}</p>
+            <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">{t.showing_events(filteredEvents.length)}</p>
             {(filters.month || filters.program || locationSearch) && (
               <button onClick={() => { setFilters({ month: '', program: '', showPast: false }); setLocationSearch(''); }} className="text-[10px] font-black text-[#233dff] uppercase tracking-widest hover:underline">
                 {t.clear_filters}
@@ -290,7 +290,7 @@ const App: React.FC = () => {
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-5 bg-[#f5f3ef]">
+          <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-6 space-y-4 sm:space-y-5 bg-[#f5f3ef]">
             {filteredEvents.length > 0 ? filteredEvents.map(event => (
               <div 
                 key={event.id}
@@ -327,7 +327,7 @@ const App: React.FC = () => {
           </div>
 
           <footer className="p-6 bg-white border-t border-black text-center">
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">
+            <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">
               &copy; {new Date().getFullYear()} {t.copyright}
             </p>
           </footer>
