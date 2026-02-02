@@ -2,7 +2,7 @@
 import { ClinicEvent } from './types';
 
 // REPLACE THIS with your actual deployed Google Apps Script URL for production
-export const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_your_actual_deployment_id/exec";
+export const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwfjsPKPMstVeOotueZtWXhuKsA1ty20T8J1a-Ov10HMEQdJNyZ836lL7D0FWAjhZOdPQ/exec";
 
 export const EVENTS: ClinicEvent[] = [
     {
