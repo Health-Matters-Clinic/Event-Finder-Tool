@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Button } from './Button';
 import { I18N, GOOGLE_APPS_SCRIPT_URL } from '../constants';
 import { Language, ClinicEvent, RSVPPayload } from '../types';
+import { translateEventTitle } from '../utils/translation';
 
 interface RSVPModalProps {
   event: ClinicEvent | null;
@@ -34,6 +35,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   }, [event]);
 
   if (!event) return null;
+
+  const displayTitle = translateEventTitle(event.title, lang);
 
   const toggleNeed = (val: string) => {
     setNeeds(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
@@ -131,7 +134,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const getCalendarLink = (type: 'google' | 'outlook' | 'apple') => {
-    const title = encodeURIComponent(event.title);
+    const title = encodeURIComponent(displayTitle);
     const details = encodeURIComponent(event.description);
     const loc = encodeURIComponent(event.address);
     const d = event.date.replace(/-/g, '');
@@ -164,26 +167,26 @@ END:VCALENDAR`;
       aria-label={lang === 'es' ? 'Registro del evento' : 'Event registration'}
     >
       <div
-        className="w-full max-w-xl bg-[#f5f3ef] rounded-3xl border border-black shadow-[0_30px_80px_rgba(0,0,0,0.25)] overflow-hidden"
+        className="w-full max-w-xl bg-white rounded-2xl border border-gray-200 shadow-[0_20px_60px_rgba(0,0,0,0.2)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-white border-b border-black p-6 flex items-start justify-between gap-4">
+        <div className="bg-white border-b border-gray-200 p-6 flex items-start justify-between gap-4">
           <div>
-            <div className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
               {lang === 'es' ? 'Registro' : 'Registration'}
             </div>
-            <div className="text-xl font-black text-[#1a1a1a] leading-tight mt-1">
-              {event.title}
+            <div className="text-xl font-semibold text-[#1a1a1a] leading-tight mt-1">
+              {displayTitle}
             </div>
-            <div className="text-sm font-bold text-gray-600 mt-2">
+            <div className="text-sm font-semibold text-gray-600 mt-2">
               {event.dateDisplay} • {event.time}
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 hover:text-black hover:bg-gray-200 transition-all"
+            className="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 hover:text-black hover:bg-gray-100 transition-all"
             aria-label={lang === 'es' ? 'Cerrar' : 'Close'}
           >
             ✕
@@ -194,21 +197,21 @@ END:VCALENDAR`;
         <div className="p-6 sm:p-8 space-y-6">
           {/* Language toggle (optional in modal) */}
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
               {lang === 'es' ? 'Idioma' : 'Language'}
             </div>
-            <div className="flex bg-white border border-black rounded-full overflow-hidden h-10">
+            <div className="flex bg-white border border-gray-200 rounded-full overflow-hidden h-10 shadow-sm">
               <button
                 type="button"
                 onClick={() => setLang('en')}
-                className={`px-4 text-[11px] font-black border-r border-black ${lang === 'en' ? 'bg-[#233dff] text-white' : 'text-gray-900 hover:bg-gray-50'}`}
+                className={`px-4 text-[11px] font-semibold border-r border-gray-200 ${lang === 'en' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'}`}
               >
                 EN
               </button>
               <button
                 type="button"
                 onClick={() => setLang('es')}
-                className={`px-4 text-[11px] font-black ${lang === 'es' ? 'bg-[#233dff] text-white' : 'text-gray-900 hover:bg-gray-50'}`}
+                className={`px-4 text-[11px] font-semibold ${lang === 'es' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'}`}
               >
                 ES
               </button>
@@ -223,8 +226,8 @@ END:VCALENDAR`;
           )}
 
           {state === 'preregistered' && (
-            <div className="bg-white border border-black rounded-2xl p-5 space-y-3">
-              <div className="text-base font-black text-[#1a1a1a]">
+            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+              <div className="text-base font-semibold text-[#1a1a1a]">
                 {lang === 'es' ? '¡Listo! Estás pre-registrado.' : 'You’re pre-registered.'}
               </div>
               <div className="text-sm font-semibold text-gray-700 leading-relaxed">
@@ -271,44 +274,44 @@ END:VCALENDAR`;
             <form onSubmit={handlePreRegister} className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
                     {lang === 'es' ? 'Nombre' : 'Name'}
                   </label>
                   <input
                     name="name"
                     required
-                    className="w-full bg-white border border-black px-4 py-3 rounded-2xl text-base font-semibold focus:border-[#233dff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                     placeholder={lang === 'es' ? 'Tu nombre' : 'Your name'}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
                     {lang === 'es' ? 'Correo electrónico (opcional)' : 'Email (optional)'}
                   </label>
                   <input
                     name="email"
                     type="email"
-                    className="w-full bg-white border border-black px-4 py-3 rounded-2xl text-base font-semibold focus:border-[#233dff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                     placeholder="name@email.com"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
                     {lang === 'es' ? 'Teléfono (opcional)' : 'Phone (optional)'}
                   </label>
                   <input
                     name="phone"
                     type="tel"
-                    className="w-full bg-white border border-black px-4 py-3 rounded-2xl text-base font-semibold focus:border-[#233dff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                     placeholder={lang === 'es' ? 'Ej: 3235550123' : 'Ex: 3235550123'}
                   />
                 </div>
               </div>
 
               {/* Minor exception */}
-              <div className="bg-white border border-black rounded-2xl p-4">
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -317,7 +320,7 @@ END:VCALENDAR`;
                     className="mt-1"
                   />
                   <div>
-                    <div className="text-sm font-black text-[#1a1a1a]">
+                    <div className="text-sm font-semibold text-[#1a1a1a]">
                       {lang === 'es' ? 'Estoy registrando a un menor' : "I'm registering a minor"}
                     </div>
                     <div className="text-xs font-semibold text-gray-600 mt-1">
@@ -330,12 +333,12 @@ END:VCALENDAR`;
 
                 {isMinor && (
                   <div className="mt-4">
-                    <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
                       {lang === 'es' ? 'Nombre del menor' : "Minor's name"}
                     </label>
                     <input
                       name="minor_name"
-                      className="w-full bg-[#fbfbfd] border border-black px-4 py-3 rounded-2xl text-base font-semibold focus:border-[#233dff] outline-none transition-all"
+                      className="w-full bg-[#fbfbfd] border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                       placeholder={lang === 'es' ? 'Nombre y apellido' : 'First and last name'}
                     />
                   </div>
@@ -343,27 +346,30 @@ END:VCALENDAR`;
               </div>
 
               {/* Contact method (collection only) */}
-              <div className="bg-white border border-black rounded-2xl p-4">
-                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-3">
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-3">
                   {lang === 'es' ? 'Preferencia de contacto' : 'Contact preference'}
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
-                  <button type="button"
+                  <button
+                    type="button"
                     onClick={() => setContactMethod('text')}
-                    className={`py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.18em] border border-black ${contactMethod === 'text' ? 'bg-[#233dff] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`py-3 rounded-xl text-[11px] font-semibold uppercase tracking-[0.18em] border border-gray-200 ${contactMethod === 'text' ? 'bg-[#233dff] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                   >
                     {lang === 'es' ? 'SMS' : 'Text'}
                   </button>
-                  <button type="button"
+                  <button
+                    type="button"
                     onClick={() => setContactMethod('email')}
-                    className={`py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.18em] border border-black ${contactMethod === 'email' ? 'bg-[#233dff] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`py-3 rounded-xl text-[11px] font-semibold uppercase tracking-[0.18em] border border-gray-200 ${contactMethod === 'email' ? 'bg-[#233dff] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                   >
                     Email
                   </button>
-                  <button type="button"
+                  <button
+                    type="button"
                     onClick={() => setContactMethod('none')}
-                    className={`py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.18em] border border-black ${contactMethod === 'none' ? 'bg-[#233dff] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`py-3 rounded-xl text-[11px] font-semibold uppercase tracking-[0.18em] border border-gray-200 ${contactMethod === 'none' ? 'bg-[#233dff] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                   >
                     {lang === 'es' ? 'Ninguno' : 'None'}
                   </button>
@@ -384,8 +390,8 @@ END:VCALENDAR`;
               </div>
 
               {/* Needs (keep your existing list labels, translated via I18N if present) */}
-              <div className="bg-white border border-black rounded-2xl p-4">
-                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-3">
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-3">
                   {lang === 'es' ? 'Necesidades (opcional)' : 'Needs (optional)'}
                 </div>
 
@@ -397,7 +403,7 @@ END:VCALENDAR`;
                         type="button"
                         key={n}
                         onClick={() => toggleNeed(n)}
-                        className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-[0.18em] border border-black transition-all
+                        className={`px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.18em] border border-gray-200 transition-all
                           ${active ? 'bg-[#233dff] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                       >
                         {n}
@@ -410,7 +416,7 @@ END:VCALENDAR`;
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
-                  className="h-12 justify-center"
+                  className="h-11 justify-center"
                   type="submit"
                   disabled={state === 'submitting'}
                 >
@@ -421,7 +427,7 @@ END:VCALENDAR`;
 
                 <Button
                   variant="outline"
-                  className="h-12 justify-center"
+                  className="h-11 justify-center"
                   type="button"
                   onClick={() => window.open(getCalendarLink('google'), '_blank')}
                 >
@@ -434,8 +440,8 @@ END:VCALENDAR`;
         </div>
 
         {/* Footer */}
-        <div className="bg-white border-t border-black p-5 text-center">
-          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
+        <div className="bg-white border-t border-gray-200 p-5 text-center">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
             {lang === 'es' ? 'Health Matters Clinic' : 'Health Matters Clinic'}
           </div>
         </div>
