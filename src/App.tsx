@@ -6,7 +6,6 @@ import { Button } from './components/Button';
 import { RSVPModal } from './components/RSVPModal';
 import { AdminModal } from './components/AdminModal';
 import { PartnerModal } from './components/PartnerModal';
-import { ChatWidget } from './components/ChatWidget';
 import { translateEventTitle, translateProgram } from './utils/translation';
 
 // HMC Logo Component with hover animation
@@ -764,8 +763,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Sunny Harper Chat Widget */}
-      <ChatWidget lang={lang} />
     </div>
   );
 };
