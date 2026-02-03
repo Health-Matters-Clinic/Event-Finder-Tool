@@ -6,6 +6,7 @@ const PROGRAM_TRANSLATIONS: Record<string, string> = {
   'Community Walk & Run': 'Caminata y carrera comunitaria',
   'Community Fair': 'Feria comunitaria',
   'Community Wellness': 'Bienestar comunitario',
+  'Partner Event': 'Evento de Socio',
 };
 
 const TITLE_REPLACEMENTS: Array<[RegExp, string]> = [

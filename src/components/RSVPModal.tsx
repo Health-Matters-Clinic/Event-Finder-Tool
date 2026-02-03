@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from './Button';
-import { I18N, GOOGLE_APPS_SCRIPT_URL } from '../constants';
+import { I18N } from '../constants';
+import { GOOGLE_APPS_SCRIPT_URL } from '../config';
 import { Language, ClinicEvent, RSVPPayload } from '../types';
 import { translateEventTitle } from '../utils/translation';
 
@@ -29,8 +30,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   const isToday = useMemo(() => {
     if (!event) return false;
     const today = new Date();
-    today.setHours(0,0,0,0);
-    const d = new Date(event.date + "T00:00:00");
+    today.setHours(0, 0, 0, 0);
+    const d = new Date(event.date + 'T00:00:00');
     return d.getTime() === today.getTime();
   }, [event]);
 
@@ -39,14 +40,14 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   const displayTitle = translateEventTitle(event.title, lang);
 
   const toggleNeed = (val: string) => {
-    setNeeds(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
+    setNeeds((prev) => (prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]));
   };
 
   const postJson = async (payload: any) => {
     const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.success === false || data.ok === false) {
@@ -71,18 +72,20 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     // Require either email or phone
     if (!email && !phone) {
       setState('error');
-      setErrorMsg(lang === 'es'
-        ? 'Por favor incluye un correo electrónico o número de teléfono.'
-        : 'Please include an email or phone number.');
+      setErrorMsg(
+        lang === 'es'
+          ? 'Por favor incluye un correo electronico o numero de telefono.'
+          : 'Please include an email or phone number.'
+      );
       return;
     }
 
     // Minor exception requires a minor name (so dedupe can distinguish)
     if (isMinor && !minorName) {
       setState('error');
-      setErrorMsg(lang === 'es'
-        ? 'Por favor incluye el nombre del menor.'
-        : 'Please include the minor\'s name.');
+      setErrorMsg(
+        lang === 'es' ? 'Por favor incluye el nombre del menor.' : "Please include the minor's name."
+      );
       return;
     }
 
@@ -100,7 +103,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       minorName: isMinor ? minorName : undefined,
       needs,
       lang,
-      source: isToday ? 'Live Event (Pre-register)' : 'Planning Ahead (Pre-register)'
+      source: isToday ? 'Live Event (Pre-register)' : 'Planning Ahead (Pre-register)',
     };
 
     try {
@@ -121,7 +124,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     try {
       const data = await postJson({
         action: 'checkin',
-        checkinToken
+        checkinToken,
       });
       setState('checked_in');
       // Optional: auto-close after success
@@ -160,7 +163,8 @@ END:VCALENDAR`;
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm"
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -180,7 +184,7 @@ END:VCALENDAR`;
               {displayTitle}
             </div>
             <div className="text-sm font-semibold text-gray-600 mt-2">
-              {event.dateDisplay} • {event.time}
+              {event.dateDisplay} - {event.time}
             </div>
           </div>
 
@@ -189,30 +193,40 @@ END:VCALENDAR`;
             className="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 hover:text-black hover:bg-gray-100 transition-all"
             aria-label={lang === 'es' ? 'Cerrar' : 'Close'}
           >
-            ✕
+            X
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 sm:p-8 space-y-6">
+        <div className="p-6 sm:p-8 space-y-6 max-h-[60vh] overflow-y-auto">
           {/* Language toggle (optional in modal) */}
           <div className="flex items-center justify-between">
             <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
               {lang === 'es' ? 'Idioma' : 'Language'}
             </div>
-            <div className="flex bg-white border border-gray-200 rounded-full overflow-hidden h-10 shadow-sm">
+            <div className="flex bg-white border-2 border-gray-200 rounded-full overflow-hidden h-10 shadow-sm">
               <button
                 type="button"
                 onClick={() => setLang('en')}
-                className={`px-4 text-[11px] font-semibold border-r border-gray-200 ${lang === 'en' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+                className={`px-4 text-[11px] font-semibold border-r border-gray-200 flex items-center gap-2 transition-all ${
+                  lang === 'en' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'
+                }`}
               >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${lang === 'en' ? 'bg-white' : 'bg-gray-400'}`}
+                />
                 EN
               </button>
               <button
                 type="button"
                 onClick={() => setLang('es')}
-                className={`px-4 text-[11px] font-semibold ${lang === 'es' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+                className={`px-4 text-[11px] font-semibold flex items-center gap-2 transition-all ${
+                  lang === 'es' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'
+                }`}
               >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${lang === 'es' ? 'bg-white' : 'bg-gray-400'}`}
+                />
                 ES
               </button>
             </div>
@@ -220,19 +234,19 @@ END:VCALENDAR`;
 
           {/* Status */}
           {state === 'error' && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm font-semibold text-red-800">
-              {errorMsg || (lang === 'es' ? 'Algo salió mal.' : 'Something went wrong.')}
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-sm font-semibold text-red-800">
+              {errorMsg || (lang === 'es' ? 'Algo salio mal.' : 'Something went wrong.')}
             </div>
           )}
 
           {state === 'preregistered' && (
-            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+            <div className="bg-white border-2 border-gray-200 rounded-xl p-5 space-y-4">
               <div className="text-base font-semibold text-[#1a1a1a]">
-                {lang === 'es' ? '¡Listo! Estás pre-registrado.' : 'You’re pre-registered.'}
+                {lang === 'es' ? 'Listo! Estas pre-registrado.' : "You're pre-registered."}
               </div>
               <div className="text-sm font-semibold text-gray-700 leading-relaxed">
                 {lang === 'es'
-                  ? 'Cuando llegues al evento, usa el botón de Check-in. El check-in se habilita el día del evento.'
+                  ? 'Cuando llegues al evento, usa el boton de Check-in. El check-in se habilita el dia del evento.'
                   : 'When you arrive onsite, use the Check-in button. Check-in opens on the event day.'}
               </div>
 
@@ -243,8 +257,12 @@ END:VCALENDAR`;
                   disabled={state === 'checking_in'}
                 >
                   {state === 'checking_in'
-                    ? (lang === 'es' ? 'Registrando…' : 'Checking in…')
-                    : (lang === 'es' ? 'Check-in al llegar' : 'Check in when you arrive')}
+                    ? lang === 'es'
+                      ? 'Registrando...'
+                      : 'Checking in...'
+                    : lang === 'es'
+                    ? 'Check-in al llegar'
+                    : 'Check in when you arrive'}
                 </Button>
 
                 <Button
@@ -264,8 +282,8 @@ END:VCALENDAR`;
           )}
 
           {state === 'checked_in' && (
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-sm font-semibold text-green-900">
-              {lang === 'es' ? '✅ Check-in completado. ¡Bienvenido!' : '✅ Check-in complete. Welcome!'}
+            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 text-sm font-semibold text-green-900">
+              {lang === 'es' ? 'Check-in completado. Bienvenido!' : 'Check-in complete. Welcome!'}
             </div>
           )}
 
@@ -275,49 +293,55 @@ END:VCALENDAR`;
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {lang === 'es' ? 'Nombre' : 'Name'}
+                    {lang === 'es' ? 'Nombre' : 'Name'} *
                   </label>
                   <input
                     name="name"
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
-                    placeholder={lang === 'es' ? 'Tu nombre' : 'Your name'}
+                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    placeholder={lang === 'es' ? 'Tu nombre completo' : 'Your full name'}
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {lang === 'es' ? 'Correo electrónico (opcional)' : 'Email (optional)'}
+                    {lang === 'es' ? 'Correo electronico' : 'Email'}
                   </label>
                   <input
                     name="email"
                     type="email"
-                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                     placeholder="name@email.com"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {lang === 'es' ? 'Teléfono (opcional)' : 'Phone (optional)'}
+                    {lang === 'es' ? 'Telefono' : 'Phone'}
                   </label>
                   <input
                     name="phone"
                     type="tel"
-                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                     placeholder={lang === 'es' ? 'Ej: 3235550123' : 'Ex: 3235550123'}
                   />
                 </div>
               </div>
 
+              <p className="text-xs text-gray-500 -mt-2">
+                {lang === 'es'
+                  ? '* Se requiere correo electronico o telefono'
+                  : '* Email or phone required'}
+              </p>
+
               {/* Minor exception */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={isMinor}
                     onChange={(e) => setIsMinor(e.target.checked)}
-                    className="mt-1"
+                    className="mt-1 w-4 h-4 rounded border-2 border-gray-300 text-[#233dff] focus:ring-[#233dff]"
                   />
                   <div>
                     <div className="text-sm font-semibold text-[#1a1a1a]">
@@ -325,7 +349,7 @@ END:VCALENDAR`;
                     </div>
                     <div className="text-xs font-semibold text-gray-600 mt-1">
                       {lang === 'es'
-                        ? 'Esto permite registrar más de una persona con el mismo correo/teléfono.'
+                        ? 'Esto permite registrar mas de una persona con el mismo correo/telefono.'
                         : 'This allows more than one preregistration under the same email/phone.'}
                     </div>
                   </div>
@@ -334,11 +358,11 @@ END:VCALENDAR`;
                 {isMinor && (
                   <div className="mt-4">
                     <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      {lang === 'es' ? 'Nombre del menor' : "Minor's name"}
+                      {lang === 'es' ? 'Nombre del menor' : "Minor's name"} *
                     </label>
                     <input
                       name="minor_name"
-                      className="w-full bg-[#fbfbfd] border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                      className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                       placeholder={lang === 'es' ? 'Nombre y apellido' : 'First and last name'}
                     />
                   </div>
@@ -346,7 +370,7 @@ END:VCALENDAR`;
               </div>
 
               {/* Contact method (collection only) */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-3">
                   {lang === 'es' ? 'Preferencia de contacto' : 'Contact preference'}
                 </div>
@@ -355,30 +379,61 @@ END:VCALENDAR`;
                   <button
                     type="button"
                     onClick={() => setContactMethod('text')}
-                    className={`py-3 rounded-xl text-[11px] font-semibold uppercase tracking-[0.18em] border border-gray-200 ${contactMethod === 'text' ? 'bg-[#233dff] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.15em] border-2 transition-all flex items-center justify-center gap-2 ${
+                      contactMethod === 'text'
+                        ? 'bg-[#233dff] text-white border-[#233dff]'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-[#233dff] hover:bg-gray-50'
+                    }`}
                   >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        contactMethod === 'text' ? 'bg-white' : 'bg-gray-400'
+                      }`}
+                    />
                     {lang === 'es' ? 'SMS' : 'Text'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setContactMethod('email')}
-                    className={`py-3 rounded-xl text-[11px] font-semibold uppercase tracking-[0.18em] border border-gray-200 ${contactMethod === 'email' ? 'bg-[#233dff] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.15em] border-2 transition-all flex items-center justify-center gap-2 ${
+                      contactMethod === 'email'
+                        ? 'bg-[#233dff] text-white border-[#233dff]'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-[#233dff] hover:bg-gray-50'
+                    }`}
                   >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        contactMethod === 'email' ? 'bg-white' : 'bg-gray-400'
+                      }`}
+                    />
                     Email
                   </button>
                   <button
                     type="button"
                     onClick={() => setContactMethod('none')}
-                    className={`py-3 rounded-xl text-[11px] font-semibold uppercase tracking-[0.18em] border border-gray-200 ${contactMethod === 'none' ? 'bg-[#233dff] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.15em] border-2 transition-all flex items-center justify-center gap-2 ${
+                      contactMethod === 'none'
+                        ? 'bg-[#233dff] text-white border-[#233dff]'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-[#233dff] hover:bg-gray-50'
+                    }`}
                   >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        contactMethod === 'none' ? 'bg-white' : 'bg-gray-400'
+                      }`}
+                    />
                     {lang === 'es' ? 'Ninguno' : 'None'}
                   </button>
                 </div>
 
-                <label className="flex items-center gap-3 mt-4 text-sm font-semibold text-gray-700">
-                  <input type="checkbox" name="sms_consent" className="h-4 w-4" />
+                <label className="flex items-center gap-3 mt-4 text-sm font-semibold text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="sms_consent"
+                    className="h-4 w-4 rounded border-2 border-gray-300 text-[#233dff] focus:ring-[#233dff]"
+                  />
                   {lang === 'es'
-                    ? 'Acepto recibir mensajes de texto (si proporcioné un teléfono).'
+                    ? 'Acepto recibir mensajes de texto (si proporcione un telefono).'
                     : 'I consent to SMS (if I provided a phone).'}
                 </label>
 
@@ -390,44 +445,59 @@ END:VCALENDAR`;
               </div>
 
               {/* Needs (keep your existing list labels, translated via I18N if present) */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-3">
                   {lang === 'es' ? 'Necesidades (opcional)' : 'Needs (optional)'}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {['Health Screening', 'Resources', 'Mental Health', 'Insurance', 'Housing'].map((n) => {
-                    const active = needs.includes(n);
-                    return (
-                      <button
-                        type="button"
-                        key={n}
-                        onClick={() => toggleNeed(n)}
-                        className={`px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.18em] border border-gray-200 transition-all
-                          ${active ? 'bg-[#233dff] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                      >
-                        {n}
-                      </button>
-                    );
-                  })}
+                  {['Health Screening', 'Resources', 'Mental Health', 'Insurance', 'Housing'].map(
+                    (n) => {
+                      const active = needs.includes(n);
+                      return (
+                        <button
+                          type="button"
+                          key={n}
+                          onClick={() => toggleNeed(n)}
+                          className={`px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.15em] border-2 transition-all flex items-center gap-2
+                          ${
+                            active
+                              ? 'bg-[#233dff] text-white border-[#233dff]'
+                              : 'bg-white text-gray-700 border-gray-200 hover:border-[#233dff] hover:bg-gray-50'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              active ? 'bg-white' : 'bg-gray-400'
+                            }`}
+                          />
+                          {n}
+                        </button>
+                      );
+                    }
+                  )}
                 </div>
               </div>
 
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
-                  className="h-11 justify-center"
+                  className="h-12 justify-center flex-1"
                   type="submit"
                   disabled={state === 'submitting'}
                 >
                   {state === 'submitting'
-                    ? (lang === 'es' ? 'Enviando…' : 'Submitting…')
-                    : (lang === 'es' ? 'Pre-registrarme' : 'Pre-register')}
+                    ? lang === 'es'
+                      ? 'Enviando...'
+                      : 'Submitting...'
+                    : lang === 'es'
+                    ? 'Pre-registrarme'
+                    : 'Pre-register'}
                 </Button>
 
                 <Button
                   variant="outline"
-                  className="h-11 justify-center"
+                  className="h-12 justify-center"
                   type="button"
                   onClick={() => window.open(getCalendarLink('google'), '_blank')}
                 >
@@ -436,13 +506,12 @@ END:VCALENDAR`;
               </div>
             </form>
           )}
-
         </div>
 
         {/* Footer */}
         <div className="bg-white border-t border-gray-200 p-5 text-center">
           <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
-            {lang === 'es' ? 'Health Matters Clinic' : 'Health Matters Clinic'}
+            Health Matters Clinic
           </div>
         </div>
       </div>
