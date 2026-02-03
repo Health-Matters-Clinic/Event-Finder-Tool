@@ -18,12 +18,20 @@ const PROGRAM_OPTIONS = [
   'Community Walk & Run',
   'Community Fair',
   'Community Wellness',
+  'Partner Event',
 ];
+
+// Get default date (2 weeks from now)
+const getDefaultDate = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 14);
+  return date.toISOString().split('T')[0];
+};
 
 const emptyEvent: ClinicEvent = {
   id: '',
   title: '',
-  date: '',
+  date: getDefaultDate(),
   dateDisplay: '',
   time: '',
   location: '',
@@ -34,6 +42,9 @@ const emptyEvent: ClinicEvent = {
   lng: -118.2108,
   description: '',
   saveTheDate: false,
+  isPromoted: false,
+  isSponsored: false,
+  createdAt: new Date().toISOString(),
 };
 
 export const AdminModal: React.FC<AdminModalProps> = ({
@@ -479,8 +490,87 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   />
                 </div>
 
-                {/* Save the Date */}
+                {/* Flyer Upload */}
                 <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    {lang === 'es' ? 'Flyer del Evento' : 'Event Flyer'}{' '}
+                    <span className="text-gray-300">(optional)</span>
+                  </label>
+
+                  {/* Upload Button */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-sm border-[1.5px] border-black bg-white text-[#1a1a1a] hover:bg-gray-50 transition-all">
+                      <span className="w-2 h-2 rounded-full bg-black" />
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {lang === 'es' ? 'Subir Flyer' : 'Upload Flyer'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            // Check file size (max 5MB)
+                            if (file.size > 5 * 1024 * 1024) {
+                              alert(lang === 'es' ? 'El archivo es muy grande. Maximo 5MB.' : 'File is too large. Max 5MB.');
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setFormData((prev) => ({ ...prev, flyerUrl: reader.result as string }));
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                    {formData.flyerUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, flyerUrl: '' }))}
+                        className="text-red-500 text-xs font-semibold hover:underline"
+                      >
+                        {lang === 'es' ? 'Eliminar' : 'Remove'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Flyer Preview */}
+                  {formData.flyerUrl && (
+                    <div className="relative rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-50">
+                      <img
+                        src={formData.flyerUrl}
+                        alt="Flyer preview"
+                        className="w-full max-h-64 object-contain"
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Website/Eventbrite URL */}
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    {lang === 'es' ? 'Enlace del Evento' : 'Event Link'}{' '}
+                    <span className="text-gray-300">(optional - website/eventbrite)</span>
+                  </label>
+                  <input
+                    name="websiteUrl"
+                    value={formData.websiteUrl || ''}
+                    onChange={handleFormChange}
+                    placeholder="https://eventbrite.com/..."
+                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                  />
+                </div>
+
+                {/* Event Tags */}
+                <div className="sm:col-span-2 space-y-3">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    {lang === 'es' ? 'Etiquetas del Evento' : 'Event Tags'}
+                  </label>
+
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       name="saveTheDate"
@@ -490,9 +580,39 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       className="w-5 h-5 rounded border-2 border-gray-300 text-[#233dff] focus:ring-[#233dff]"
                     />
                     <span className="text-sm font-semibold text-gray-700">
-                      {lang === 'es'
-                        ? 'Guardar la fecha (proximamente)'
-                        : 'Save the Date (coming soon)'}
+                      {lang === 'es' ? 'Proximamente (detalles por confirmar)' : 'Coming Soon (details TBD)'}
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      name="isPromoted"
+                      type="checkbox"
+                      checked={formData.isPromoted || false}
+                      onChange={handleFormChange}
+                      className="w-5 h-5 rounded border-2 border-gray-300 text-[#233dff] focus:ring-[#233dff]"
+                    />
+                    <span className="text-sm font-semibold text-gray-700">
+                      {lang === 'es' ? 'Promocionado (mostrar al inicio)' : 'Promoted (show at top)'}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {lang === 'es' ? '+ etiqueta "Recien Agregado"' : '+ "Just Added" tag'}
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      name="isSponsored"
+                      type="checkbox"
+                      checked={formData.isSponsored || false}
+                      onChange={handleFormChange}
+                      className="w-5 h-5 rounded border-2 border-gray-300 text-[#233dff] focus:ring-[#233dff]"
+                    />
+                    <span className="text-sm font-semibold text-gray-700">
+                      {lang === 'es' ? 'Patrocinado' : 'Sponsored'}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {lang === 'es' ? '+ etiqueta de patrocinio' : '+ sponsor badge'}
                     </span>
                   </label>
                 </div>
