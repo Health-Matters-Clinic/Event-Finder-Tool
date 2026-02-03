@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { EVENTS, I18N } from './constants';
+import { VOLUNTEER_PORTAL_API_URL, STORAGE_KEYS } from './config';
 import { ClinicEvent, Language } from './types';
 import { Button } from './components/Button';
 import { RSVPModal } from './components/RSVPModal';
+import { AdminModal } from './components/AdminModal';
 import { translateEventTitle, translateProgram } from './utils/translation';
 
 declare const L: any;
@@ -27,8 +29,10 @@ const isPast = (dateStr: string) => {
 
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>('en');
+  const [events, setEvents] = useState<ClinicEvent[]>(EVENTS);
   const [selectedEvent, setSelectedEvent] = useState<ClinicEvent | null>(null);
   const [isRSVPOpen, setIsRSVPOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [locationSearch, setLocationSearch] = useState('');
   const [filters, setFilters] = useState({ month: '', program: '', showPast: false });
   const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
@@ -41,23 +45,64 @@ const App: React.FC = () => {
 
   const t = I18N[lang];
 
+  // Load events from localStorage or API on mount
+  useEffect(() => {
+    const loadEvents = async () => {
+      // First, try to load from localStorage
+      const storedEvents = localStorage.getItem(STORAGE_KEYS.EVENTS);
+      if (storedEvents) {
+        try {
+          const parsed = JSON.parse(storedEvents);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setEvents(parsed);
+            return;
+          }
+        } catch (e) {
+          console.warn('Failed to parse stored events:', e);
+        }
+      }
+
+      // Then, try to fetch from volunteer portal API
+      try {
+        const response = await fetch(`${VOLUNTEER_PORTAL_API_URL}/events`);
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setEvents(data);
+            localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(data));
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch events from API:', e);
+      }
+
+      // Fall back to hardcoded events
+      setEvents(EVENTS);
+    };
+
+    loadEvents();
+  }, []);
+
   const filteredEvents = useMemo(() => {
-    return EVENTS.filter((event) => {
-      const monthMatch = !filters.month || event.date.includes(`-${filters.month}-`);
-      const programMatch = !filters.program || event.program === filters.program;
+    return events
+      .filter((event) => {
+        const monthMatch = !filters.month || event.date.includes(`-${filters.month}-`);
+        const programMatch = !filters.program || event.program === filters.program;
 
-      const locQuery = locationSearch.toLowerCase();
-      const locationMatch =
-        !locationSearch ||
-        event.city.toLowerCase().includes(locQuery) ||
-        event.address.toLowerCase().includes(locQuery);
+        const locQuery = locationSearch.toLowerCase();
+        const locationMatch =
+          !locationSearch ||
+          event.city.toLowerCase().includes(locQuery) ||
+          event.address.toLowerCase().includes(locQuery);
 
-      const eventIsPast = isPast(event.date);
-      const archivalMatch = filters.showPast ? eventIsPast : !eventIsPast;
+        const eventIsPast = isPast(event.date);
+        const archivalMatch = filters.showPast ? eventIsPast : !eventIsPast;
 
-      return monthMatch && programMatch && locationMatch && archivalMatch;
-    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [filters, locationSearch]);
+        return monthMatch && programMatch && locationMatch && archivalMatch;
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [events, filters, locationSearch]);
 
   useEffect(() => {
     if (selectedEvent && listRefs.current[selectedEvent.id]) {
@@ -129,11 +174,14 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!mapRef.current) return;
 
-    const points = filteredEvents.map((event) => [
-      event.lat,
-      event.lng,
-      selectedEvent?.id === event.id ? 0.9 : 0.5,
-    ] as [number, number, number]);
+    const points = filteredEvents.map(
+      (event) =>
+        [event.lat, event.lng, selectedEvent?.id === event.id ? 0.9 : 0.5] as [
+          number,
+          number,
+          number
+        ]
+    );
 
     if (!heatLayerRef.current) {
       heatLayerRef.current = L.heatLayer(points, {
@@ -162,7 +210,7 @@ const App: React.FC = () => {
 
   const handleShare = async () => {
     if (!selectedEvent) return;
-    const shareText = `${translateEventTitle(selectedEvent.title, lang)} • ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
+    const shareText = `${translateEventTitle(selectedEvent.title, lang)} - ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
     const shareUrl = 'https://www.healthmatters.clinic/events';
 
     if (navigator.share) {
@@ -181,25 +229,33 @@ const App: React.FC = () => {
     }
   };
 
+  const handleEventsUpdate = (newEvents: ClinicEvent[]) => {
+    setEvents(newEvents);
+  };
+
   const programLabel = (program: string) => translateProgram(program, lang);
 
   return (
     <div className="flex flex-col h-screen bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white">
       <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 sm:py-5 z-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
         <div className="flex flex-col">
-          <h1 className="text-3xl font-bold text-[#1a1a1a] tracking-tight leading-none mb-1">Event Finder</h1>
+          <h1 className="text-3xl font-bold text-[#1a1a1a] tracking-tight leading-none mb-1">
+            Event Finder
+          </h1>
           <p className="text-xs text-gray-500 font-semibold tracking-[0.02em]">{t.app_subtitle}</p>
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
-          <div className="flex bg-white border border-gray-200 rounded-full overflow-hidden h-11 shadow-sm">
+          <div className="flex bg-white border-2 border-gray-200 rounded-full overflow-hidden h-11 shadow-sm">
             <button
               onClick={() => setLang('en')}
               className={`px-5 py-2 text-[11px] font-semibold transition-all border-r border-gray-200 flex items-center gap-2 ${
                 lang === 'en' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${lang === 'en' ? 'bg-white' : 'bg-black'}`} />
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${lang === 'en' ? 'bg-white' : 'bg-black'}`}
+              />
               EN
             </button>
             <button
@@ -208,12 +264,18 @@ const App: React.FC = () => {
                 lang === 'es' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${lang === 'es' ? 'bg-white' : 'bg-black'}`} />
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${lang === 'es' ? 'bg-white' : 'bg-black'}`}
+              />
               ES
             </button>
           </div>
 
-          <Button variant="primary" className="h-11 px-7" onClick={() => window.open('https://www.healthmatters.clinic/donate')}>
+          <Button
+            variant="primary"
+            className="h-11 px-7"
+            onClick={() => window.open('https://www.healthmatters.clinic/donate')}
+          >
             {t.donate_now}
           </Button>
           <Button
@@ -223,6 +285,9 @@ const App: React.FC = () => {
           >
             {t.explore_programs}
           </Button>
+          <Button variant="outline" className="h-11 px-7" onClick={() => setIsAdminOpen(true)}>
+            Admin
+          </Button>
         </div>
       </header>
 
@@ -230,18 +295,32 @@ const App: React.FC = () => {
         <div className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center gap-3">
           <button
             onClick={() => setMobileView('map')}
-            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.2em] border border-gray-200 transition-all ${
-              mobileView === 'map' ? 'bg-[#233dff] text-white shadow-md' : 'bg-white text-gray-500'
+            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.2em] border-2 border-gray-200 transition-all flex items-center justify-center gap-2 ${
+              mobileView === 'map'
+                ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                : 'bg-white text-gray-500'
             }`}
           >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                mobileView === 'map' ? 'bg-white' : 'bg-gray-400'
+              }`}
+            />
             {lang === 'es' ? 'Mapa' : 'Map'}
           </button>
           <button
             onClick={() => setMobileView('list')}
-            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.2em] border border-gray-200 transition-all ${
-              mobileView === 'list' ? 'bg-[#233dff] text-white shadow-md' : 'bg-white text-gray-500'
+            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.2em] border-2 border-gray-200 transition-all flex items-center justify-center gap-2 ${
+              mobileView === 'list'
+                ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                : 'bg-white text-gray-500'
             }`}
           >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                mobileView === 'list' ? 'bg-white' : 'bg-gray-400'
+              }`}
+            />
             {lang === 'es' ? 'Lista' : 'List'}
           </button>
         </div>
@@ -258,7 +337,7 @@ const App: React.FC = () => {
                 onClick={() => setSelectedEvent(null)}
                 className="absolute top-6 right-6 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-200 transition-all"
               >
-                ✕
+                X
               </button>
 
               <div className="flex items-center gap-2 mb-4">
@@ -282,7 +361,7 @@ const App: React.FC = () => {
               <div className="space-y-6 mb-8">
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {lang === 'es' ? 'Cuándo' : 'When'}
+                    {lang === 'es' ? 'Cuando' : 'When'}
                   </label>
                   <p className="text-base font-bold text-gray-900 leading-snug">
                     {selectedEvent.dateDisplay}
@@ -292,9 +371,11 @@ const App: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {lang === 'es' ? 'Dónde' : 'Where'}
+                    {lang === 'es' ? 'Donde' : 'Where'}
                   </label>
-                  <p className="text-sm font-semibold text-gray-700 leading-relaxed">{selectedEvent.address}</p>
+                  <p className="text-sm font-semibold text-gray-700 leading-relaxed">
+                    {selectedEvent.address}
+                  </p>
                 </div>
               </div>
 
@@ -304,8 +385,14 @@ const App: React.FC = () => {
                     {t.submit_btn}
                   </Button>
                 ) : (
-                  <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-xs font-semibold uppercase tracking-widest border border-gray-200">
-                    {selectedEvent.saveTheDate ? (lang === 'es' ? 'Próximamente' : 'Coming Soon') : lang === 'es' ? 'Evento archivado' : 'Archived Event'}
+                  <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-xs font-semibold uppercase tracking-widest border-2 border-gray-200">
+                    {selectedEvent.saveTheDate
+                      ? lang === 'es'
+                        ? 'Proximamente'
+                        : 'Coming Soon'
+                      : lang === 'es'
+                      ? 'Evento archivado'
+                      : 'Archived Event'}
                   </div>
                 )}
 
@@ -335,7 +422,7 @@ const App: React.FC = () => {
             <div className="relative group">
               <input
                 type="text"
-                placeholder={lang === 'es' ? 'Buscar ubicación…' : 'Search location…'}
+                placeholder={lang === 'es' ? 'Buscar ubicacion...' : 'Search location...'}
                 value={locationSearch}
                 onChange={(e) => setLocationSearch(e.target.value)}
                 className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all pl-11"
@@ -373,7 +460,9 @@ const App: React.FC = () => {
                 className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-widest focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none appearance-none cursor-pointer"
               >
                 <option value="">{lang === 'es' ? 'Todos los programas' : 'All Programs'}</option>
-                <option value="Unstoppable Wellness Meetup">{programLabel('Unstoppable Wellness Meetup')}</option>
+                <option value="Unstoppable Wellness Meetup">
+                  {programLabel('Unstoppable Wellness Meetup')}
+                </option>
                 <option value="Unstoppable Workshop">{programLabel('Unstoppable Workshop')}</option>
                 <option value="Community Walk & Run">{programLabel('Community Walk & Run')}</option>
                 <option value="Community Fair">{programLabel('Community Fair')}</option>
@@ -383,20 +472,28 @@ const App: React.FC = () => {
             <div className="flex gap-2">
               <button
                 onClick={() => setFilters((f) => ({ ...f, showPast: false }))}
-                className={`flex-1 py-3 rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] transition-all border border-gray-200 flex items-center justify-center gap-2 ${
-                  !filters.showPast ? 'bg-[#233dff] text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'
+                className={`flex-1 py-3 rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] transition-all border-2 border-gray-200 flex items-center justify-center gap-2 ${
+                  !filters.showPast
+                    ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                    : 'bg-white text-gray-500 hover:bg-gray-50'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${!filters.showPast ? 'bg-white' : 'bg-gray-300'}`} />
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${!filters.showPast ? 'bg-white' : 'bg-gray-300'}`}
+                />
                 {t.upcoming}
               </button>
               <button
                 onClick={() => setFilters((f) => ({ ...f, showPast: true }))}
-                className={`flex-1 py-3 rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] transition-all border border-gray-200 flex items-center justify-center gap-2 ${
-                  filters.showPast ? 'bg-[#233dff] text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'
+                className={`flex-1 py-3 rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] transition-all border-2 border-gray-200 flex items-center justify-center gap-2 ${
+                  filters.showPast
+                    ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                    : 'bg-white text-gray-500 hover:bg-gray-50'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${filters.showPast ? 'bg-white' : 'bg-gray-300'}`} />
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${filters.showPast ? 'bg-white' : 'bg-gray-300'}`}
+                />
                 {t.past}
               </button>
             </div>
@@ -438,7 +535,9 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span
                         className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: PROGRAM_COLORS[event.program] || PROGRAM_COLORS.default }}
+                        style={{
+                          backgroundColor: PROGRAM_COLORS[event.program] || PROGRAM_COLORS.default,
+                        }}
                       />
                       <span
                         className="text-[10px] font-semibold uppercase tracking-[0.2em]"
@@ -464,7 +563,12 @@ const App: React.FC = () => {
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2.5 text-xs text-gray-500 font-semibold">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg
+                        className="w-4 h-4 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -479,7 +583,9 @@ const App: React.FC = () => {
               ))
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center p-16 opacity-30">
-                <p className="text-base font-semibold text-gray-500 uppercase tracking-widest">{t.no_events}</p>
+                <p className="text-base font-semibold text-gray-500 uppercase tracking-widest">
+                  {t.no_events}
+                </p>
               </div>
             )}
           </div>
@@ -493,7 +599,21 @@ const App: React.FC = () => {
       </main>
 
       {isRSVPOpen && (
-        <RSVPModal event={selectedEvent} lang={lang} setLang={setLang} onClose={() => setIsRSVPOpen(false)} />
+        <RSVPModal
+          event={selectedEvent}
+          lang={lang}
+          setLang={setLang}
+          onClose={() => setIsRSVPOpen(false)}
+        />
+      )}
+
+      {isAdminOpen && (
+        <AdminModal
+          lang={lang}
+          events={events}
+          onClose={() => setIsAdminOpen(false)}
+          onEventsUpdate={handleEventsUpdate}
+        />
       )}
     </div>
   );

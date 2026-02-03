@@ -15,15 +15,18 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    'inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-xs transition-all duration-200 border border-transparent shadow-sm active:transform active:scale-95 uppercase tracking-wider';
+    'pill-btn inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-xs transition-all duration-200 border-2 shadow-sm active:transform active:scale-95 uppercase tracking-wider';
 
   const variants = {
-    primary: 'bg-[#233dff] text-white hover:bg-[#1a2b99]',
-    outline: 'bg-white text-[#233dff] border-[#233dff] hover:bg-[#f0f4ff]',
-    ghost: 'bg-transparent border-transparent text-gray-500 hover:text-black shadow-none border-none p-0',
+    primary:
+      'bg-[#233dff] text-white border-[#233dff] hover:bg-[#1a2b99] hover:border-[#1a2b99] hover:shadow-[0_4px_12px_rgba(35,61,255,0.3)]',
+    outline:
+      'bg-white text-[#233dff] border-[#233dff] hover:bg-[#f0f4ff] hover:shadow-[0_4px_12px_rgba(35,61,255,0.15)]',
+    ghost:
+      'bg-transparent border-transparent text-gray-500 hover:text-black shadow-none border-none p-0',
   };
 
-  const dotColor = variant === 'primary' ? 'bg-white' : 'bg-black';
+  const dotColor = variant === 'primary' ? 'bg-white' : 'bg-[#233dff]';
 
   return (
     <button
