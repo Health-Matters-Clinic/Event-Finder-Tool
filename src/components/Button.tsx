@@ -14,15 +14,20 @@ export const Button: React.FC<ButtonProps> = ({
   showDot = true,
   ...props
 }) => {
+  // Base styles with thin black border for all buttons
   const baseStyles =
-    'inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-xs transition-all duration-200 border border-transparent shadow-sm active:transform active:scale-95 uppercase tracking-wider';
+    'pill-btn inline-flex items-center gap-2.5 px-6 py-3 rounded-full font-semibold text-sm transition-all duration-200 border-[1.5px] border-black active:transform active:scale-95 tracking-wide';
 
   const variants = {
-    primary: 'bg-[#233dff] text-white hover:bg-[#1a2b99]',
-    outline: 'bg-white text-[#233dff] border-[#233dff] hover:bg-[#f0f4ff]',
-    ghost: 'bg-transparent border-transparent text-gray-500 hover:text-black shadow-none border-none p-0',
+    primary:
+      'bg-[#233dff] text-white hover:bg-[#1a2b99] hover:shadow-[0_4px_16px_rgba(35,61,255,0.35)]',
+    outline:
+      'bg-white text-[#1a1a1a] hover:bg-gray-50 hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)]',
+    ghost:
+      'bg-transparent border-transparent text-gray-500 hover:text-black shadow-none border-none p-0',
   };
 
+  // White dot for primary, black dot for outline
   const dotColor = variant === 'primary' ? 'bg-white' : 'bg-black';
 
   return (
@@ -31,7 +36,7 @@ export const Button: React.FC<ButtonProps> = ({
       {...props}
     >
       {showDot && variant !== 'ghost' && (
-        <span className={`w-1.5 h-1.5 rounded-full ${dotColor} ${dotClassName}`} />
+        <span className={`w-2 h-2 rounded-full ${dotColor} ${dotClassName}`} />
       )}
       {children}
     </button>

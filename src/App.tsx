@@ -1,9 +1,32 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { EVENTS, I18N } from './constants';
+import { VOLUNTEER_PORTAL_API_URL, STORAGE_KEYS } from './config';
 import { ClinicEvent, Language } from './types';
 import { Button } from './components/Button';
 import { RSVPModal } from './components/RSVPModal';
+import { AdminModal } from './components/AdminModal';
+import { PartnerModal } from './components/PartnerModal';
+import { ChatWidget } from './components/ChatWidget';
 import { translateEventTitle, translateProgram } from './utils/translation';
+
+// HMC Logo Component with hover animation
+const HMC_LOGO_URL = 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png';
+
+const HMCLogo: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <a
+    href="https://www.healthmatters.clinic"
+    target="_blank"
+    rel="noopener noreferrer"
+    className={`group flex items-center justify-center transition-transform duration-300 hover:scale-110 ${className}`}
+    title="Health Matters Clinic"
+  >
+    <img
+      src={HMC_LOGO_URL}
+      alt="Health Matters Clinic"
+      className="h-10 w-10 object-contain transition-all duration-300 group-hover:drop-shadow-[0_4px_8px_rgba(35,61,255,0.3)]"
+    />
+  </a>
+);
 
 declare const L: any;
 
@@ -13,6 +36,7 @@ const PROGRAM_COLORS: { [key: string]: string } = {
   'Community Walk & Run': '#059669',
   'Community Fair': '#ea580c',
   'Community Wellness': '#db2777',
+  'Partner Event': '#0891b2',
   default: '#4b5563',
 };
 
@@ -27,11 +51,15 @@ const isPast = (dateStr: string) => {
 
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>('en');
+  const [events, setEvents] = useState<ClinicEvent[]>(EVENTS);
   const [selectedEvent, setSelectedEvent] = useState<ClinicEvent | null>(null);
   const [isRSVPOpen, setIsRSVPOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isPartnerOpen, setIsPartnerOpen] = useState(false);
   const [locationSearch, setLocationSearch] = useState('');
   const [filters, setFilters] = useState({ month: '', program: '', showPast: false });
   const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
   const mapRef = useRef<any | null>(null);
   const markersRef = useRef<Record<string, any>>({});
@@ -41,23 +69,75 @@ const App: React.FC = () => {
 
   const t = I18N[lang];
 
+  // Load events from localStorage or API on mount
+  useEffect(() => {
+    const loadEvents = async () => {
+      // First, try to load from localStorage
+      const storedEvents = localStorage.getItem(STORAGE_KEYS.EVENTS);
+      if (storedEvents) {
+        try {
+          const parsed = JSON.parse(storedEvents);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setEvents(parsed);
+            return;
+          }
+        } catch (e) {
+          console.warn('Failed to parse stored events:', e);
+        }
+      }
+
+      // Then, try to fetch from volunteer portal API
+      try {
+        const response = await fetch(`${VOLUNTEER_PORTAL_API_URL}/events`);
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setEvents(data);
+            localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(data));
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch events from API:', e);
+      }
+
+      // Fall back to hardcoded events
+      setEvents(EVENTS);
+    };
+
+    loadEvents();
+  }, []);
+
   const filteredEvents = useMemo(() => {
-    return EVENTS.filter((event) => {
-      const monthMatch = !filters.month || event.date.includes(`-${filters.month}-`);
-      const programMatch = !filters.program || event.program === filters.program;
+    return events
+      .filter((event) => {
+        const monthMatch = !filters.month || event.date.includes(`-${filters.month}-`);
+        const programMatch = !filters.program || event.program === filters.program;
 
-      const locQuery = locationSearch.toLowerCase();
-      const locationMatch =
-        !locationSearch ||
-        event.city.toLowerCase().includes(locQuery) ||
-        event.address.toLowerCase().includes(locQuery);
+        const locQuery = locationSearch.toLowerCase();
+        const locationMatch =
+          !locationSearch ||
+          event.city.toLowerCase().includes(locQuery) ||
+          event.address.toLowerCase().includes(locQuery);
 
-      const eventIsPast = isPast(event.date);
-      const archivalMatch = filters.showPast ? eventIsPast : !eventIsPast;
+        const eventIsPast = isPast(event.date);
+        const archivalMatch = filters.showPast ? eventIsPast : !eventIsPast;
 
-      return monthMatch && programMatch && locationMatch && archivalMatch;
-    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [filters, locationSearch]);
+        return monthMatch && programMatch && locationMatch && archivalMatch;
+      })
+      .sort((a, b) => {
+        // Promoted events always come first
+        if (a.isPromoted && !b.isPromoted) return -1;
+        if (!a.isPromoted && b.isPromoted) return 1;
+
+        // Then sponsored events
+        if (a.isSponsored && !b.isSponsored) return -1;
+        if (!a.isSponsored && b.isSponsored) return 1;
+
+        // Then sort by date
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      });
+  }, [events, filters, locationSearch]);
 
   useEffect(() => {
     if (selectedEvent && listRefs.current[selectedEvent.id]) {
@@ -129,11 +209,14 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!mapRef.current) return;
 
-    const points = filteredEvents.map((event) => [
-      event.lat,
-      event.lng,
-      selectedEvent?.id === event.id ? 0.9 : 0.5,
-    ] as [number, number, number]);
+    const points = filteredEvents.map(
+      (event) =>
+        [event.lat, event.lng, selectedEvent?.id === event.id ? 0.9 : 0.5] as [
+          number,
+          number,
+          number
+        ]
+    );
 
     if (!heatLayerRef.current) {
       heatLayerRef.current = L.heatLayer(points, {
@@ -162,7 +245,7 @@ const App: React.FC = () => {
 
   const handleShare = async () => {
     if (!selectedEvent) return;
-    const shareText = `${translateEventTitle(selectedEvent.title, lang)} • ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
+    const shareText = `${translateEventTitle(selectedEvent.title, lang)} - ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
     const shareUrl = 'https://www.healthmatters.clinic/events';
 
     if (navigator.share) {
@@ -181,47 +264,70 @@ const App: React.FC = () => {
     }
   };
 
+  const handleEventsUpdate = (newEvents: ClinicEvent[]) => {
+    setEvents(newEvents);
+  };
+
   const programLabel = (program: string) => translateProgram(program, lang);
 
   return (
     <div className="flex flex-col h-screen bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white">
-      <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 sm:py-5 z-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-        <div className="flex flex-col">
-          <h1 className="text-3xl font-bold text-[#1a1a1a] tracking-tight leading-none mb-1">Event Finder</h1>
-          <p className="text-xs text-gray-500 font-semibold tracking-[0.02em]">{t.app_subtitle}</p>
+      <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 z-50 flex items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+        {/* Left: Logo */}
+        <div className="flex items-center gap-4">
+          <HMCLogo />
+          <div className="hidden sm:block">
+            <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight leading-none">
+              Event Finder
+            </h1>
+            <p className="text-[10px] text-gray-500 font-semibold tracking-[0.02em]">{t.app_subtitle}</p>
+          </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
-          <div className="flex bg-white border border-gray-200 rounded-full overflow-hidden h-11 shadow-sm">
+        {/* Right: Compact buttons */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Language Toggle */}
+          <div className="flex bg-white border-[1.5px] border-black rounded-full overflow-hidden h-9">
             <button
               onClick={() => setLang('en')}
-              className={`px-5 py-2 text-[11px] font-semibold transition-all border-r border-gray-200 flex items-center gap-2 ${
+              className={`px-3 py-1.5 text-[10px] font-semibold transition-all border-r border-black flex items-center gap-1.5 ${
                 lang === 'en' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${lang === 'en' ? 'bg-white' : 'bg-black'}`} />
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${lang === 'en' ? 'bg-white' : 'bg-black'}`}
+              />
               EN
             </button>
             <button
               onClick={() => setLang('es')}
-              className={`px-5 py-2 text-[11px] font-semibold transition-all flex items-center gap-2 ${
+              className={`px-3 py-1.5 text-[10px] font-semibold transition-all flex items-center gap-1.5 ${
                 lang === 'es' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${lang === 'es' ? 'bg-white' : 'bg-black'}`} />
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${lang === 'es' ? 'bg-white' : 'bg-black'}`}
+              />
               ES
             </button>
           </div>
 
-          <Button variant="primary" className="h-11 px-7" onClick={() => window.open('https://www.healthmatters.clinic/donate')}>
-            {t.donate_now}
-          </Button>
+          {/* Partner Events Button */}
           <Button
             variant="outline"
-            className="h-11 px-7"
-            onClick={() => window.open('https://www.healthmatters.clinic/programs')}
+            className="h-9 px-4 text-[10px]"
+            onClick={() => setIsPartnerOpen(true)}
           >
-            {t.explore_programs}
+            {t.partner_events}
+          </Button>
+
+          {/* Admin Button */}
+          <Button
+            variant="outline"
+            className="h-9 px-4 text-[10px]"
+            onClick={() => setIsAdminOpen(true)}
+          >
+            Admin
           </Button>
         </div>
       </header>
@@ -230,18 +336,32 @@ const App: React.FC = () => {
         <div className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center gap-3">
           <button
             onClick={() => setMobileView('map')}
-            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.2em] border border-gray-200 transition-all ${
-              mobileView === 'map' ? 'bg-[#233dff] text-white shadow-md' : 'bg-white text-gray-500'
+            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.2em] border-2 border-gray-200 transition-all flex items-center justify-center gap-2 ${
+              mobileView === 'map'
+                ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                : 'bg-white text-gray-500'
             }`}
           >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                mobileView === 'map' ? 'bg-white' : 'bg-gray-400'
+              }`}
+            />
             {lang === 'es' ? 'Mapa' : 'Map'}
           </button>
           <button
             onClick={() => setMobileView('list')}
-            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.2em] border border-gray-200 transition-all ${
-              mobileView === 'list' ? 'bg-[#233dff] text-white shadow-md' : 'bg-white text-gray-500'
+            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.2em] border-2 border-gray-200 transition-all flex items-center justify-center gap-2 ${
+              mobileView === 'list'
+                ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                : 'bg-white text-gray-500'
             }`}
           >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                mobileView === 'list' ? 'bg-white' : 'bg-gray-400'
+              }`}
+            />
             {lang === 'es' ? 'Lista' : 'List'}
           </button>
         </div>
@@ -258,16 +378,26 @@ const App: React.FC = () => {
                 onClick={() => setSelectedEvent(null)}
                 className="absolute top-6 right-6 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-200 transition-all"
               >
-                ✕
+                X
               </button>
 
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                 <span
                   className="inline-block bg-[#f0f4ff] border border-[#233dff]/20 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-widest"
                   style={{ color: PROGRAM_COLORS[selectedEvent.program] || PROGRAM_COLORS.default }}
                 >
                   {programLabel(selectedEvent.program)}
                 </span>
+                {selectedEvent.isPromoted && (
+                  <span className="inline-block bg-[#233dff] text-white border border-[#233dff] px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-widest">
+                    {lang === 'es' ? 'NUEVO' : 'JUST ADDED'}
+                  </span>
+                )}
+                {selectedEvent.isSponsored && (
+                  <span className="inline-block bg-[#f0f4ff] text-[#233dff] border border-[#233dff]/30 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-widest">
+                    {lang === 'es' ? 'PATROCINADO' : 'SPONSORED'}
+                  </span>
+                )}
                 {isPast(selectedEvent.date) && (
                   <span className="inline-block bg-gray-100 text-gray-600 border border-gray-200 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-widest">
                     {t.past}
@@ -280,9 +410,20 @@ const App: React.FC = () => {
               </h3>
 
               <div className="space-y-6 mb-8">
+                {/* Flyer Image */}
+                {selectedEvent.flyerUrl && (
+                  <div>
+                    <img
+                      src={selectedEvent.flyerUrl}
+                      alt={`${selectedEvent.title} flyer`}
+                      className="w-full rounded-xl border border-gray-200 shadow-sm"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {lang === 'es' ? 'Cuándo' : 'When'}
+                    {lang === 'es' ? 'Cuando' : 'When'}
                   </label>
                   <p className="text-base font-bold text-gray-900 leading-snug">
                     {selectedEvent.dateDisplay}
@@ -292,9 +433,11 @@ const App: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {lang === 'es' ? 'Dónde' : 'Where'}
+                    {lang === 'es' ? 'Donde' : 'Where'}
                   </label>
-                  <p className="text-sm font-semibold text-gray-700 leading-relaxed">{selectedEvent.address}</p>
+                  <p className="text-sm font-semibold text-gray-700 leading-relaxed">
+                    {selectedEvent.address}
+                  </p>
                 </div>
               </div>
 
@@ -304,22 +447,37 @@ const App: React.FC = () => {
                     {t.submit_btn}
                   </Button>
                 ) : (
-                  <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-xs font-semibold uppercase tracking-widest border border-gray-200">
-                    {selectedEvent.saveTheDate ? (lang === 'es' ? 'Próximamente' : 'Coming Soon') : lang === 'es' ? 'Evento archivado' : 'Archived Event'}
+                  <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-xs font-semibold uppercase tracking-widest border-2 border-gray-200">
+                    {selectedEvent.saveTheDate
+                      ? lang === 'es'
+                        ? 'Proximamente'
+                        : 'Coming Soon'
+                      : lang === 'es'
+                      ? 'Evento archivado'
+                      : 'Archived Event'}
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className={`grid gap-3 ${selectedEvent.websiteUrl ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <Button
                     variant="outline"
                     className="justify-center h-11"
                     onClick={() => mapRef.current?.setView([selectedEvent.lat, selectedEvent.lng], 16)}
                   >
-                    {lang === 'es' ? 'Ver mapa' : 'View Map'}
+                    {lang === 'es' ? 'Mapa' : 'Map'}
                   </Button>
                   <Button variant="outline" className="justify-center h-11" onClick={handleShare}>
                     {lang === 'es' ? 'Compartir' : 'Share'}
                   </Button>
+                  {selectedEvent.websiteUrl && (
+                    <Button
+                      variant="outline"
+                      className="justify-center h-11"
+                      onClick={() => window.open(selectedEvent.websiteUrl, '_blank')}
+                    >
+                      {lang === 'es' ? 'Mas Info' : 'More Info'}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -331,74 +489,144 @@ const App: React.FC = () => {
             mobileView === 'list' ? 'flex' : 'hidden'
           } md:flex`}
         >
-          <div className="p-4 sm:p-6 border-b border-gray-200 space-y-4 sm:space-y-5">
-            <div className="relative group">
-              <input
-                type="text"
-                placeholder={lang === 'es' ? 'Buscar ubicación…' : 'Search location…'}
-                value={locationSearch}
-                onChange={(e) => setLocationSearch(e.target.value)}
-                className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all pl-11"
-              />
+          <div className="border-b border-gray-200">
+            {/* Filter Header - Always visible */}
+            <button
+              onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+              className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500 flex items-center gap-2">
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  />
+                </svg>
+                {t.filters}
+                {(filters.month || filters.program || locationSearch) && (
+                  <span className="bg-[#233dff] text-white text-[8px] px-2 py-0.5 rounded-full">
+                    {[filters.month, filters.program, locationSearch].filter(Boolean).length}
+                  </span>
+                )}
+              </span>
               <svg
-                className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#233dff] transition-colors"
+                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                  filtersCollapsed ? '' : 'rotate-180'
+                }`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.5}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
-            </div>
+            </button>
 
-            <div className="grid grid-cols-2 gap-3">
-              <select
-                value={filters.month}
-                onChange={(e) => setFilters((f) => ({ ...f, month: e.target.value }))}
-                className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-widest focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none appearance-none cursor-pointer"
-              >
-                <option value="">{lang === 'es' ? 'Todos los meses' : 'All Months'}</option>
-                <option value="12">{lang === 'es' ? 'Diciembre' : 'December'}</option>
-                <option value="01">{lang === 'es' ? 'Enero' : 'January'}</option>
-                <option value="02">{lang === 'es' ? 'Febrero' : 'February'}</option>
-                <option value="03">{lang === 'es' ? 'Marzo' : 'March'}</option>
-              </select>
-              <select
-                value={filters.program}
-                onChange={(e) => setFilters((f) => ({ ...f, program: e.target.value }))}
-                className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-widest focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none appearance-none cursor-pointer"
-              >
-                <option value="">{lang === 'es' ? 'Todos los programas' : 'All Programs'}</option>
-                <option value="Unstoppable Wellness Meetup">{programLabel('Unstoppable Wellness Meetup')}</option>
-                <option value="Unstoppable Workshop">{programLabel('Unstoppable Workshop')}</option>
-                <option value="Community Walk & Run">{programLabel('Community Walk & Run')}</option>
-                <option value="Community Fair">{programLabel('Community Fair')}</option>
-              </select>
-            </div>
+            {/* Collapsible Filter Content */}
+            <div
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                filtersCollapsed ? 'max-h-0' : 'max-h-[500px]'
+              }`}
+            >
+              <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-4">
+                {/* Location Search */}
+                <div className="relative group">
+                  <input
+                    type="text"
+                    placeholder={lang === 'es' ? 'Buscar ubicacion...' : 'Search location...'}
+                    value={locationSearch}
+                    onChange={(e) => setLocationSearch(e.target.value)}
+                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all pl-11"
+                  />
+                  <svg
+                    className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#233dff] transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2.5}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilters((f) => ({ ...f, showPast: false }))}
-                className={`flex-1 py-3 rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] transition-all border border-gray-200 flex items-center justify-center gap-2 ${
-                  !filters.showPast ? 'bg-[#233dff] text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${!filters.showPast ? 'bg-white' : 'bg-gray-300'}`} />
-                {t.upcoming}
-              </button>
-              <button
-                onClick={() => setFilters((f) => ({ ...f, showPast: true }))}
-                className={`flex-1 py-3 rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] transition-all border border-gray-200 flex items-center justify-center gap-2 ${
-                  filters.showPast ? 'bg-[#233dff] text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${filters.showPast ? 'bg-white' : 'bg-gray-300'}`} />
-                {t.past}
-              </button>
+                {/* Month & Program Filters */}
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={filters.month}
+                    onChange={(e) => setFilters((f) => ({ ...f, month: e.target.value }))}
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-3 rounded-xl text-[11px] font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="">{lang === 'es' ? 'Todos' : 'All Months'}</option>
+                    <option value="01">{lang === 'es' ? 'Enero' : 'January'}</option>
+                    <option value="02">{lang === 'es' ? 'Febrero' : 'February'}</option>
+                    <option value="03">{lang === 'es' ? 'Marzo' : 'March'}</option>
+                    <option value="04">{lang === 'es' ? 'Abril' : 'April'}</option>
+                    <option value="05">{lang === 'es' ? 'Mayo' : 'May'}</option>
+                    <option value="06">{lang === 'es' ? 'Junio' : 'June'}</option>
+                    <option value="07">{lang === 'es' ? 'Julio' : 'July'}</option>
+                    <option value="08">{lang === 'es' ? 'Agosto' : 'August'}</option>
+                    <option value="09">{lang === 'es' ? 'Septiembre' : 'September'}</option>
+                    <option value="10">{lang === 'es' ? 'Octubre' : 'October'}</option>
+                    <option value="11">{lang === 'es' ? 'Noviembre' : 'November'}</option>
+                    <option value="12">{lang === 'es' ? 'Diciembre' : 'December'}</option>
+                  </select>
+                  <select
+                    value={filters.program}
+                    onChange={(e) => setFilters((f) => ({ ...f, program: e.target.value }))}
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-3 rounded-xl text-[11px] font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="">{lang === 'es' ? 'Todos' : 'All Types'}</option>
+                    <option value="Unstoppable Wellness Meetup">
+                      {programLabel('Unstoppable Wellness Meetup')}
+                    </option>
+                    <option value="Unstoppable Workshop">{programLabel('Unstoppable Workshop')}</option>
+                    <option value="Community Walk & Run">{programLabel('Community Walk & Run')}</option>
+                    <option value="Community Fair">{programLabel('Community Fair')}</option>
+                    <option value="Community Wellness">{programLabel('Community Wellness')}</option>
+                    <option value="Partner Event">{programLabel('Partner Event')}</option>
+                  </select>
+                </div>
+
+                {/* Upcoming/Past Toggle */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFilters((f) => ({ ...f, showPast: false }))}
+                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.15em] transition-all border-2 border-gray-200 flex items-center justify-center gap-2 ${
+                      !filters.showPast
+                        ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                        : 'bg-white text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${!filters.showPast ? 'bg-white' : 'bg-gray-300'}`}
+                    />
+                    {t.upcoming}
+                  </button>
+                  <button
+                    onClick={() => setFilters((f) => ({ ...f, showPast: true }))}
+                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.15em] transition-all border-2 border-gray-200 flex items-center justify-center gap-2 ${
+                      filters.showPast
+                        ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                        : 'bg-white text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${filters.showPast ? 'bg-white' : 'bg-gray-300'}`}
+                    />
+                    {t.past}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -438,7 +666,9 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span
                         className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: PROGRAM_COLORS[event.program] || PROGRAM_COLORS.default }}
+                        style={{
+                          backgroundColor: PROGRAM_COLORS[event.program] || PROGRAM_COLORS.default,
+                        }}
                       />
                       <span
                         className="text-[10px] font-semibold uppercase tracking-[0.2em]"
@@ -447,9 +677,19 @@ const App: React.FC = () => {
                         {event.dateDisplay}
                       </span>
                     </div>
-                    {event.saveTheDate && (
+                    {event.isPromoted && (
+                      <span className="bg-[#233dff] text-white border border-[#233dff] px-2 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-wider">
+                        {lang === 'es' ? 'NUEVO' : 'JUST ADDED'}
+                      </span>
+                    )}
+                    {event.isSponsored && (
+                      <span className="bg-[#f0f4ff] text-[#233dff] border border-[#233dff]/30 px-2 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-wider">
+                        {lang === 'es' ? 'PATROCINADO' : 'SPONSORED'}
+                      </span>
+                    )}
+                    {event.saveTheDate && !event.isPromoted && (
                       <span className="bg-[#fff3cd] text-[#856404] border border-[#ffe69c] px-2 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-wider">
-                        {lang === 'es' ? 'PRONTO' : 'SOON'}
+                        {lang === 'es' ? 'POR CONFIRMAR' : 'DETAILS TBD'}
                       </span>
                     )}
                   </div>
@@ -464,7 +704,12 @@ const App: React.FC = () => {
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2.5 text-xs text-gray-500 font-semibold">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg
+                        className="w-4 h-4 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -479,7 +724,9 @@ const App: React.FC = () => {
               ))
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center p-16 opacity-30">
-                <p className="text-base font-semibold text-gray-500 uppercase tracking-widest">{t.no_events}</p>
+                <p className="text-base font-semibold text-gray-500 uppercase tracking-widest">
+                  {t.no_events}
+                </p>
               </div>
             )}
           </div>
@@ -493,8 +740,32 @@ const App: React.FC = () => {
       </main>
 
       {isRSVPOpen && (
-        <RSVPModal event={selectedEvent} lang={lang} setLang={setLang} onClose={() => setIsRSVPOpen(false)} />
+        <RSVPModal
+          event={selectedEvent}
+          lang={lang}
+          setLang={setLang}
+          onClose={() => setIsRSVPOpen(false)}
+        />
       )}
+
+      {isAdminOpen && (
+        <AdminModal
+          lang={lang}
+          events={events}
+          onClose={() => setIsAdminOpen(false)}
+          onEventsUpdate={handleEventsUpdate}
+        />
+      )}
+
+      {isPartnerOpen && (
+        <PartnerModal
+          lang={lang}
+          onClose={() => setIsPartnerOpen(false)}
+        />
+      )}
+
+      {/* Sunny Harper Chat Widget */}
+      <ChatWidget lang={lang} />
     </div>
   );
 };
