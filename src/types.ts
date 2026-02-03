@@ -15,6 +15,23 @@ export interface ClinicEvent {
   lng: number;
   description: string;
   saveTheDate?: boolean;
+  flyerUrl?: string;
+  websiteUrl?: string;
+  isPromoted?: boolean;       // Admin-promoted to show at top
+  isSponsored?: boolean;      // Sponsored event
+  promotedUntil?: string;     // Date promotion expires
+  createdAt?: string;         // When event was added
+}
+
+export interface PartnerEventRequest {
+  name: string;
+  email: string;
+  organization: string;
+  eventTitle: string;
+  eventDescription: string;
+  proposedDate: string;
+  location: string;
+  submittedAt: string;
 }
 
 export interface RSVPPayload {

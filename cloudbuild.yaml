@@ -1,0 +1,30 @@
+# Deploy: gcloud builds submit --config cloudbuild.yaml
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/hmc-events:$COMMIT_SHA', '-t', 'gcr.io/$PROJECT_ID/hmc-events:latest', '.']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/hmc-events:$COMMIT_SHA']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/hmc-events:latest']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'hmc-events'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/hmc-events:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+
+images:
+  - 'gcr.io/$PROJECT_ID/hmc-events:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/hmc-events:latest'
