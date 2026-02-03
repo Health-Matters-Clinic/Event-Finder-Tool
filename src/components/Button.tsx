@@ -16,7 +16,7 @@ export const Button: React.FC<ButtonProps> = ({
 }) => {
   // Base styles with thin black border for all buttons
   const baseStyles =
-    'pill-btn inline-flex items-center gap-2.5 px-6 py-3 rounded-full font-semibold text-sm transition-all duration-200 border-[1.5px] border-black active:transform active:scale-95 tracking-wide';
+    'pill-btn inline-flex items-center gap-2.5 px-6 py-3 rounded-full font-semibold text-sm transition-all duration-200 border border-black active:transform active:scale-95 tracking-wide';
 
   const variants = {
     primary:

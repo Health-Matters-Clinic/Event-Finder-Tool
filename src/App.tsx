@@ -319,15 +319,6 @@ const App: React.FC = () => {
           >
             {t.partner_events}
           </Button>
-
-          {/* Admin Button */}
-          <Button
-            variant="outline"
-            className="h-9 px-4 text-[10px]"
-            onClick={() => setIsAdminOpen(true)}
-          >
-            Admin
-          </Button>
         </div>
       </header>
 
@@ -733,6 +724,13 @@ const App: React.FC = () => {
           <footer className="p-6 bg-white border-t border-gray-200 text-center">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.2em]">
               &copy; {new Date().getFullYear()} {t.copyright}
+              <span className="mx-2">|</span>
+              <button
+                onClick={() => setIsAdminOpen(true)}
+                className="text-gray-400 hover:text-[#233dff] transition-colors"
+              >
+                Admin
+              </button>
             </p>
           </footer>
         </aside>
