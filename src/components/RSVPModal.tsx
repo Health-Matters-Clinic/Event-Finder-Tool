@@ -44,10 +44,12 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const postJson = async (payload: any) => {
+    // Google Apps Script requires text/plain to avoid CORS preflight, and redirect: follow for the exec redirect
     const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload),
+      redirect: 'follow',
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.success === false || data.ok === false) {
@@ -199,39 +201,6 @@ END:VCALENDAR`;
 
         {/* Body */}
         <div className="p-6 sm:p-8 space-y-6 max-h-[60vh] overflow-y-auto">
-          {/* Language toggle (optional in modal) */}
-          <div className="flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
-              {lang === 'es' ? 'Idioma' : 'Language'}
-            </div>
-            <div className="flex bg-white border-2 border-gray-200 rounded-full overflow-hidden h-10 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setLang('en')}
-                className={`px-4 text-[11px] font-semibold border-r border-gray-200 flex items-center gap-2 transition-all ${
-                  lang === 'en' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${lang === 'en' ? 'bg-white' : 'bg-gray-400'}`}
-                />
-                EN
-              </button>
-              <button
-                type="button"
-                onClick={() => setLang('es')}
-                className={`px-4 text-[11px] font-semibold flex items-center gap-2 transition-all ${
-                  lang === 'es' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${lang === 'es' ? 'bg-white' : 'bg-gray-400'}`}
-                />
-                ES
-              </button>
-            </div>
-          </div>
-
           {/* Status */}
           {state === 'error' && (
             <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-sm font-semibold text-red-800">
@@ -426,22 +395,18 @@ END:VCALENDAR`;
                   </button>
                 </div>
 
-                <label className="flex items-center gap-3 mt-4 text-sm font-semibold text-gray-700 cursor-pointer">
+                <label className="flex items-start gap-3 mt-4 text-sm font-semibold text-gray-700 cursor-pointer">
                   <input
                     type="checkbox"
                     name="sms_consent"
-                    className="h-4 w-4 rounded border-2 border-gray-300 text-[#233dff] focus:ring-[#233dff]"
+                    className="h-4 w-4 mt-0.5 rounded border-2 border-gray-300 text-[#233dff] focus:ring-[#233dff]"
                   />
-                  {lang === 'es'
-                    ? 'Acepto recibir mensajes de texto (si proporcione un telefono).'
-                    : 'I consent to SMS (if I provided a phone).'}
+                  <span>
+                    {lang === 'es'
+                      ? 'Acepto recibir comunicaciones por email y SMS sobre recordatorios de eventos, futuras oportunidades de salud y actualizaciones de Health Matters Clinic.'
+                      : 'I consent to receive email and SMS communications about event reminders, future health opportunities, and updates from Health Matters Clinic.'}
+                  </span>
                 </label>
-
-                <div className="text-xs font-semibold text-gray-500 mt-3 leading-relaxed">
-                  {lang === 'es'
-                    ? 'Nota: los recordatorios por email/SMS se configuran por separado (Flodesk/Twilio).'
-                    : 'Note: email/SMS reminders are configured separately (Flodesk/Twilio).'}
-                </div>
               </div>
 
               {/* Needs (keep your existing list labels, translated via I18N if present) */}
