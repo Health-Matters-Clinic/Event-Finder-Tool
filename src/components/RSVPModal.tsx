@@ -210,50 +210,23 @@ END:VCALENDAR`;
           )}
 
           {state === 'preregistered' && (
-            <div className="bg-white border-2 border-gray-200 rounded-xl p-5 space-y-4">
-              <div className="text-base font-semibold text-[#1a1a1a]">
-                {lang === 'es' ? 'Listo! Estas pre-registrado.' : "You're pre-registered."}
+            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 space-y-4 text-center">
+              <div className="text-5xl mb-2">✓</div>
+              <div className="text-xl font-bold text-green-900">
+                {lang === 'es' ? '¡Registro confirmado!' : "You're registered!"}
               </div>
-              <div className="text-sm font-semibold text-gray-700 leading-relaxed">
+              <div className="text-sm font-semibold text-green-800 leading-relaxed">
                 {lang === 'es'
-                  ? 'Cuando llegues al evento, usa el boton de Check-in. El check-in se habilita el dia del evento.'
-                  : 'When you arrive onsite, use the Check-in button. Check-in opens on the event day.'}
+                  ? 'Recibirás un correo de confirmación con los detalles del evento. ¡Nos vemos pronto!'
+                  : "You'll receive a confirmation email with event details. See you there!"}
               </div>
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button
-                  className="h-12 justify-center"
-                  onClick={handleCheckIn}
-                  disabled={state === 'checking_in'}
-                >
-                  {state === 'checking_in'
-                    ? lang === 'es'
-                      ? 'Registrando...'
-                      : 'Checking in...'
-                    : lang === 'es'
-                    ? 'Check-in al llegar'
-                    : 'Check in when you arrive'}
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="h-12 justify-center"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(checkinToken);
-                      alert(lang === 'es' ? 'Token copiado.' : 'Token copied.');
-                    } catch {}
-                  }}
-                >
-                  {lang === 'es' ? 'Copiar token' : 'Copy token'}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {state === 'checked_in' && (
-            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 text-sm font-semibold text-green-900">
-              {lang === 'es' ? 'Check-in completado. Bienvenido!' : 'Check-in complete. Welcome!'}
+              <Button
+                variant="outline"
+                className="h-11 justify-center mt-4"
+                onClick={onClose}
+              >
+                {lang === 'es' ? 'Cerrar' : 'Close'}
+              </Button>
             </div>
           )}
 
