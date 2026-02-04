@@ -57,11 +57,11 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       form.action = GOOGLE_APPS_SCRIPT_URL;
       form.target = iframe.name;
 
-      // Add payload as hidden input
+      // Add payload as Base64 to avoid any encoding issues
       const input = document.createElement('input');
       input.type = 'hidden';
-      input.name = 'payload';
-      input.value = JSON.stringify(payload);
+      input.name = 'data';
+      input.value = btoa(JSON.stringify(payload));
       form.appendChild(input);
 
       document.body.appendChild(form);
