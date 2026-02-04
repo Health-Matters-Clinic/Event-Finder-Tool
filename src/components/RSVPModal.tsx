@@ -44,14 +44,18 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const postJson = async (payload: any): Promise<{ success: boolean }> => {
-    // Use image ping - simplest cross-origin request, cannot be blocked
-    const data = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    // Send as individual URL params - no encoding issues
+    const params = new URLSearchParams();
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, Array.isArray(value) ? value.join(',') : String(value));
+      }
+    });
+
     const img = new Image();
-    img.src = `${GOOGLE_APPS_SCRIPT_URL}?data=${data}&t=${Date.now()}`;
+    img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
 
-    // Wait a moment for the request to be sent
     await new Promise(resolve => setTimeout(resolve, 1500));
-
     return { success: true };
   };
 

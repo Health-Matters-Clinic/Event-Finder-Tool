@@ -42,10 +42,16 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
     };
 
     try {
-      // Use image ping - simplest cross-origin request
-      const data = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      // Send as individual URL params
+      const params = new URLSearchParams();
+      Object.entries(payload).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      });
+
       const img = new Image();
-      img.src = `${GOOGLE_APPS_SCRIPT_URL}?data=${data}&t=${Date.now()}`;
+      img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
 
       await new Promise(resolve => setTimeout(resolve, 1500));
 
