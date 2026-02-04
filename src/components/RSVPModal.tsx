@@ -44,19 +44,29 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const postJson = async (payload: any) => {
-    // Google Apps Script works best with no-cors mode for simple POST
-    // We can't read the response in no-cors, so we assume success unless network fails
+    // Use fetch with redirect follow for Google Apps Script
+    const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      redirect: 'follow',
+    });
+
+    const text = await response.text();
     try {
-      await fetch(GOOGLE_APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload),
-      });
-      // In no-cors mode, we can't read response, but if fetch succeeded, data was sent
-      return { success: true, checkinToken: `${payload.eventId}-${Date.now()}` };
-    } catch (err) {
-      throw new Error('Network error - please check your connection');
+      const data = JSON.parse(text);
+      if (data.success === false) {
+        throw new Error(data.error || 'Request failed');
+      }
+      return data;
+    } catch {
+      // If response isn't JSON, check if fetch succeeded
+      if (response.ok) {
+        return { success: true };
+      }
+      throw new Error('Request failed');
     }
   };
 
