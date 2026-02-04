@@ -42,16 +42,34 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
     };
 
     try {
-      const params = new URLSearchParams();
-      params.append('payload', JSON.stringify(payload));
+      await new Promise<void>((resolve) => {
+        const iframe = document.createElement('iframe');
+        iframe.name = 'partner-frame-' + Date.now();
+        iframe.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;';
+        document.body.appendChild(iframe);
 
-      // Open in hidden window - GET request bypasses CORS
-      const url = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
-      const win = window.open(url, '_blank', 'width=1,height=1,left=-100,top=-100');
+        const form = document.createElement('form');
+        form.method = 'GET';
+        form.action = GOOGLE_APPS_SCRIPT_URL;
+        form.target = iframe.name;
 
-      setTimeout(() => {
-        if (win) win.close();
-      }, 2000);
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'payload';
+        input.value = JSON.stringify(payload);
+        form.appendChild(input);
+
+        document.body.appendChild(form);
+        form.submit();
+
+        setTimeout(() => {
+          try {
+            document.body.removeChild(form);
+            document.body.removeChild(iframe);
+          } catch (e) {}
+          resolve();
+        }, 3000);
+      });
 
       setSubmitted(true);
     } catch {
