@@ -44,39 +44,15 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const postJson = async (payload: any): Promise<{ success: boolean }> => {
-    return new Promise((resolve) => {
-      // Create hidden iframe
-      const iframe = document.createElement('iframe');
-      iframe.name = 'submit-frame-' + Date.now();
-      iframe.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;';
-      document.body.appendChild(iframe);
+    // Use image ping - simplest cross-origin request, cannot be blocked
+    const data = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const img = new Image();
+    img.src = `${GOOGLE_APPS_SCRIPT_URL}?data=${data}&t=${Date.now()}`;
 
-      // Create form with GET method
-      const form = document.createElement('form');
-      form.method = 'GET';
-      form.action = GOOGLE_APPS_SCRIPT_URL;
-      form.target = iframe.name;
+    // Wait a moment for the request to be sent
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Add payload as Base64 to avoid any encoding issues
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'data';
-      input.value = btoa(JSON.stringify(payload));
-      form.appendChild(input);
-
-      document.body.appendChild(form);
-
-      // Submit and cleanup
-      form.submit();
-
-      setTimeout(() => {
-        try {
-          document.body.removeChild(form);
-          document.body.removeChild(iframe);
-        } catch (e) {}
-        resolve({ success: true });
-      }, 3000);
-    });
+    return { success: true };
   };
 
   const handlePreRegister = async (e: React.FormEvent<HTMLFormElement>) => {
