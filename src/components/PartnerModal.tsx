@@ -42,34 +42,12 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
     };
 
     try {
-      await new Promise<void>((resolve) => {
-        const iframe = document.createElement('iframe');
-        iframe.name = 'partner-frame-' + Date.now();
-        iframe.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;';
-        document.body.appendChild(iframe);
+      // Use image ping - simplest cross-origin request
+      const data = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      const img = new Image();
+      img.src = `${GOOGLE_APPS_SCRIPT_URL}?data=${data}&t=${Date.now()}`;
 
-        const form = document.createElement('form');
-        form.method = 'GET';
-        form.action = GOOGLE_APPS_SCRIPT_URL;
-        form.target = iframe.name;
-
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'data';
-        input.value = btoa(JSON.stringify(payload));
-        form.appendChild(input);
-
-        document.body.appendChild(form);
-        form.submit();
-
-        setTimeout(() => {
-          try {
-            document.body.removeChild(form);
-            document.body.removeChild(iframe);
-          } catch (e) {}
-          resolve();
-        }, 3000);
-      });
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       setSubmitted(true);
     } catch {
