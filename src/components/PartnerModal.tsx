@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from './Button';
-import { Language, PartnerEventRequest } from '../types';
+import { Language } from '../types';
 import { I18N } from '../constants';
+import { GOOGLE_APPS_SCRIPT_URL } from '../config';
 
 interface PartnerModalProps {
   lang: Language;
@@ -21,6 +22,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
   });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -30,53 +32,82 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
-    // Store the request in localStorage for now (can be sent to API later)
-    const requests = JSON.parse(localStorage.getItem('partnerEventRequests') || '[]');
-    const newRequest: PartnerEventRequest = {
+    const payload = {
+      action: 'partner_request',
       ...formData,
       submittedAt: new Date().toISOString(),
+      lang,
     };
-    requests.push(newRequest);
-    localStorage.setItem('partnerEventRequests', JSON.stringify(requests));
 
-    // Simulate a short delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setLoading(false);
-    setSubmitted(true);
+    try {
+      const urlParams = new URLSearchParams();
+      urlParams.append('payload', JSON.stringify(payload));
+
+      await fetch(GOOGLE_APPS_SCRIPT_URL, {
+        method: 'POST',
+        body: urlParams,
+        redirect: 'follow',
+      });
+
+      setSubmitted(true);
+    } catch (err) {
+      // Try no-cors as fallback
+      try {
+        const urlParams = new URLSearchParams();
+        urlParams.append('payload', JSON.stringify(payload));
+        await fetch(GOOGLE_APPS_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: urlParams,
+        });
+        setSubmitted(true);
+      } catch {
+        setError(lang === 'es' ? 'Error al enviar. Intente de nuevo.' : 'Failed to submit. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="w-full max-w-lg max-h-[90vh] bg-white rounded-2xl border border-gray-200 shadow-[0_20px_60px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col"
+        className="w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-6 flex items-center justify-between gap-4 shrink-0">
+        <div className="bg-[#233dff] text-white p-5 flex items-center justify-between gap-4 shrink-0">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
-              {lang === 'es' ? 'Solicitud de Socio' : 'Partner Request'}
-            </div>
-            <div className="text-xl font-semibold text-[#1a1a1a] leading-tight mt-1">
+            <div className="text-lg font-bold leading-tight">
               {t.partner_modal_title}
+            </div>
+            <div className="text-sm opacity-90 mt-1">
+              {lang === 'es' ? 'Solicitud de evento de socio' : 'Partner event request'}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 hover:text-black hover:bg-gray-100 transition-all"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all"
           >
-            X
+            ✕
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 sm:p-8 flex-1 overflow-y-auto">
+        <div className="p-6 flex-1 overflow-y-auto">
+          {error && (
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-sm font-semibold text-red-800 mb-4">
+              {error}
+            </div>
+          )}
+
           {submitted ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
