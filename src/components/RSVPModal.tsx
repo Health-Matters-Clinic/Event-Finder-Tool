@@ -44,39 +44,19 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const postJson = async (payload: any): Promise<{ success: boolean }> => {
-    return new Promise((resolve) => {
-      // Create hidden iframe for form submission (bypasses CORS)
-      const iframe = document.createElement('iframe');
-      iframe.name = 'rsvp-submit-frame';
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
+    const params = new URLSearchParams();
+    params.append('payload', JSON.stringify(payload));
 
-      // Create form
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = GOOGLE_APPS_SCRIPT_URL;
-      form.target = 'rsvp-submit-frame';
+    // Open in hidden window - GET request bypasses CORS
+    const url = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
+    const win = window.open(url, '_blank', 'width=1,height=1,left=-100,top=-100');
 
-      // Add payload as hidden input
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'payload';
-      input.value = JSON.stringify(payload);
-      form.appendChild(input);
+    // Close the window after a short delay
+    setTimeout(() => {
+      if (win) win.close();
+    }, 2000);
 
-      document.body.appendChild(form);
-
-      // Clean up after submission
-      iframe.onload = () => {
-        setTimeout(() => {
-          document.body.removeChild(form);
-          document.body.removeChild(iframe);
-        }, 100);
-        resolve({ success: true });
-      };
-
-      form.submit();
-    });
+    return { success: true };
   };
 
   const handlePreRegister = async (e: React.FormEvent<HTMLFormElement>) => {
