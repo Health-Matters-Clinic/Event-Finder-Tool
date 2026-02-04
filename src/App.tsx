@@ -59,6 +59,7 @@ const App: React.FC = () => {
   const [filters, setFilters] = useState({ month: '', program: '', showPast: false });
   const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [pendingEventSlug, setPendingEventSlug] = useState<string | null>(null);
 
   const mapRef = useRef<any | null>(null);
   const markersRef = useRef<Record<string, any>>({});
@@ -67,6 +68,15 @@ const App: React.FC = () => {
   const listRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const t = I18N[lang];
+
+  // Check URL parameters for deep linking
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventParam = urlParams.get('event');
+    if (eventParam) {
+      setPendingEventSlug(eventParam);
+    }
+  }, []);
 
   // Load events from localStorage or API on mount
   useEffect(() => {
@@ -106,6 +116,28 @@ const App: React.FC = () => {
 
     loadEvents();
   }, []);
+
+  // Handle deep link after events are loaded
+  useEffect(() => {
+    if (pendingEventSlug && events.length > 0) {
+      // Find event by slug (id) or by title (url-friendly)
+      const slugLower = pendingEventSlug.toLowerCase();
+      const foundEvent = events.find(e =>
+        e.id.toLowerCase() === slugLower ||
+        e.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') === slugLower
+      );
+
+      if (foundEvent) {
+        setSelectedEvent(foundEvent);
+        // Check if URL also has rsvp=true parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('rsvp') === 'true') {
+          setIsRSVPOpen(true);
+        }
+      }
+      setPendingEventSlug(null);
+    }
+  }, [pendingEventSlug, events]);
 
   const filteredEvents = useMemo(() => {
     return events
@@ -245,7 +277,9 @@ const App: React.FC = () => {
   const handleShare = async () => {
     if (!selectedEvent) return;
     const shareText = `${translateEventTitle(selectedEvent.title, lang)} - ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
-    const shareUrl = 'https://www.healthmatters.clinic/events';
+    // Create event-specific share URL with deep link
+    const eventSlug = selectedEvent.id.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}`;
 
     if (navigator.share) {
       try {

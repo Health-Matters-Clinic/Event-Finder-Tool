@@ -18,7 +18,9 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
     eventTitle: '',
     eventDescription: '',
     proposedDate: '',
+    eventTime: '',
     location: '',
+    flyerUrl: '',
   });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -187,16 +189,54 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                 </div>
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                    {t.partner_location} *
+                    {lang === 'es' ? 'Hora del Evento' : 'Event Time'} *
                   </label>
                   <input
-                    name="location"
-                    value={formData.location}
+                    name="eventTime"
+                    type="text"
+                    value={formData.eventTime}
                     onChange={handleChange}
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                    placeholder={lang === 'es' ? 'ej. 10am - 2pm' : 'e.g. 10am - 2pm'}
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  {t.partner_location} *
+                </label>
+                <input
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  required
+                  placeholder={lang === 'es' ? 'Direccion completa del evento' : 'Full event address'}
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                />
+                <p className="text-[9px] text-gray-400 mt-1">
+                  {lang === 'es' ? 'Incluya calle, ciudad, estado y codigo postal' : 'Include street, city, state, and ZIP code'}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  {lang === 'es' ? 'Enlace del Flyer' : 'Flyer Link'}
+                </label>
+                <input
+                  name="flyerUrl"
+                  type="url"
+                  value={formData.flyerUrl}
+                  onChange={handleChange}
+                  placeholder="https://drive.google.com/..."
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                />
+                <p className="text-[9px] text-gray-400 mt-1">
+                  {lang === 'es'
+                    ? 'Suba su flyer a Google Drive, Dropbox o Canva y pegue el enlace publico'
+                    : 'Upload your flyer to Google Drive, Dropbox, or Canva and paste the public link'}
+                </p>
               </div>
 
               <Button type="submit" className="w-full justify-center h-9 mt-1" disabled={loading}>
