@@ -177,14 +177,14 @@ END:VCALENDAR`;
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[1000] flex items-start sm:items-center justify-center p-4 pt-8 sm:pt-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={lang === 'es' ? 'Registro del evento' : 'Event registration'}
     >
       <div
-        className="w-full max-w-xl bg-white rounded-2xl border border-gray-200 shadow-[0_20px_60px_rgba(0,0,0,0.2)] overflow-hidden"
+        className="w-full max-w-xl bg-white rounded-2xl border border-gray-200 shadow-[0_20px_60px_rgba(0,0,0,0.2)] my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -211,7 +211,7 @@ END:VCALENDAR`;
         </div>
 
         {/* Body */}
-        <div className="p-6 sm:p-8 space-y-6 max-h-[60vh] overflow-y-auto">
+        <div className="p-6 sm:p-8 space-y-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto">
           {/* Status */}
           {state === 'error' && (
             <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-sm font-semibold text-red-800">
