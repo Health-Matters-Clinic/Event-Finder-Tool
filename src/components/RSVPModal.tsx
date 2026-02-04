@@ -44,40 +44,32 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const postJson = async (payload: any) => {
-    // Google Apps Script requires special handling
-    // Use a form submission approach via iframe for reliability
-    return new Promise((resolve, reject) => {
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = GOOGLE_APPS_SCRIPT_URL;
-      form.target = 'hidden_iframe';
-      form.style.display = 'none';
+    // Send as URL-encoded form data to avoid CORS
+    const formData = new URLSearchParams();
+    formData.append('payload', JSON.stringify(payload));
 
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'data';
-      input.value = JSON.stringify(payload);
-      form.appendChild(input);
+    try {
+      const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+        method: 'POST',
+        body: formData,
+        redirect: 'follow',
+      });
 
-      // Create hidden iframe
-      let iframe = document.getElementById('hidden_iframe') as HTMLIFrameElement;
-      if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = 'hidden_iframe';
-        iframe.name = 'hidden_iframe';
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
+      const text = await response.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return { success: true };
       }
-
-      document.body.appendChild(form);
-      form.submit();
-      document.body.removeChild(form);
-
-      // Assume success after short delay (can't read cross-origin iframe)
-      setTimeout(() => {
-        resolve({ success: true });
-      }, 1500);
-    });
+    } catch (err) {
+      // If CORS fails, try no-cors mode (data still gets sent)
+      await fetch(GOOGLE_APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: formData,
+      });
+      return { success: true };
+    }
   };
 
   const handlePreRegister = async (e: React.FormEvent<HTMLFormElement>) => {
