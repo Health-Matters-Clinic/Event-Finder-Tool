@@ -43,20 +43,40 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     setNeeds((prev) => (prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]));
   };
 
-  const postJson = async (payload: any) => {
-    // Use no-cors mode - data is sent but we can't read response
-    // Google Apps Script processes the request, we just can't see the result
-    const formData = new URLSearchParams();
-    formData.append('payload', JSON.stringify(payload));
+  const postJson = async (payload: any): Promise<{ success: boolean }> => {
+    return new Promise((resolve) => {
+      // Create hidden iframe for form submission (bypasses CORS)
+      const iframe = document.createElement('iframe');
+      iframe.name = 'rsvp-submit-frame';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
 
-    await fetch(GOOGLE_APPS_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: formData,
+      // Create form
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = GOOGLE_APPS_SCRIPT_URL;
+      form.target = 'rsvp-submit-frame';
+
+      // Add payload as hidden input
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'payload';
+      input.value = JSON.stringify(payload);
+      form.appendChild(input);
+
+      document.body.appendChild(form);
+
+      // Clean up after submission
+      iframe.onload = () => {
+        setTimeout(() => {
+          document.body.removeChild(form);
+          document.body.removeChild(iframe);
+        }, 100);
+        resolve({ success: true });
+      };
+
+      form.submit();
     });
-
-    // Assume success - data is sent even though we can't read response
-    return { success: true };
   };
 
   const handlePreRegister = async (e: React.FormEvent<HTMLFormElement>) => {

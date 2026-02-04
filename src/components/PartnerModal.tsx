@@ -42,14 +42,35 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
     };
 
     try {
-      const urlParams = new URLSearchParams();
-      urlParams.append('payload', JSON.stringify(payload));
+      // Use iframe form submission to bypass CORS
+      await new Promise<void>((resolve) => {
+        const iframe = document.createElement('iframe');
+        iframe.name = 'partner-submit-frame';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
 
-      // Use no-cors mode - data is sent but we can't read response
-      await fetch(GOOGLE_APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: urlParams,
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = GOOGLE_APPS_SCRIPT_URL;
+        form.target = 'partner-submit-frame';
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'payload';
+        input.value = JSON.stringify(payload);
+        form.appendChild(input);
+
+        document.body.appendChild(form);
+
+        iframe.onload = () => {
+          setTimeout(() => {
+            document.body.removeChild(form);
+            document.body.removeChild(iframe);
+          }, 100);
+          resolve();
+        };
+
+        form.submit();
       });
 
       setSubmitted(true);
