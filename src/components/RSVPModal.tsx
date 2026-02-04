@@ -138,30 +138,35 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     }
   };
 
-  const getCalendarLink = (type: 'google' | 'outlook' | 'apple') => {
-    const title = encodeURIComponent(displayTitle);
-    const details = encodeURIComponent(event.description);
-    const loc = encodeURIComponent(event.address);
+  const downloadICS = () => {
     const d = event.date.replace(/-/g, '');
-    const start = `${d}T120000Z`;
-    const end = `${d}T140000Z`;
+    const start = `${d}T120000`;
+    const end = `${d}T140000`;
 
-    if (type === 'google') {
-      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}&location=${loc}`;
-    }
-    if (type === 'outlook') {
-      return `https://outlook.live.com/calendar/0/deeplink/compose?subject=${title}&startdt=${event.date}T12:00:00&enddt=${event.date}T14:00:00&body=${details}&location=${loc}`;
-    }
-    return `data:text/calendar;charset=utf8,BEGIN:VCALENDAR
-VERSION:2.0
-BEGIN:VEVENT
-DTSTART:${start}
-DTEND:${end}
-SUMMARY:${decodeURIComponent(title)}
-DESCRIPTION:${decodeURIComponent(details)}
-LOCATION:${decodeURIComponent(loc)}
-END:VEVENT
-END:VCALENDAR`;
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Health Matters Clinic//Event Finder//EN',
+      'BEGIN:VEVENT',
+      `DTSTART:${start}`,
+      `DTEND:${end}`,
+      `SUMMARY:${displayTitle}`,
+      `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`,
+      `LOCATION:${event.address}`,
+      `UID:${event.id}@healthmatters.clinic`,
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${displayTitle.replace(/[^a-z0-9]/gi, '-')}.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -355,9 +360,9 @@ END:VCALENDAR`;
                   variant="outline"
                   className="h-9 justify-center text-xs"
                   type="button"
-                  onClick={() => window.open(getCalendarLink('google'), '_blank')}
+                  onClick={downloadICS}
                 >
-                  + {lang === 'es' ? 'Calendario' : 'Calendar'}
+                  {lang === 'es' ? 'Guardar' : 'Save'} .ics
                 </Button>
               </div>
             </form>
