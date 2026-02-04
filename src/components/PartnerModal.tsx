@@ -55,8 +55,8 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
 
         const input = document.createElement('input');
         input.type = 'hidden';
-        input.name = 'payload';
-        input.value = JSON.stringify(payload);
+        input.name = 'data';
+        input.value = btoa(JSON.stringify(payload));
         form.appendChild(input);
 
         document.body.appendChild(form);
