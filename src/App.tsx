@@ -368,7 +368,7 @@ const App: React.FC = () => {
               onClick={() => setSelectedEvent(null)}
             >
             <div
-              className="bg-white rounded-2xl p-6 sm:p-7 w-full max-w-[90vw] md:w-[360px] shadow-[0_12px_40px_rgba(0,0,0,0.16)] border border-gray-200 animate-in slide-in-from-bottom-8 duration-500 max-h-[80vh] md:max-h-[70vh] overflow-auto"
+              className="relative bg-white rounded-2xl p-6 sm:p-7 w-full max-w-[90vw] md:w-[360px] shadow-[0_12px_40px_rgba(0,0,0,0.16)] border border-gray-200 animate-in slide-in-from-bottom-8 duration-500 max-h-[80vh] md:max-h-[70vh] overflow-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <button
