@@ -4,7 +4,7 @@
 export const VOLUNTEER_PORTAL_API_URL = 'https://hmc-volunteer-portal.vercel.app/api';
 
 // Google Apps Script URL for form submissions
-export const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbydMO2jOSPiuVGYYgnVgW_hLdSzUkm1xDN3H3dvfMsMjCzrBYa22l8ZklgytvZ7MEMRFQ/exec';
+export const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzJAvUOPoD55fqwcG0REUojOgraAZaham-8x7wojNxuwwC1srf0F1hZ-9adXKezcCHHsg/exec';
 
 // Admin passcode for accessing the admin panel
 export const ADMIN_PASSCODE = 'HMC2026';
