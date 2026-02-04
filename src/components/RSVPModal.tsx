@@ -190,12 +190,12 @@ END:VCALENDAR`;
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-[#233dff] text-white p-5 flex items-start justify-between gap-4 shrink-0">
+        <div className="bg-[#233dff] text-white p-4 flex items-start justify-between gap-3 shrink-0">
           <div>
-            <div className="text-lg font-bold leading-tight">
+            <div className="text-base font-bold leading-tight">
               {displayTitle}
             </div>
-            <div className="text-sm opacity-90 mt-1">
+            <div className="text-xs opacity-90 mt-0.5">
               {event.dateDisplay} • {event.time}
             </div>
           </div>
@@ -210,7 +210,7 @@ END:VCALENDAR`;
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
           {/* Status */}
           {state === 'error' && (
             <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-sm font-semibold text-red-800">
@@ -219,8 +219,8 @@ END:VCALENDAR`;
           )}
 
           {state === 'preregistered' && (
-            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 space-y-4 text-center">
-              <div className="text-5xl mb-2">✓</div>
+            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 space-y-3 text-center">
+              <div className="text-4xl">✓</div>
               <div className="text-xl font-bold text-green-900">
                 {lang === 'es' ? '¡Registro confirmado!' : "You're registered!"}
               </div>
@@ -231,7 +231,7 @@ END:VCALENDAR`;
               </div>
               <Button
                 variant="outline"
-                className="h-11 justify-center mt-4"
+                className="h-10 justify-center mt-2"
                 onClick={onClose}
               >
                 {lang === 'es' ? 'Cerrar' : 'Close'}
@@ -241,7 +241,7 @@ END:VCALENDAR`;
 
           {/* Form */}
           {state !== 'preregistered' && state !== 'checked_in' && (
-            <form onSubmit={handlePreRegister} className="space-y-6">
+            <form onSubmit={handlePreRegister} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
@@ -250,7 +250,7 @@ END:VCALENDAR`;
                   <input
                     name="name"
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                     placeholder={lang === 'es' ? 'Tu nombre completo' : 'Your full name'}
                   />
                 </div>
@@ -262,7 +262,7 @@ END:VCALENDAR`;
                   <input
                     name="email"
                     type="email"
-                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                     placeholder="name@email.com"
                   />
                 </div>
@@ -274,7 +274,7 @@ END:VCALENDAR`;
                   <input
                     name="phone"
                     type="tel"
-                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                     placeholder={lang === 'es' ? 'Ej: 3235550123' : 'Ex: 3235550123'}
                   />
                 </div>
@@ -287,7 +287,7 @@ END:VCALENDAR`;
               </p>
 
               {/* Minor exception */}
-              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -314,7 +314,7 @@ END:VCALENDAR`;
                     </label>
                     <input
                       name="minor_name"
-                      className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                      className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                       placeholder={lang === 'es' ? 'Nombre y apellido' : 'First and last name'}
                     />
                   </div>
@@ -322,7 +322,7 @@ END:VCALENDAR`;
               </div>
 
               {/* Contact method (collection only) */}
-              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-3">
                   {lang === 'es' ? 'Preferencia de contacto' : 'Contact preference'}
                 </div>
@@ -393,7 +393,7 @@ END:VCALENDAR`;
               </div>
 
               {/* Needs (keep your existing list labels, translated via I18N if present) */}
-              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-3">
                   {lang === 'es' ? 'Necesidades (opcional)' : 'Needs (optional)'}
                 </div>
@@ -428,9 +428,9 @@ END:VCALENDAR`;
               </div>
 
               {/* Actions */}
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <Button
-                  className="h-12 justify-center flex-1"
+                  className="h-10 justify-center flex-1"
                   type="submit"
                   disabled={state === 'submitting'}
                 >
@@ -443,7 +443,7 @@ END:VCALENDAR`;
 
                 <Button
                   variant="outline"
-                  className="h-12 justify-center"
+                  className="h-10 justify-center"
                   type="button"
                   onClick={() => window.open(getCalendarLink('google'), '_blank')}
                 >
