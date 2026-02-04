@@ -179,41 +179,38 @@ END:VCALENDAR`;
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-start sm:items-center justify-center p-4 pt-8 sm:pt-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={lang === 'es' ? 'Registro del evento' : 'Event registration'}
     >
       <div
-        className="w-full max-w-xl bg-white rounded-2xl border border-gray-200 shadow-[0_20px_60px_rgba(0,0,0,0.2)] my-auto"
+        className="w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-6 flex items-start justify-between gap-4">
+        <div className="bg-[#233dff] text-white p-5 flex items-start justify-between gap-4 shrink-0">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
-              {lang === 'es' ? 'Registro' : 'Registration'}
-            </div>
-            <div className="text-xl font-semibold text-[#1a1a1a] leading-tight mt-1">
+            <div className="text-lg font-bold leading-tight">
               {displayTitle}
             </div>
-            <div className="text-sm font-semibold text-gray-600 mt-2">
-              {event.dateDisplay} - {event.time}
+            <div className="text-sm opacity-90 mt-1">
+              {event.dateDisplay} • {event.time}
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 hover:text-black hover:bg-gray-100 transition-all"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all"
             aria-label={lang === 'es' ? 'Cerrar' : 'Close'}
           >
-            X
+            ✕
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 sm:p-8 space-y-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1">
           {/* Status */}
           {state === 'error' && (
             <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-sm font-semibold text-red-800">
@@ -457,12 +454,6 @@ END:VCALENDAR`;
           )}
         </div>
 
-        {/* Footer */}
-        <div className="bg-white border-t border-gray-200 p-5 text-center">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
-            Health Matters Clinic
-          </div>
-        </div>
       </div>
     </div>
   );
