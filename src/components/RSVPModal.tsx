@@ -186,23 +186,18 @@ END:VCALENDAR`;
       aria-label={lang === 'es' ? 'Registro del evento' : 'Event registration'}
     >
       <div
-        className="w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-md bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-[#233dff] text-white p-4 flex items-start justify-between gap-3 shrink-0">
-          <div>
-            <div className="text-base font-bold leading-tight">
-              {displayTitle}
-            </div>
-            <div className="text-xs opacity-90 mt-0.5">
-              {event.dateDisplay} • {event.time}
-            </div>
+        <div className="bg-[#233dff] text-white px-4 py-3 flex items-center justify-between gap-2 shrink-0">
+          <div className="min-w-0">
+            <div className="text-sm font-bold leading-tight truncate">{displayTitle}</div>
+            <div className="text-[11px] opacity-80">{event.dateDisplay} • {event.time}</div>
           </div>
-
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all shrink-0"
             aria-label={lang === 'es' ? 'Cerrar' : 'Close'}
           >
             ✕
@@ -210,7 +205,7 @@ END:VCALENDAR`;
         </div>
 
         {/* Body */}
-        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+        <div className="p-4 space-y-3 overflow-y-auto flex-1">
           {/* Status */}
           {state === 'error' && (
             <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-sm font-semibold text-red-800">
@@ -219,21 +214,17 @@ END:VCALENDAR`;
           )}
 
           {state === 'preregistered' && (
-            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 space-y-3 text-center">
-              <div className="text-4xl">✓</div>
-              <div className="text-xl font-bold text-green-900">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+              <div className="text-3xl mb-1">✓</div>
+              <div className="text-base font-bold text-green-900">
                 {lang === 'es' ? '¡Registro confirmado!' : "You're registered!"}
               </div>
-              <div className="text-sm font-semibold text-green-800 leading-relaxed">
+              <p className="text-xs text-green-700 mt-1">
                 {lang === 'es'
-                  ? 'Recibirás un correo de confirmación con los detalles del evento. ¡Nos vemos pronto!'
-                  : "You'll receive a confirmation email with event details. See you there!"}
-              </div>
-              <Button
-                variant="outline"
-                className="h-10 justify-center mt-2"
-                onClick={onClose}
-              >
+                  ? 'Revisa tu correo para los detalles.'
+                  : 'Check your email for details.'}
+              </p>
+              <Button variant="outline" className="h-8 text-xs mt-3" onClick={onClose}>
                 {lang === 'es' ? 'Cerrar' : 'Close'}
               </Button>
             </div>
@@ -241,213 +232,145 @@ END:VCALENDAR`;
 
           {/* Form */}
           {state !== 'preregistered' && state !== 'checked_in' && (
-            <form onSubmit={handlePreRegister} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <form onSubmit={handlePreRegister} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {lang === 'es' ? 'Nombre' : 'Name'} *
                   </label>
                   <input
                     name="name"
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                     placeholder={lang === 'es' ? 'Tu nombre completo' : 'Your full name'}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {lang === 'es' ? 'Correo electronico' : 'Email'}
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                    {lang === 'es' ? 'Correo' : 'Email'}
                   </label>
                   <input
                     name="email"
                     type="email"
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
-                    placeholder="name@email.com"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    placeholder="email@example.com"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {lang === 'es' ? 'Telefono' : 'Phone'}
                   </label>
                   <input
                     name="phone"
                     type="tel"
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
-                    placeholder={lang === 'es' ? 'Ej: 3235550123' : 'Ex: 3235550123'}
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    placeholder="(555) 123-4567"
                   />
                 </div>
               </div>
 
-              <p className="text-xs text-gray-500 -mt-2">
+              <p className="text-[10px] text-gray-500 -mt-1">
                 {lang === 'es'
-                  ? '* Se requiere correo electronico o telefono'
+                  ? '* Se requiere correo o telefono'
                   : '* Email or phone required'}
               </p>
 
               {/* Minor exception */}
-              <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isMinor}
-                    onChange={(e) => setIsMinor(e.target.checked)}
-                    className="mt-1 w-4 h-4 rounded border-2 border-gray-300 text-[#233dff] focus:ring-[#233dff]"
-                  />
-                  <div>
-                    <div className="text-sm font-semibold text-[#1a1a1a]">
-                      {lang === 'es' ? 'Estoy registrando a un menor' : "I'm registering a minor"}
-                    </div>
-                    <div className="text-xs font-semibold text-gray-600 mt-1">
-                      {lang === 'es'
-                        ? 'Esto permite registrar mas de una persona con el mismo correo/telefono.'
-                        : 'This allows more than one preregistration under the same email/phone.'}
-                    </div>
-                  </div>
-                </label>
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={isMinor}
+                  onChange={(e) => setIsMinor(e.target.checked)}
+                  className="w-4 h-4 rounded border-2 border-gray-300 text-[#233dff] focus:ring-[#233dff]"
+                />
+                {lang === 'es' ? 'Registrando a un menor' : 'Registering a minor'}
+              </label>
 
-                {isMinor && (
-                  <div className="mt-4">
-                    <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      {lang === 'es' ? 'Nombre del menor' : "Minor's name"} *
-                    </label>
-                    <input
-                      name="minor_name"
-                      className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
-                      placeholder={lang === 'es' ? 'Nombre y apellido' : 'First and last name'}
-                    />
-                  </div>
-                )}
+              {isMinor && (
+                <input
+                  name="minor_name"
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal -mt-1"
+                  placeholder={lang === 'es' ? 'Nombre del menor *' : "Minor's name *"}
+                />
+              )}
+
+              {/* Contact preference */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  {lang === 'es' ? 'Contacto:' : 'Contact:'}
+                </span>
+                {(['text', 'email', 'none'] as const).map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => setContactMethod(method)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                      contactMethod === method
+                        ? 'bg-[#233dff] text-white border-[#233dff]'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-[#233dff]'
+                    }`}
+                  >
+                    {method === 'text' ? (lang === 'es' ? 'SMS' : 'Text') : method === 'none' ? (lang === 'es' ? 'Ninguno' : 'None') : 'Email'}
+                  </button>
+                ))}
               </div>
 
-              {/* Contact method (collection only) */}
-              <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-3">
-                  {lang === 'es' ? 'Preferencia de contacto' : 'Contact preference'}
-                </div>
+              {/* Consent */}
+              <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="sms_consent"
+                  className="h-3.5 w-3.5 mt-0.5 rounded border-gray-300 text-[#233dff] focus:ring-[#233dff]"
+                />
+                <span>
+                  {lang === 'es'
+                    ? 'Acepto recibir recordatorios y actualizaciones de Health Matters Clinic.'
+                    : 'I consent to receive reminders and updates from Health Matters Clinic.'}
+                </span>
+              </label>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setContactMethod('text')}
-                    className={`py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.15em] border-2 transition-all flex items-center justify-center gap-2 ${
-                      contactMethod === 'text'
-                        ? 'bg-[#233dff] text-white border-[#233dff]'
-                        : 'bg-white text-gray-700 border-gray-200 hover:border-[#233dff] hover:bg-gray-50'
-                    }`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        contactMethod === 'text' ? 'bg-white' : 'bg-gray-400'
+              {/* Needs */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  {lang === 'es' ? 'Necesidades:' : 'Needs:'}
+                </span>
+                {['Screening', 'Resources', 'Mental Health', 'Insurance', 'Housing'].map((n) => {
+                  const active = needs.includes(n);
+                  return (
+                    <button
+                      type="button"
+                      key={n}
+                      onClick={() => toggleNeed(n)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                        active
+                          ? 'bg-[#233dff] text-white border-[#233dff]'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-[#233dff]'
                       }`}
-                    />
-                    {lang === 'es' ? 'SMS' : 'Text'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setContactMethod('email')}
-                    className={`py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.15em] border-2 transition-all flex items-center justify-center gap-2 ${
-                      contactMethod === 'email'
-                        ? 'bg-[#233dff] text-white border-[#233dff]'
-                        : 'bg-white text-gray-700 border-gray-200 hover:border-[#233dff] hover:bg-gray-50'
-                    }`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        contactMethod === 'email' ? 'bg-white' : 'bg-gray-400'
-                      }`}
-                    />
-                    Email
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setContactMethod('none')}
-                    className={`py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.15em] border-2 transition-all flex items-center justify-center gap-2 ${
-                      contactMethod === 'none'
-                        ? 'bg-[#233dff] text-white border-[#233dff]'
-                        : 'bg-white text-gray-700 border-gray-200 hover:border-[#233dff] hover:bg-gray-50'
-                    }`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        contactMethod === 'none' ? 'bg-white' : 'bg-gray-400'
-                      }`}
-                    />
-                    {lang === 'es' ? 'Ninguno' : 'None'}
-                  </button>
-                </div>
-
-                <label className="flex items-start gap-3 mt-4 text-sm font-semibold text-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="sms_consent"
-                    className="h-4 w-4 mt-0.5 rounded border-2 border-gray-300 text-[#233dff] focus:ring-[#233dff]"
-                  />
-                  <span>
-                    {lang === 'es'
-                      ? 'Acepto recibir comunicaciones por email y SMS sobre recordatorios de eventos, futuras oportunidades de salud y actualizaciones de Health Matters Clinic.'
-                      : 'I consent to receive email and SMS communications about event reminders, future health opportunities, and updates from Health Matters Clinic.'}
-                  </span>
-                </label>
-              </div>
-
-              {/* Needs (keep your existing list labels, translated via I18N if present) */}
-              <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-3">
-                  {lang === 'es' ? 'Necesidades (opcional)' : 'Needs (optional)'}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {['Health Screening', 'Resources', 'Mental Health', 'Insurance', 'Housing'].map(
-                    (n) => {
-                      const active = needs.includes(n);
-                      return (
-                        <button
-                          type="button"
-                          key={n}
-                          onClick={() => toggleNeed(n)}
-                          className={`px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.15em] border-2 transition-all flex items-center gap-2
-                          ${
-                            active
-                              ? 'bg-[#233dff] text-white border-[#233dff]'
-                              : 'bg-white text-gray-700 border-gray-200 hover:border-[#233dff] hover:bg-gray-50'
-                          }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              active ? 'bg-white' : 'bg-gray-400'
-                            }`}
-                          />
-                          {n}
-                        </button>
-                      );
-                    }
-                  )}
-                </div>
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Actions */}
-              <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <div className="flex gap-2 pt-1">
                 <Button
-                  className="h-10 justify-center flex-1"
+                  className="h-9 justify-center flex-1"
                   type="submit"
                   disabled={state === 'submitting'}
                 >
-                  {state === 'submitting'
-                    ? lang === 'es'
-                      ? 'Enviando...'
-                      : 'Submitting...'
-                    : 'RSVP'}
+                  {state === 'submitting' ? '...' : 'RSVP'}
                 </Button>
-
                 <Button
                   variant="outline"
-                  className="h-10 justify-center"
+                  className="h-9 justify-center text-xs"
                   type="button"
                   onClick={() => window.open(getCalendarLink('google'), '_blank')}
                 >
-                  {lang === 'es' ? 'Agregar al calendario' : 'Add to calendar'}
+                  + {lang === 'es' ? 'Calendario' : 'Calendar'}
                 </Button>
               </div>
             </form>

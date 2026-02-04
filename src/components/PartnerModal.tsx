@@ -79,53 +79,41 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
       aria-modal="true"
     >
       <div
-        className="w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-md bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-[#233dff] text-white p-4 flex items-center justify-between gap-3 shrink-0">
-          <div>
-            <div className="text-base font-bold leading-tight">
-              {t.partner_modal_title}
-            </div>
-            <div className="text-xs opacity-90 mt-0.5">
-              {lang === 'es' ? 'Solicitud de evento de socio' : 'Partner event request'}
-            </div>
-          </div>
+        <div className="bg-[#233dff] text-white px-4 py-3 flex items-center justify-between gap-2 shrink-0">
+          <div className="text-sm font-bold">{t.partner_modal_title}</div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all"
           >
             ✕
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-4 sm:p-5 flex-1 overflow-y-auto">
+        <div className="p-4 flex-1 overflow-y-auto">
           {error && (
-            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-sm font-semibold text-red-800 mb-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs font-semibold text-red-800 mb-3">
               {error}
             </div>
           )}
 
           {submitted ? (
-            <div className="text-center py-8">
-              <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <p className="text-base font-semibold text-gray-900 mb-2">{t.partner_success}</p>
-              <Button onClick={onClose} className="mt-4 h-10">
+            <div className="text-center py-6">
+              <div className="text-3xl mb-2">✓</div>
+              <p className="text-sm font-semibold text-gray-900">{t.partner_success}</p>
+              <Button onClick={onClose} variant="outline" className="mt-3 h-8 text-xs">
                 {lang === 'es' ? 'Cerrar' : 'Close'}
               </Button>
             </div>
           ) : (
-            <>
-              <p className="text-sm text-gray-600 mb-4">{t.partner_modal_intro}</p>
-              <form onSubmit={handleSubmit} className="space-y-3">
+            <form onSubmit={handleSubmit} className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {t.partner_name} *
                   </label>
                   <input
@@ -133,12 +121,11 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {t.partner_email} *
                   </label>
                   <input
@@ -147,83 +134,83 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   />
                 </div>
+              </div>
 
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  {t.partner_org} *
+                </label>
+                <input
+                  name="organization"
+                  value={formData.organization}
+                  onChange={handleChange}
+                  required
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  {t.partner_event_title} *
+                </label>
+                <input
+                  name="eventTitle"
+                  value={formData.eventTitle}
+                  onChange={handleChange}
+                  required
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  {t.partner_event_desc} *
+                </label>
+                <textarea
+                  name="eventDescription"
+                  value={formData.eventDescription}
+                  onChange={handleChange}
+                  required
+                  rows={2}
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {t.partner_org} *
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                    {t.partner_proposed_date} *
                   </label>
                   <input
-                    name="organization"
-                    value={formData.organization}
+                    name="proposedDate"
+                    type="date"
+                    value={formData.proposedDate}
                     onChange={handleChange}
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {t.partner_event_title} *
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                    {t.partner_location} *
                   </label>
                   <input
-                    name="eventTitle"
-                    value={formData.eventTitle}
+                    name="location"
+                    value={formData.location}
                     onChange={handleChange}
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {t.partner_event_desc} *
-                  </label>
-                  <textarea
-                    name="eventDescription"
-                    value={formData.eventDescription}
-                    onChange={handleChange}
-                    required
-                    rows={2}
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all resize-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      {t.partner_proposed_date} *
-                    </label>
-                    <input
-                      name="proposedDate"
-                      type="date"
-                      value={formData.proposedDate}
-                      onChange={handleChange}
-                      required
-                      className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      {t.partner_location} *
-                    </label>
-                    <input
-                      name="location"
-                      value={formData.location}
-                      onChange={handleChange}
-                      required
-                      className="w-full bg-white border-2 border-gray-200 px-3 py-2.5 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
-                    />
-                  </div>
-                </div>
-
-                <Button type="submit" className="w-full justify-center h-10 mt-2" disabled={loading}>
-                  {loading ? (lang === 'es' ? 'Enviando...' : 'Submitting...') : t.partner_submit}
-                </Button>
-              </form>
-            </>
+              <Button type="submit" className="w-full justify-center h-9 mt-1" disabled={loading}>
+                {loading ? '...' : t.partner_submit}
+              </Button>
+            </form>
           )}
         </div>
       </div>
