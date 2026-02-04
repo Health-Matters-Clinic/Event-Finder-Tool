@@ -45,27 +45,16 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
       const urlParams = new URLSearchParams();
       urlParams.append('payload', JSON.stringify(payload));
 
+      // Use no-cors mode - data is sent but we can't read response
       await fetch(GOOGLE_APPS_SCRIPT_URL, {
         method: 'POST',
+        mode: 'no-cors',
         body: urlParams,
-        redirect: 'follow',
       });
 
       setSubmitted(true);
-    } catch (err) {
-      // Try no-cors as fallback
-      try {
-        const urlParams = new URLSearchParams();
-        urlParams.append('payload', JSON.stringify(payload));
-        await fetch(GOOGLE_APPS_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          body: urlParams,
-        });
-        setSubmitted(true);
-      } catch {
-        setError(lang === 'es' ? 'Error al enviar. Intente de nuevo.' : 'Failed to submit. Please try again.');
-      }
+    } catch {
+      setError(lang === 'es' ? 'Error al enviar. Intente de nuevo.' : 'Failed to submit. Please try again.');
     } finally {
       setLoading(false);
     }

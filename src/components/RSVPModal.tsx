@@ -44,32 +44,19 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const postJson = async (payload: any) => {
-    // Send as URL-encoded form data to avoid CORS
+    // Use no-cors mode - data is sent but we can't read response
+    // Google Apps Script processes the request, we just can't see the result
     const formData = new URLSearchParams();
     formData.append('payload', JSON.stringify(payload));
 
-    try {
-      const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-        method: 'POST',
-        body: formData,
-        redirect: 'follow',
-      });
+    await fetch(GOOGLE_APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: formData,
+    });
 
-      const text = await response.text();
-      try {
-        return JSON.parse(text);
-      } catch {
-        return { success: true };
-      }
-    } catch (err) {
-      // If CORS fails, try no-cors mode (data still gets sent)
-      await fetch(GOOGLE_APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: formData,
-      });
-      return { success: true };
-    }
+    // Assume success - data is sent even though we can't read response
+    return { success: true };
   };
 
   const handlePreRegister = async (e: React.FormEvent<HTMLFormElement>) => {
