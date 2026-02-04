@@ -362,7 +362,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                   type="button"
                   onClick={downloadICS}
                 >
-                  {lang === 'es' ? 'Guardar' : 'Save'} .ics
+                  {lang === 'es' ? 'Guardar en Calendario' : 'Save to Calendar'}
                 </Button>
               </div>
             </form>
