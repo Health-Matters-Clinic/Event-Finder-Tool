@@ -311,14 +311,14 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          {/* Partner Events Button */}
-          <Button
+          {/* Partner Events Button - temporarily hidden */}
+          {/* <Button
             variant="outline"
             className="h-9 px-4 text-[10px]"
             onClick={() => setIsPartnerOpen(true)}
           >
             {t.partner_events}
-          </Button>
+          </Button> */}
         </div>
       </header>
 
@@ -439,10 +439,11 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-3">
+                {/* RSVP temporarily hidden - TODO: fix Google Apps Script CORS/encoding issues */}
                 {!selectedEvent.saveTheDate && !isPast(selectedEvent.date) ? (
-                  <Button onClick={() => setIsRSVPOpen(true)} className="w-full justify-center h-12 text-sm">
-                    {t.submit_btn}
-                  </Button>
+                  <div className="bg-[#233dff]/10 text-[#233dff] rounded-full py-3 text-center text-xs font-semibold uppercase tracking-widest border-2 border-[#233dff]/20">
+                    {lang === 'es' ? 'Evento abierto' : 'Open Event'}
+                  </div>
                 ) : (
                   <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-xs font-semibold uppercase tracking-widest border-2 border-gray-200">
                     {selectedEvent.saveTheDate
