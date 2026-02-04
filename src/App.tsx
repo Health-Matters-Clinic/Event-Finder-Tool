@@ -363,7 +363,14 @@ const App: React.FC = () => {
         >
           <div ref={mapContainerRef} id="map-container" className="h-full w-full" />
           {selectedEvent && (
-            <div className="absolute bottom-4 left-4 right-4 md:bottom-8 md:left-8 md:right-auto z-[40] bg-white rounded-2xl p-6 sm:p-7 md:w-[360px] shadow-[0_12px_40px_rgba(0,0,0,0.16)] border border-gray-200 animate-in slide-in-from-bottom-8 duration-500 max-h-[44vh] md:max-h-none overflow-auto">
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none md:absolute md:inset-auto md:bottom-8 md:left-8 md:right-auto md:p-0"
+              onClick={() => setSelectedEvent(null)}
+            >
+            <div
+              className="bg-white rounded-2xl p-6 sm:p-7 w-full max-w-[90vw] md:w-[360px] shadow-[0_12px_40px_rgba(0,0,0,0.16)] border border-gray-200 animate-in slide-in-from-bottom-8 duration-500 max-h-[80vh] md:max-h-[70vh] overflow-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 onClick={() => setSelectedEvent(null)}
                 className="absolute top-6 right-6 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-200 transition-all"
@@ -470,6 +477,7 @@ const App: React.FC = () => {
                   )}
                 </div>
               </div>
+            </div>
             </div>
           )}
         </div>
