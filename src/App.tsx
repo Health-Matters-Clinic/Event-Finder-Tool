@@ -459,9 +459,28 @@ const App: React.FC = () => {
                   <Button
                     variant="outline"
                     className="justify-center h-11"
-                    onClick={() => mapRef.current?.setView([selectedEvent.lat, selectedEvent.lng], 16)}
+                    onClick={() => {
+                      const d = selectedEvent.date.replace(/-/g, '');
+                      const ics = [
+                        'BEGIN:VCALENDAR',
+                        'VERSION:2.0',
+                        'BEGIN:VEVENT',
+                        `DTSTART:${d}T120000`,
+                        `DTEND:${d}T140000`,
+                        `SUMMARY:${selectedEvent.title}`,
+                        `LOCATION:${selectedEvent.address}`,
+                        `UID:${selectedEvent.id}@healthmatters.clinic`,
+                        'END:VEVENT',
+                        'END:VCALENDAR'
+                      ].join('\r\n');
+                      const blob = new Blob([ics], { type: 'text/calendar' });
+                      const link = document.createElement('a');
+                      link.href = URL.createObjectURL(blob);
+                      link.download = `${selectedEvent.title.replace(/[^a-z0-9]/gi, '-')}.ics`;
+                      link.click();
+                    }}
                   >
-                    {lang === 'es' ? 'Mapa' : 'Map'}
+                    {lang === 'es' ? 'Calendario' : 'Calendar'}
                   </Button>
                   <Button variant="outline" className="justify-center h-11" onClick={handleShare}>
                     {lang === 'es' ? 'Compartir' : 'Share'}
