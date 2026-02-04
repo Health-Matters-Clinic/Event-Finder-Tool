@@ -440,19 +440,9 @@ const App: React.FC = () => {
 
               <div className="flex flex-col gap-3">
                 {/* RSVP temporarily hidden - TODO: fix Google Apps Script CORS/encoding issues */}
-                {!selectedEvent.saveTheDate && !isPast(selectedEvent.date) ? (
-                  <div className="bg-[#233dff]/10 text-[#233dff] rounded-full py-3 text-center text-xs font-semibold uppercase tracking-widest border-2 border-[#233dff]/20">
-                    {lang === 'es' ? 'Evento abierto' : 'Open Event'}
-                  </div>
-                ) : (
+                {selectedEvent.saveTheDate && (
                   <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-xs font-semibold uppercase tracking-widest border-2 border-gray-200">
-                    {selectedEvent.saveTheDate
-                      ? lang === 'es'
-                        ? 'Proximamente'
-                        : 'Coming Soon'
-                      : lang === 'es'
-                      ? 'Evento archivado'
-                      : 'Archived Event'}
+                    {lang === 'es' ? 'Proximamente' : 'Coming Soon'}
                   </div>
                 )}
 
