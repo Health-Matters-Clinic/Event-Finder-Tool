@@ -39,6 +39,7 @@ export interface RSVPPayload {
   eventId: string;
   eventTitle: string;
   eventDate: string; // display date is fine for UI; backend uses eventId to look up actual date
+  eventTime?: string; // event time for confirmation emails
   name: string;
 
   // Either email OR phone is required. For minors, minorName may be used to allow multiple under one guardian contact.

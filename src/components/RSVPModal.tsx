@@ -96,6 +96,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       eventId: event.id,
       eventTitle: event.title,
       eventDate: event.dateDisplay,
+      eventTime: event.time,
       name,
       email: email || undefined,
       phone: phone || undefined,

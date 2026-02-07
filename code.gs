@@ -3,6 +3,7 @@
 // ========================================
 const CONFIG = {
   SPREADSHEET_ID: '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycby0Fse9o3DxN_3RnbOAWYFKZlXQZNEHFVjCuL1SeWi3ZQAyTWx0Cog7jW7Emai74KaVqA/exec',
   ADMIN_EMAIL: 'admin@healthmatters.clinic',
   CC_EMAILS: 'events@healthmatters.clinic'
 };
@@ -36,6 +37,7 @@ function doGet(e) {
       eventId: p.eventId || '',
       eventTitle: p.eventTitle || '',
       eventDate: p.eventDate || '',
+      eventTime: p.eventTime || '',
       name: p.name || '',
       email: p.email || '',
       phone: p.phone || '',
@@ -487,18 +489,25 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     ? 'Registro Confirmado | Health Matters Clinic Events'
     : 'Registration Confirmed | Health Matters Clinic Events';
 
-  var checkinUrl = ScriptApp.getService().getUrl() + '?token=' + checkinToken;
+  var checkinUrl = CONFIG.SCRIPT_URL + '?token=' + checkinToken;
 
   var greeting = payload.lang === 'es' ? 'Hola ' : 'Hi ';
   var confirmMsg = payload.lang === 'es'
     ? 'Tu registro ha sido confirmado para:'
     : 'Your registration has been confirmed for:';
   var dateLabel = payload.lang === 'es' ? 'Fecha: ' : 'Date: ';
+  var timeLabel = payload.lang === 'es' ? 'Hora: ' : 'Time: ';
   var checkinLabel = payload.lang === 'es' ? 'Check-in el Día del Evento' : 'Check-in on Event Day';
   var checkinNote = payload.lang === 'es'
     ? 'Usa el botón de arriba para hacer check-in cuando llegues al evento.'
     : 'Use the button above to check in when you arrive at the event.';
   var questionLabel = payload.lang === 'es' ? '¿Preguntas?' : 'Questions?';
+
+  // Build time line if eventTime is provided
+  var timeLine = '';
+  if (payload.eventTime) {
+    timeLine = '<p style="margin:5px 0;color:#666;"><strong>' + timeLabel + '</strong>' + payload.eventTime + '</p>';
+  }
 
   var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
     '<body style="font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5;">' +
@@ -511,7 +520,8 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     '<p style="color:#666;">' + confirmMsg + '</p>' +
     '<div style="background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #233dff;">' +
     '<h2 style="color:#233dff;margin:0 0 10px 0;font-size:20px;">' + payload.eventTitle + '</h2>' +
-    '<p style="margin:5px 0;color:#666;"><strong>' + dateLabel + '</strong>' + payload.eventDate + '</p></div>' +
+    '<p style="margin:5px 0;color:#666;"><strong>' + dateLabel + '</strong>' + payload.eventDate + '</p>' +
+    timeLine + '</div>' +
     '<div style="text-align:center;margin:30px 0;">' +
     '<a href="' + checkinUrl + '" style="display:inline-block;background:#10b981;color:white;padding:15px 40px;border-radius:30px;text-decoration:none;font-weight:bold;font-size:16px;">' + checkinLabel + '</a></div>' +
     '<p style="color:#999;font-size:12px;text-align:center;">' + checkinNote + '</p>' +
@@ -659,14 +669,15 @@ function buildErrorPage(message) {
 }
 
 // ========================================
-// TEST FUNCTION
+// TEST FUNCTION (no emails)
 // ========================================
 function test() {
   Logger.log('=== HEALTH MATTERS CLINIC EVENTS - TEST ===\n');
 
+  var ss;
   Logger.log('1. Testing spreadsheet access...');
   try {
-    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
     Logger.log('   SUCCESS: ' + ss.getName() + '\n');
   } catch (e) {
     Logger.log('   FAILED: ' + e + '\n');
@@ -678,22 +689,58 @@ function test() {
   var rsvpsSheet = ss.getSheetByName('RSVPs');
   var partnersSheet = ss.getSheetByName('Partner Requests');
 
-  Logger.log('   Events: ' + (eventsSheet ? 'OK (' + (eventsSheet.getLastRow() - 1) + ' events)' : 'MISSING - will be created on first save'));
-  Logger.log('   RSVPs: ' + (rsvpsSheet ? 'OK (' + (rsvpsSheet.getLastRow() - 1) + ' registrations)' : 'MISSING - will be created'));
-  Logger.log('   Partner Requests: ' + (partnersSheet ? 'OK' : 'MISSING - will be created') + '\n');
+  Logger.log('   Events: ' + (eventsSheet ? 'OK (' + (eventsSheet.getLastRow() - 1) + ' events)' : 'MISSING - run setupSheets()'));
+  Logger.log('   RSVPs: ' + (rsvpsSheet ? 'OK (' + (rsvpsSheet.getLastRow() - 1) + ' registrations)' : 'MISSING'));
+  Logger.log('   Partner Requests: ' + (partnersSheet ? 'OK' : 'MISSING') + '\n');
 
   Logger.log('3. Testing getEvents...');
   var eventsResult = getEvents();
   Logger.log('   ' + (eventsResult.success ? 'SUCCESS: ' + eventsResult.events.length + ' events found' : 'FAILED: ' + eventsResult.error) + '\n');
 
-  Logger.log('4. Testing RSVP...');
+  Logger.log('=== TEST COMPLETE ===');
+  Logger.log('Run testWithEmails() to test full flow including email delivery.');
+}
+
+// ========================================
+// FULL TEST WITH EMAILS
+// ========================================
+function testWithEmails() {
+  var testEmail = 'test@healthmatters.clinic';
+
+  Logger.log('=== FULL TEST WITH EMAILS ===\n');
+  Logger.log('Sending test emails to: ' + testEmail + '\n');
+
+  var ss;
+  Logger.log('1. Testing spreadsheet access...');
+  try {
+    ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    Logger.log('   SUCCESS: ' + ss.getName() + '\n');
+  } catch (e) {
+    Logger.log('   FAILED: ' + e + '\n');
+    return;
+  }
+
+  Logger.log('2. Checking sheets...');
+  var eventsSheet = ss.getSheetByName('Events');
+  var rsvpsSheet = ss.getSheetByName('RSVPs');
+  var partnersSheet = ss.getSheetByName('Partner Requests');
+
+  Logger.log('   Events: ' + (eventsSheet ? 'OK (' + (eventsSheet.getLastRow() - 1) + ' events)' : 'MISSING - run setupSheets()'));
+  Logger.log('   RSVPs: ' + (rsvpsSheet ? 'OK (' + (rsvpsSheet.getLastRow() - 1) + ' registrations)' : 'MISSING'));
+  Logger.log('   Partner Requests: ' + (partnersSheet ? 'OK' : 'MISSING') + '\n');
+
+  Logger.log('3. Testing getEvents...');
+  var eventsResult = getEvents();
+  Logger.log('   ' + (eventsResult.success ? 'SUCCESS: ' + eventsResult.events.length + ' events found' : 'FAILED: ' + eventsResult.error) + '\n');
+
+  Logger.log('4. Testing RSVP with email...');
   try {
     handleRSVP({
       eventId: 'TEST-001',
-      eventTitle: 'Test Event',
+      eventTitle: 'Test Event - RSVP Email Test',
       eventDate: 'February 10, 2026',
       name: 'Test User',
-      email: '', // Empty to avoid sending test email
+      email: testEmail,
       phone: '5551234567',
       contact_method: 'email',
       sms_consent: true,
@@ -701,35 +748,70 @@ function test() {
       minorName: '',
       needs: 'Health Screening',
       lang: 'en',
-      source: 'Test'
+      source: 'Test Script'
     });
-    Logger.log('   SUCCESS: Check RSVPs sheet\n');
+    Logger.log('   SUCCESS: RSVP created, confirmation email sent to ' + testEmail + '\n');
   } catch (e) {
     Logger.log('   FAILED: ' + e + '\n');
   }
 
-  Logger.log('5. Testing Partner Request...');
+  Logger.log('5. Testing Partner Request with email...');
   try {
     handlePartnerRequest({
       name: 'Test Partner',
-      email: '', // Empty to avoid sending test email
-      organization: 'Test Org',
-      eventTitle: 'Test Partner Event',
-      eventDescription: 'Test description',
+      email: testEmail,
+      organization: 'Test Organization',
+      eventTitle: 'Test Partner Event - Email Test',
+      eventDescription: 'This is a test partner event submission to verify email delivery.',
       proposedDate: '2026-03-15',
       eventTime: '10:00 AM - 2:00 PM',
-      location: 'Test Location',
-      flyerUrl: '',
+      location: '123 Test Street, Los Angeles, CA 90001',
+      flyerUrl: 'https://example.com/test-flyer.jpg',
       lang: 'en'
     });
-    Logger.log('   SUCCESS: Check Partner Requests sheet\n');
+    Logger.log('   SUCCESS: Partner request created, emails sent\n');
   } catch (e) {
     Logger.log('   FAILED: ' + e + '\n');
   }
 
-  Logger.log('=== TEST COMPLETE ===');
-  Logger.log('Note: Test entries added to RSVPs and Partner Requests sheets.');
-  Logger.log('You may want to delete them after verification.');
+  Logger.log('6. Testing saveEvent...');
+  try {
+    var testEvent = {
+      id: 'test-event-' + Date.now(),
+      title: 'Test Event from Script',
+      date: '2026-03-01',
+      dateDisplay: 'Sunday, March 1, 2026',
+      time: '10:00 AM - 2:00 PM',
+      location: 'Test Location',
+      city: 'Los Angeles',
+      address: '123 Test St, Los Angeles, CA 90001',
+      program: 'Community Wellness',
+      lat: 34.0522,
+      lng: -118.2437,
+      description: 'Test event created by script.',
+      saveTheDate: false,
+      flyerUrl: '',
+      websiteUrl: '',
+      isPromoted: false,
+      isSponsored: false,
+      createdAt: new Date().toISOString()
+    };
+    var saveResult = saveEvent(testEvent);
+    Logger.log('   ' + (saveResult.success ? 'SUCCESS: Event saved to sheet' : 'FAILED: ' + saveResult.error) + '\n');
+  } catch (e) {
+    Logger.log('   FAILED: ' + e + '\n');
+  }
+
+  Logger.log('=== FULL TEST COMPLETE ===\n');
+  Logger.log('Check the following:');
+  Logger.log('1. RSVPs sheet - new test entry');
+  Logger.log('2. Partner Requests sheet - new test entry');
+  Logger.log('3. Events sheet - new test event');
+  Logger.log('4. ' + testEmail + ' inbox:');
+  Logger.log('   - RSVP confirmation email with check-in button');
+  Logger.log('   - Partner request confirmation email');
+  Logger.log('5. ' + CONFIG.ADMIN_EMAIL + ' inbox:');
+  Logger.log('   - Admin notification for partner request');
 }
 
 // ========================================
