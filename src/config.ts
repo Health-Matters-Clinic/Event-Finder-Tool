@@ -1,8 +1,7 @@
 // Configuration for Event Finder Tool
 
 // Google Apps Script URL - Backend for events, RSVPs, and partner requests
-// IMPORTANT: Replace this with your deployed Google Apps Script URL
-export const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzJAvUOPoD55fqwcG0REUojOgraAZaham-8x7wojNxuwwC1srf0F1hZ-9adXKezcCHHsg/exec';
+export const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby0Fse9o3DxN_3RnbOAWYFKZlXQZNEHFVjCuL1SeWi3ZQAyTWx0Cog7jW7Emai74KaVqA/exec';
 
 // Admin passcode for accessing the admin panel
 export const ADMIN_PASSCODE = 'HMC2026';
