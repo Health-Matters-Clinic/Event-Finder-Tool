@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { EVENTS, I18N } from './constants';
-import { VOLUNTEER_PORTAL_API_URL, STORAGE_KEYS } from './config';
+import { GOOGLE_APPS_SCRIPT_URL, STORAGE_KEYS } from './config';
 import { ClinicEvent, Language } from './types';
 import { Button } from './components/Button';
 import { RSVPModal } from './components/RSVPModal';
@@ -78,36 +78,37 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Load events from localStorage or API on mount
+  // Load events from Google Sheets backend on mount
   useEffect(() => {
     const loadEvents = async () => {
-      // First, try to load from localStorage
-      const storedEvents = localStorage.getItem(STORAGE_KEYS.EVENTS);
-      if (storedEvents) {
+      // Try to fetch from Google Apps Script backend
+      try {
+        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+            setEvents(data.events);
+            // Cache locally for faster subsequent loads
+            localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(data.events));
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch events from backend:', e);
+      }
+
+      // Try cached events
+      const cachedEvents = localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE);
+      if (cachedEvents) {
         try {
-          const parsed = JSON.parse(storedEvents);
+          const parsed = JSON.parse(cachedEvents);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setEvents(parsed);
             return;
           }
         } catch (e) {
-          console.warn('Failed to parse stored events:', e);
+          console.warn('Failed to parse cached events:', e);
         }
-      }
-
-      // Then, try to fetch from volunteer portal API
-      try {
-        const response = await fetch(`${VOLUNTEER_PORTAL_API_URL}/events`);
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setEvents(data);
-            localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(data));
-            return;
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to fetch events from API:', e);
       }
 
       // Fall back to hardcoded events

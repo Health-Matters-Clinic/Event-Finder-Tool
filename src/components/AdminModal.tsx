@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { ClinicEvent, Language } from '../types';
-import { ADMIN_PASSCODE, STORAGE_KEYS } from '../config';
+import { ADMIN_PASSCODE, STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL } from '../config';
 
 interface AdminModalProps {
   lang: Language;
@@ -60,6 +60,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [formData, setFormData] = useState<ClinicEvent>(emptyEvent);
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // Check if already authenticated
   useEffect(() => {
@@ -93,11 +95,30 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setView('edit');
   };
 
-  const handleDeleteEvent = (eventId: string) => {
+  const handleDeleteEvent = async (eventId: string) => {
     if (window.confirm(lang === 'es' ? 'Eliminar este evento?' : 'Delete this event?')) {
-      const updated = events.filter((e) => e.id !== eventId);
-      onEventsUpdate(updated);
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(updated));
+      setIsSaving(true);
+      setSaveError('');
+
+      try {
+        // Delete from backend
+        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'deleteEvent', id: eventId }),
+          mode: 'no-cors', // Required for Google Apps Script
+        });
+
+        // Update local state
+        const updated = events.filter((e) => e.id !== eventId);
+        onEventsUpdate(updated);
+        localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(updated));
+      } catch (error) {
+        console.error('Failed to delete event:', error);
+        setSaveError(lang === 'es' ? 'Error al eliminar' : 'Failed to delete');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -113,8 +134,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }));
   };
 
-  const handleSaveEvent = (e: React.FormEvent) => {
+  const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+    setSaveError('');
 
     // Generate dateDisplay from date if not provided
     let eventToSave = { ...formData };
@@ -133,16 +156,42 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       eventToSave.location = eventToSave.city;
     }
 
-    let updated: ClinicEvent[];
-    if (editingEvent) {
-      updated = events.map((e) => (e.id === editingEvent.id ? eventToSave : e));
-    } else {
-      updated = [...events, eventToSave];
-    }
+    try {
+      // Save to backend
+      await fetch(GOOGLE_APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'saveEvent', event: eventToSave }),
+        mode: 'no-cors', // Required for Google Apps Script
+      });
 
-    onEventsUpdate(updated);
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(updated));
-    setView('main');
+      // Update local state
+      let updated: ClinicEvent[];
+      if (editingEvent) {
+        updated = events.map((e) => (e.id === editingEvent.id ? eventToSave : e));
+      } else {
+        updated = [...events, eventToSave];
+      }
+
+      onEventsUpdate(updated);
+      localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(updated));
+      setView('main');
+    } catch (error) {
+      console.error('Failed to save event:', error);
+      setSaveError(lang === 'es' ? 'Error al guardar. Los cambios se guardaron localmente.' : 'Failed to save to server. Changes saved locally.');
+
+      // Still update local state on error
+      let updated: ClinicEvent[];
+      if (editingEvent) {
+        updated = events.map((e) => (e.id === editingEvent.id ? eventToSave : e));
+      } else {
+        updated = [...events, eventToSave];
+      }
+      onEventsUpdate(updated);
+      localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(updated));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleExportJSON = () => {
@@ -156,19 +205,35 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const handleImportJSON = () => {
+  const handleImportJSON = async () => {
     try {
       const imported = JSON.parse(importText);
       if (Array.isArray(imported)) {
+        setIsSaving(true);
+
+        // Save all events to backend
+        try {
+          await fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'saveAllEvents', events: imported }),
+            mode: 'no-cors',
+          });
+        } catch (e) {
+          console.warn('Failed to sync to backend:', e);
+        }
+
         onEventsUpdate(imported);
-        localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(imported));
+        localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(imported));
         setShowImport(false);
         setImportText('');
+        setIsSaving(false);
         alert(lang === 'es' ? 'Eventos importados con exito!' : 'Events imported successfully!');
       } else {
         alert(lang === 'es' ? 'Formato JSON invalido' : 'Invalid JSON format');
       }
     } catch (err) {
+      setIsSaving(false);
       alert(lang === 'es' ? 'Error al parsear JSON' : 'Error parsing JSON');
     }
   };
@@ -227,6 +292,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
         {/* Body */}
         <div className="p-6 sm:p-8 flex-1 overflow-y-auto">
+          {/* Status Messages */}
+          {isSaving && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 flex items-center gap-3">
+              <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+              <span className="text-sm font-semibold text-blue-700">
+                {lang === 'es' ? 'Guardando...' : 'Saving...'}
+              </span>
+            </div>
+          )}
+          {saveError && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
+              <span className="text-sm font-semibold text-yellow-800">{saveError}</span>
+            </div>
+          )}
+
           {/* Passcode View */}
           {view === 'passcode' && (
             <form onSubmit={handlePasscodeSubmit} className="space-y-6">
@@ -257,7 +337,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             <div className="space-y-6">
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-3">
-                <Button onClick={handleCreateNew} className="h-11">
+                <Button onClick={handleCreateNew} className="h-11" disabled={isSaving}>
                   {lang === 'es' ? 'Crear Evento' : 'Create Event'}
                 </Button>
                 <Button variant="outline" onClick={handleExportJSON} className="h-11">
@@ -269,6 +349,30 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   className="h-11"
                 >
                   {lang === 'es' ? 'Importar JSON' : 'Import JSON'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    setIsSaving(true);
+                    setSaveError('');
+                    try {
+                      await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'saveAllEvents', events }),
+                        mode: 'no-cors',
+                      });
+                      alert(lang === 'es' ? 'Sincronizado!' : 'Synced to cloud!');
+                    } catch (e) {
+                      setSaveError(lang === 'es' ? 'Error al sincronizar' : 'Sync failed');
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                  className="h-11"
+                  disabled={isSaving}
+                >
+                  {isSaving ? '...' : lang === 'es' ? 'Sincronizar' : 'Sync to Cloud'}
                 </Button>
                 <Button variant="outline" onClick={handleLogout} className="h-11 ml-auto">
                   {lang === 'es' ? 'Cerrar Sesion' : 'Logout'}
@@ -288,8 +392,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-sm font-mono focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                     placeholder='[{"id": "...", "title": "...", ...}]'
                   />
-                  <Button onClick={handleImportJSON} className="h-10">
-                    {lang === 'es' ? 'Importar' : 'Import'}
+                  <Button onClick={handleImportJSON} className="h-10" disabled={isSaving}>
+                    {isSaving ? '...' : lang === 'es' ? 'Importar' : 'Import'}
                   </Button>
                 </div>
               )}
@@ -620,8 +724,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
               {/* Form Actions */}
               <div className="flex gap-3 pt-4">
-                <Button type="submit" className="h-12 flex-1 justify-center">
-                  {editingEvent
+                <Button type="submit" className="h-12 flex-1 justify-center" disabled={isSaving}>
+                  {isSaving
+                    ? '...'
+                    : editingEvent
                     ? lang === 'es'
                       ? 'Guardar Cambios'
                       : 'Save Changes'
@@ -634,6 +740,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   variant="outline"
                   onClick={() => setView('main')}
                   className="h-12"
+                  disabled={isSaving}
                 >
                   {lang === 'es' ? 'Cancelar' : 'Cancel'}
                 </Button>
