@@ -300,7 +300,8 @@ const App: React.FC = () => {
 
   const handleShare = async () => {
     if (!selectedEvent) return;
-    const shareText = `${translateEventTitle(selectedEvent.title, lang)} - ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
+    const eventTitle = translateEventTitle(selectedEvent.title, lang);
+    const shareText = `${eventTitle} - ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
 
     // Create event-specific share URL - use title if ID looks like a date
     let eventSlug = selectedEvent.id;
@@ -312,32 +313,28 @@ const App: React.FC = () => {
     }
     const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}`;
 
-    // Try native share first (mobile devices)
+    // Try native share first (Safari, iOS, Android - shows AirDrop, email, copy, etc.)
     if (navigator.share) {
       try {
         await navigator.share({
-          title: translateEventTitle(selectedEvent.title, lang),
+          title: eventTitle,
           text: shareText,
           url: shareUrl,
         });
         return; // Success, don't fall through
       } catch (err: any) {
-        // User cancelled or share failed - fall through to clipboard
-        if (err.name !== 'AbortError') {
-          console.warn('Share failed:', err);
+        // User cancelled - don't fall through to email
+        if (err.name === 'AbortError') {
+          return;
         }
+        // Other error - fall through to email
+        console.warn('Share failed:', err);
       }
     }
 
-    // Fallback: copy to clipboard
-    try {
-      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
-      alert(t.toast_copied);
-    } catch (err) {
-      // Final fallback: open email
-      const mailtoUrl = `mailto:?subject=${encodeURIComponent(translateEventTitle(selectedEvent.title, lang))}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`;
-      window.open(mailtoUrl, '_blank');
-    }
+    // Fallback for desktop browsers: open email
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(eventTitle)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`;
+    window.location.href = mailtoUrl;
   };
 
   const handleEventsUpdate = (newEvents: ClinicEvent[]) => {
