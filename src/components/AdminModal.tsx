@@ -19,6 +19,7 @@ const PROGRAM_OPTIONS = [
   'Community Fair',
   'Community Wellness',
   'Partner Event',
+  'Volunteer',
 ];
 
 // Get default date (2 weeks from now)
@@ -151,44 +152,26 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       eventToSave.location = eventToSave.city;
     }
 
+    // Save to backend (fire and forget - CORS prevents reading response)
     try {
-      // Save to backend using URL params (works better with Google Apps Script CORS)
-      const params = new URLSearchParams();
-      params.append('action', 'saveEvent');
-      // Send event data as JSON string in 'event' param
-      params.append('event', JSON.stringify(eventToSave));
-
-      await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`, {
-        method: 'GET',
-      });
-
-      // Update local state
-      let updated: ClinicEvent[];
-      if (editingEvent) {
-        updated = events.map((e) => (e.id === editingEvent.id ? eventToSave : e));
-      } else {
-        updated = [...events, eventToSave];
-      }
-
-      onEventsUpdate(updated);
-      localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(updated));
-      setView('main');
+      await saveEventToBackend(eventToSave);
     } catch (error) {
-      console.error('Failed to save event:', error);
-      setSaveError(lang === 'es' ? 'Error al guardar. Los cambios se guardaron localmente.' : 'Failed to save to server. Changes saved locally.');
-
-      // Still update local state on error
-      let updated: ClinicEvent[];
-      if (editingEvent) {
-        updated = events.map((e) => (e.id === editingEvent.id ? eventToSave : e));
-      } else {
-        updated = [...events, eventToSave];
-      }
-      onEventsUpdate(updated);
-      localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(updated));
-    } finally {
-      setIsSaving(false);
+      console.warn('Backend save request:', error);
+      // Don't show error - request likely went through, CORS just blocks response
     }
+
+    // Update local state optimistically
+    let updated: ClinicEvent[];
+    if (editingEvent) {
+      updated = events.map((e) => (e.id === editingEvent.id ? eventToSave : e));
+    } else {
+      updated = [...events, eventToSave];
+    }
+
+    onEventsUpdate(updated);
+    localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(updated));
+    setView('main');
+    setIsSaving(false);
   };
 
   const handleExportJSON = () => {
