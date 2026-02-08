@@ -101,13 +101,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       setSaveError('');
 
       try {
-        // Delete from backend
-        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'deleteEvent', id: eventId }),
-          mode: 'no-cors', // Required for Google Apps Script
-        });
+        // Delete from backend using GET (works better with Google Apps Script CORS)
+        await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=deleteEvent&id=${encodeURIComponent(eventId)}`);
 
         // Update local state
         const updated = events.filter((e) => e.id !== eventId);
@@ -157,12 +152,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
 
     try {
-      // Save to backend
-      await fetch(GOOGLE_APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'saveEvent', event: eventToSave }),
-        mode: 'no-cors', // Required for Google Apps Script
+      // Save to backend using URL params (works better with Google Apps Script CORS)
+      const params = new URLSearchParams();
+      params.append('action', 'saveEvent');
+      // Send event data as JSON string in 'event' param
+      params.append('event', JSON.stringify(eventToSave));
+
+      await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`, {
+        method: 'GET',
       });
 
       // Update local state
@@ -205,20 +202,38 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  // Helper to save a single event to backend
+  const saveEventToBackend = async (event: ClinicEvent) => {
+    const hasBase64Flyer = event.flyerUrl?.startsWith('data:');
+
+    if (hasBase64Flyer) {
+      // For events with base64 flyers, use POST with text/plain (CORS-safe)
+      // Send as plain text JSON - server will parse it
+      await fetch(GOOGLE_APPS_SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'saveEvent', event }),
+        mode: 'no-cors',
+      });
+    } else {
+      // For events without flyers or with URL flyers, use GET
+      const params = new URLSearchParams();
+      params.append('action', 'saveEvent');
+      params.append('event', JSON.stringify(event));
+      await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
+    }
+  };
+
   const handleImportJSON = async () => {
     try {
       const imported = JSON.parse(importText);
       if (Array.isArray(imported)) {
         setIsSaving(true);
 
-        // Save all events to backend
+        // Save events to backend one at a time
         try {
-          await fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'saveAllEvents', events: imported }),
-            mode: 'no-cors',
-          });
+          for (const event of imported) {
+            await saveEventToBackend(event);
+          }
         } catch (e) {
           console.warn('Failed to sync to backend:', e);
         }
@@ -356,12 +371,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     setIsSaving(true);
                     setSaveError('');
                     try {
-                      await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'saveAllEvents', events }),
-                        mode: 'no-cors',
-                      });
+                      // Save each event one at a time
+                      for (const event of events) {
+                        await saveEventToBackend(event);
+                      }
                       alert(lang === 'es' ? 'Sincronizado!' : 'Synced to cloud!');
                     } catch (e) {
                       setSaveError(lang === 'es' ? 'Error al sincronizar' : 'Sync failed');
@@ -601,10 +614,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <span className="text-gray-300">(optional)</span>
                   </label>
 
-                  {/* Upload Button */}
                   <div className="flex items-center gap-3 mb-3">
                     <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-sm border-[1.5px] border-black bg-white text-[#1a1a1a] hover:bg-gray-50 transition-all">
-                      <span className="w-2 h-2 rounded-full bg-black" />
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
@@ -615,18 +626,44 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) {
-                            // Check file size (max 5MB)
-                            if (file.size > 5 * 1024 * 1024) {
-                              alert(lang === 'es' ? 'El archivo es muy grande. Maximo 5MB.' : 'File is too large. Max 5MB.');
-                              return;
-                            }
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setFormData((prev) => ({ ...prev, flyerUrl: reader.result as string }));
+                          if (!file) return;
+
+                          // Compress image using canvas
+                          const img = new Image();
+                          const reader = new FileReader();
+
+                          reader.onload = (e) => {
+                            img.onload = () => {
+                              const canvas = document.createElement('canvas');
+                              const MAX_WIDTH = 600;
+                              const MAX_HEIGHT = 800;
+
+                              let width = img.width;
+                              let height = img.height;
+
+                              // Scale down if needed
+                              if (width > MAX_WIDTH) {
+                                height = (height * MAX_WIDTH) / width;
+                                width = MAX_WIDTH;
+                              }
+                              if (height > MAX_HEIGHT) {
+                                width = (width * MAX_HEIGHT) / height;
+                                height = MAX_HEIGHT;
+                              }
+
+                              canvas.width = width;
+                              canvas.height = height;
+
+                              const ctx = canvas.getContext('2d');
+                              ctx?.drawImage(img, 0, 0, width, height);
+
+                              // Compress to JPEG at 60% quality
+                              const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                              setFormData((prev) => ({ ...prev, flyerUrl: compressedDataUrl }));
                             };
-                            reader.readAsDataURL(file);
-                          }
+                            img.src = e.target?.result as string;
+                          };
+                          reader.readAsDataURL(file);
                         }}
                       />
                     </label>
@@ -648,7 +685,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         src={formData.flyerUrl}
                         alt="Flyer preview"
                         className="w-full max-h-64 object-contain"
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
                       />
                     </div>
                   )}
