@@ -575,7 +575,7 @@ const App: React.FC = () => {
                     setMobileView('list');
                   }}
                 >
-                  {lang === 'es' ? '← Ver Lista' : '← View List'}
+                  {lang === 'es' ? 'Ver Lista' : 'View List'}
                 </Button>
               </div>
             </div>
