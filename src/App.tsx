@@ -75,19 +75,19 @@ const App: React.FC = () => {
 
   const t = I18N[lang];
 
-  // Check URL parameters for deep linking (supports both ?event= and #event=)
+  // Check URL parameters for deep linking
   useEffect(() => {
     const getEventParam = () => {
-      // Check query string first: ?event=slug
+      // 1. Check own query string: ?event=slug (direct access)
       const urlParams = new URLSearchParams(window.location.search);
       const queryEvent = urlParams.get('event');
       if (queryEvent) return queryEvent;
 
-      // Check hash: #event=slug
+      // 2. Check own hash: #event=slug
       const hash = window.location.hash;
       if (hash.startsWith('#event=')) return hash.slice(7);
 
-      // Check parent window query string (for iframe embedding)
+      // 3. Check parent window (same-origin iframe)
       try {
         if (window.parent !== window) {
           const parentParams = new URLSearchParams(window.parent.location.search);
@@ -95,7 +95,18 @@ const App: React.FC = () => {
           if (parentEvent) return parentEvent;
         }
       } catch {
-        // Cross-origin parent — can't access, that's fine
+        // Cross-origin parent — can't access directly, fall through
+      }
+
+      // 4. Check document.referrer (cross-origin iframe — parent URL with query params)
+      if (document.referrer) {
+        try {
+          const referrerUrl = new URL(document.referrer);
+          const referrerEvent = referrerUrl.searchParams.get('event');
+          if (referrerEvent) return referrerEvent;
+        } catch {
+          // Invalid referrer URL, ignore
+        }
       }
 
       return null;
@@ -106,15 +117,14 @@ const App: React.FC = () => {
       setPendingEventSlug(eventParam);
     }
 
-    // Listen for hash changes (e.g., parent page updating iframe hash)
-    const onHashChange = () => {
-      const hash = window.location.hash;
-      if (hash.startsWith('#event=')) {
-        setPendingEventSlug(hash.slice(7));
+    // Listen for postMessage from parent (Webflow can send event param)
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'selectEvent' && e.data?.eventSlug) {
+        setPendingEventSlug(e.data.eventSlug);
       }
     };
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
   }, []);
 
   // Load events from Google Sheets backend on mount
@@ -344,7 +354,7 @@ const App: React.FC = () => {
     } else {
       eventSlug = eventSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     }
-    const shareUrl = `https://teamhmc.github.io/Event-Finder-Tool/#event=${eventSlug}`;
+    const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}`;
 
     // Try native share first (Safari, iOS, Android - shows AirDrop, email, copy, etc.)
     if (navigator.share) {
