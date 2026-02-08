@@ -132,10 +132,20 @@ const App: React.FC = () => {
     let isMounted = true;
 
     const loadEvents = async () => {
-      // Clear stale cache
-      localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE);
+      // Show cached events immediately so users don't see a blank screen
+      try {
+        const cached = localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE);
+        if (cached) {
+          const cachedEvents = JSON.parse(cached);
+          if (Array.isArray(cachedEvents) && cachedEvents.length > 0 && isMounted) {
+            setEvents(cachedEvents);
+          }
+        }
+      } catch {
+        // Ignore parse errors from corrupt cache
+      }
 
-      // Always fetch fresh from Google Apps Script backend
+      // Fetch fresh data from Google Apps Script in the background
       try {
         const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`);
         if (response.ok) {
@@ -152,9 +162,9 @@ const App: React.FC = () => {
         console.warn('Failed to fetch events from backend:', e);
       }
 
-      // Fall back to hardcoded events only if backend failed
+      // Fall back to hardcoded events only if backend failed AND no cache was loaded
       if (isMounted) {
-        setEvents(EVENTS);
+        setEvents(prev => prev.length > 0 ? prev : EVENTS);
       }
     };
 
