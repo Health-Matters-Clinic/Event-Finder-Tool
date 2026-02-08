@@ -36,6 +36,13 @@ function doGet(e) {
       case 'getEvent':
         result = getEvent(params.id);
         break;
+      case 'saveEvent':
+        // Support saveEvent via GET (event JSON passed as query param)
+        result = saveEvent(params.event ? JSON.parse(params.event) : null);
+        break;
+      case 'deleteEvent':
+        result = deleteEvent(params.id);
+        break;
       default:
         // Handle RSVP/partner submissions via GET (image ping)
         if (params.action === 'preregister') {
@@ -162,10 +169,10 @@ function saveEvent(event) {
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
 
-  // Find existing event row
+  // Find existing event row (String() handles Sheets auto-formatting IDs as Date objects)
   let rowIndex = -1;
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === event.id) {
+    if (String(data[i][0]) === String(event.id)) {
       rowIndex = i + 1; // Sheet rows are 1-indexed
       break;
     }
@@ -199,7 +206,7 @@ function deleteEvent(id) {
   const data = sheet.getDataRange().getValues();
 
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === id) {
+    if (String(data[i][0]) === String(id)) {
       sheet.deleteRow(i + 1);
       return { success: true };
     }
