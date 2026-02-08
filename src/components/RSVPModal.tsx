@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from './Button';
 import { I18N } from '../constants';
-import { GOOGLE_APPS_SCRIPT_URL } from '../config';
+import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL } from '../config';
 import { Language, ClinicEvent, RSVPPayload } from '../types';
 import { translateEventTitle } from '../utils/translation';
 
@@ -111,6 +111,25 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
 
     try {
       const data = await postJson(payload);
+
+      // Dual-write to Volunteer Portal for volunteer matching (non-minors only)
+      if (!payload.isMinor) {
+        fetch(`${PORTAL_API_URL}/api/public/rsvp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventId: payload.eventId,
+            eventTitle: payload.eventTitle,
+            eventDate: payload.eventDate,
+            name: payload.name,
+            email: payload.email || '',
+            phone: payload.phone || '',
+            needs: (payload.needs || []).join(', '),
+            source: payload.source,
+          }),
+        }).catch(() => {}); // Fire-and-forget — never block UX
+      }
+
       setCheckinToken(String(data.checkinToken || ''));
       setState('preregistered');
     } catch (err: any) {
