@@ -102,7 +102,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       setSaveError('');
 
       try {
-        // Delete from backend using GET (works better with Google Apps Script CORS)
+        // Delete from backend
         await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=deleteEvent&id=${encodeURIComponent(eventId)}`);
 
         // Update local state
@@ -190,15 +190,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     const hasBase64Flyer = event.flyerUrl?.startsWith('data:');
 
     if (hasBase64Flyer) {
-      // For events with base64 flyers, use POST with text/plain (CORS-safe)
-      // Send as plain text JSON - server will parse it
+      // For events with base64 flyers, use POST (too large for URL)
       await fetch(GOOGLE_APPS_SCRIPT_URL, {
         method: 'POST',
         body: JSON.stringify({ action: 'saveEvent', event }),
         mode: 'no-cors',
       });
     } else {
-      // For events without flyers or with URL flyers, use GET
+      // For events without flyers, use GET (readable response for debugging)
       const params = new URLSearchParams();
       params.append('action', 'saveEvent');
       params.append('event', JSON.stringify(event));

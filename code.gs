@@ -236,7 +236,18 @@ function getEvents() {
       events.push(event);
     }
 
-    return { success: true, events: events };
+    // Deduplicate by ID (keep last occurrence — most recently updated)
+    var seen = {};
+    var deduped = [];
+    for (var k = events.length - 1; k >= 0; k--) {
+      var eid = String(events[k].id);
+      if (!seen[eid]) {
+        seen[eid] = true;
+        deduped.unshift(events[k]);
+      }
+    }
+
+    return { success: true, events: deduped };
   } catch (error) {
     return { success: false, error: error.toString() };
   }
@@ -276,10 +287,10 @@ function saveEvent(event) {
     var data = sheet.getDataRange().getValues();
     var headers = data[0];
 
-    // Find existing event row
+    // Find existing event row (toString() handles Sheets auto-formatting IDs as Date objects)
     var rowIndex = -1;
     for (var i = 1; i < data.length; i++) {
-      if (data[i][0] === event.id) {
+      if (String(data[i][0]) === String(event.id)) {
         rowIndex = i + 1;
         break;
       }
@@ -300,22 +311,25 @@ function saveEvent(event) {
     }
 
     if (rowIndex > 0) {
-      sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-      // Format text columns to prevent auto-conversion
+      // Format text columns BEFORE writing to prevent auto-conversion of IDs/dates
       sheet.getRange(rowIndex, 1).setNumberFormat('@');  // id
       sheet.getRange(rowIndex, 3).setNumberFormat('@');  // date
       sheet.getRange(rowIndex, 4).setNumberFormat('@');  // dateDisplay
       sheet.getRange(rowIndex, 5).setNumberFormat('@');  // time
       sheet.getRange(rowIndex, 14).setNumberFormat('@'); // flyerUrl
+      sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
     } else {
+      // For new rows, append first then format
       sheet.appendRow(rowData);
       var lastRow = sheet.getLastRow();
-      // Format text columns to prevent auto-conversion
-      sheet.getRange(lastRow, 1).setNumberFormat('@');  // id
-      sheet.getRange(lastRow, 3).setNumberFormat('@');  // date
-      sheet.getRange(lastRow, 4).setNumberFormat('@');  // dateDisplay
-      sheet.getRange(lastRow, 5).setNumberFormat('@');  // time
-      sheet.getRange(lastRow, 14).setNumberFormat('@'); // flyerUrl
+      // Format and re-write text columns to fix auto-conversion
+      sheet.getRange(lastRow, 1).setNumberFormat('@').setValue(String(event.id));
+      sheet.getRange(lastRow, 3).setNumberFormat('@').setValue(String(event.date || ''));
+      sheet.getRange(lastRow, 4).setNumberFormat('@').setValue(String(event.dateDisplay || ''));
+      sheet.getRange(lastRow, 5).setNumberFormat('@').setValue(String(event.time || ''));
+      if (event.flyerUrl) {
+        sheet.getRange(lastRow, 14).setNumberFormat('@').setValue(String(event.flyerUrl));
+      }
     }
 
     return { success: true, event: event };
@@ -340,7 +354,7 @@ function deleteEvent(id) {
     var data = sheet.getDataRange().getValues();
 
     for (var i = 1; i < data.length; i++) {
-      if (data[i][0] === id) {
+      if (String(data[i][0]) === String(id)) {
         sheet.deleteRow(i + 1);
         return { success: true };
       }
