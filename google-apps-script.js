@@ -121,6 +121,7 @@ function getEvents() {
   }
 
   const headers = data[0];
+  const tz = Session.getScriptTimeZone();
   const events = [];
 
   for (let i = 1; i < data.length; i++) {
@@ -130,6 +131,23 @@ function getEvents() {
     const event = {};
     headers.forEach((header, index) => {
       let value = row[index];
+
+      // Google Sheets auto-formats date-like strings (e.g. "Mar-14-2026") as Date objects.
+      // Convert them back to stable string format to prevent timezone-related ID corruption.
+      if (value instanceof Date) {
+        if (header === 'id') {
+          // Preserve original Mon-DD-YYYY format for IDs (e.g. "Mar-14-2026")
+          value = Utilities.formatDate(value, tz, 'MMM-dd-yyyy');
+        } else if (header === 'date') {
+          // Date column uses YYYY-MM-DD format
+          value = Utilities.formatDate(value, tz, 'yyyy-MM-dd');
+        } else if (header === 'createdAt') {
+          value = value.toISOString();
+        } else {
+          // Generic date columns: use YYYY-MM-DD
+          value = Utilities.formatDate(value, tz, 'yyyy-MM-dd');
+        }
+      }
 
       // Convert boolean strings
       if (value === 'TRUE' || value === true) value = true;
@@ -168,11 +186,22 @@ function saveEvent(event) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(EVENTS_SHEET);
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
+  var tz = Session.getScriptTimeZone();
 
-  // Find existing event row (String() handles Sheets auto-formatting IDs as Date objects)
+  // Normalize an ID value for comparison (handles Sheets auto-formatting IDs as Date objects)
+  var normalizeId = function(val) {
+    if (val instanceof Date) {
+      return Utilities.formatDate(val, tz, 'MMM-dd-yyyy');
+    }
+    return String(val);
+  };
+
+  var eventIdNorm = normalizeId(event.id);
+
+  // Find existing event row
   let rowIndex = -1;
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(event.id)) {
+    if (normalizeId(data[i][0]) === eventIdNorm) {
       rowIndex = i + 1; // Sheet rows are 1-indexed
       break;
     }
@@ -204,9 +233,18 @@ function deleteEvent(id) {
 
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(EVENTS_SHEET);
   const data = sheet.getDataRange().getValues();
+  var tz = Session.getScriptTimeZone();
 
+  var normalizeId = function(val) {
+    if (val instanceof Date) {
+      return Utilities.formatDate(val, tz, 'MMM-dd-yyyy');
+    }
+    return String(val);
+  };
+
+  var idNorm = normalizeId(id);
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(id)) {
+    if (normalizeId(data[i][0]) === idNorm) {
       sheet.deleteRow(i + 1);
       return { success: true };
     }

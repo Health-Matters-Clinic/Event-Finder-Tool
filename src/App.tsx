@@ -189,9 +189,17 @@ const App: React.FC = () => {
         const idSlug = toSlug(e.id);
         if (e.id.toLowerCase() === slugLower || idSlug === slugLower) return true;
 
-        // Match by title slug
+        // Match by title slug (unique enough for most events)
         const titleSlug = toSlug(e.title);
         if (titleSlug === slugLower) return true;
+
+        // Match by title+date combo slug (e.g. "community-walk-run-2026-03-14")
+        // This handles share URLs that combine title + date for uniqueness
+        const eventDate = e.date?.includes('T') ? e.date.split('T')[0] : e.date;
+        if (eventDate) {
+          const comboSlug = toSlug(`${e.title}-${eventDate}`);
+          if (comboSlug === slugLower) return true;
+        }
 
         return false;
       });
@@ -357,12 +365,15 @@ const App: React.FC = () => {
     const shareText = `${eventTitle} - ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
 
     // Create event-specific share URL using hash-based deep linking
-    let eventSlug = selectedEvent.id;
-    if (eventSlug.includes('T') || eventSlug.includes(':')) {
-      // ID is a date string, create slug from title instead
-      eventSlug = selectedEvent.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    let eventSlug: string;
+    if (selectedEvent.id.startsWith('event-')) {
+      // Unique timestamp-based ID — use directly
+      eventSlug = selectedEvent.id;
     } else {
-      eventSlug = eventSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      // Date-based or other ID — combine title + date for a unique, readable slug
+      const eventDate = selectedEvent.date?.includes('T') ? selectedEvent.date.split('T')[0] : selectedEvent.date;
+      eventSlug = slugify(`${selectedEvent.title}-${eventDate || selectedEvent.id}`);
     }
     const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}`;
 
