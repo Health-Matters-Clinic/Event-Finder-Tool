@@ -127,12 +127,27 @@ const App: React.FC = () => {
     if (pendingEventSlug && events.length > 0) {
       // Find event by slug (id) or by title (url-friendly)
       const slugLower = pendingEventSlug.toLowerCase();
-      const foundEvent = events.find(e =>
-        e.id.toLowerCase() === slugLower ||
-        e.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') === slugLower
-      );
+
+      // Helper to create URL-safe slug from any string
+      const toSlug = (str: string) => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+
+      const foundEvent = events.find(e => {
+        // Match by ID (exact or slugified)
+        const idSlug = toSlug(e.id);
+        if (e.id.toLowerCase() === slugLower || idSlug === slugLower) return true;
+
+        // Match by title slug
+        const titleSlug = toSlug(e.title);
+        if (titleSlug === slugLower) return true;
+
+        return false;
+      });
 
       if (foundEvent) {
+        // If it's a past event, temporarily enable showPast filter so it appears in the list
+        if (isPast(foundEvent.date)) {
+          setFilters(f => ({ ...f, showPast: true }));
+        }
         setSelectedEvent(foundEvent);
         // Check if URL also has rsvp=true parameter
         const urlParams = new URLSearchParams(window.location.search);
