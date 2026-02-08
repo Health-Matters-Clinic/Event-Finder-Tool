@@ -3,9 +3,11 @@
 // ========================================
 const CONFIG = {
   SPREADSHEET_ID: '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM',
-  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycby0Fse9o3DxN_3RnbOAWYFKZlXQZNEHFVjCuL1SeWi3ZQAyTWx0Cog7jW7Emai74KaVqA/exec',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxWCsuJczUbaPbRA48bskH7EMb31bZahT6w78IXZC6LjymUhv7wN-gMCPj8xNtnt8kqJw/exec',
   ADMIN_EMAIL: 'admin@healthmatters.clinic',
-  CC_EMAILS: 'events@healthmatters.clinic'
+  CC_EMAILS: 'events@healthmatters.clinic',
+  LOGO_URL: 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
+  TIMEZONE: 'America/Los_Angeles'
 };
 
 // ========================================
@@ -71,6 +73,28 @@ function doGet(e) {
     return HtmlService.createHtmlOutput('OK');
   }
 
+  // ===== SAVE EVENT (via GET for CORS compatibility) =====
+  if (action === 'saveEvent') {
+    try {
+      var eventData = p.event ? JSON.parse(p.event) : null;
+      if (eventData) {
+        var result = saveEvent(eventData);
+        return ContentService.createTextOutput(JSON.stringify(result))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    } catch (parseErr) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Failed to parse event data' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ===== DELETE EVENT (via GET for CORS compatibility) =====
+  if (action === 'deleteEvent') {
+    var result = deleteEvent(p.id);
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // ===== CHECK-IN BY TOKEN (returns HTML page) =====
   if (p.token) {
     return handleCheckinByToken(p.token);
@@ -88,15 +112,17 @@ function doPost(e) {
   try {
     var params = e.parameter || {};
 
-    // Handle JSON POST body
-    if (e.postData && e.postData.type === 'application/json') {
+    // Handle POST body - try to parse as JSON regardless of content-type
+    // (no-cors mode sends as text/plain, but content is still JSON)
+    if (e.postData && e.postData.contents) {
       try {
         var jsonParams = JSON.parse(e.postData.contents);
         for (var key in jsonParams) {
           params[key] = jsonParams[key];
         }
       } catch (parseError) {
-        // Continue with URL params
+        // Continue with URL params if JSON parsing fails
+        Logger.log('Failed to parse POST body as JSON: ' + parseError);
       }
     }
 
@@ -166,6 +192,29 @@ function getEvents() {
       for (var j = 0; j < headers.length; j++) {
         var header = headers[j];
         var value = row[j];
+
+        // Handle Date objects from Google Sheets
+        if (value instanceof Date) {
+          if (header === 'date') {
+            // Format as YYYY-MM-DD for the date field
+            var year = value.getFullYear();
+            var month = ('0' + (value.getMonth() + 1)).slice(-2);
+            var day = ('0' + value.getDate()).slice(-2);
+            value = year + '-' + month + '-' + day;
+          } else if (header === 'time') {
+            // Format time as h:mm AM/PM
+            var hours = value.getHours();
+            var minutes = value.getMinutes();
+            var ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            var minutesStr = minutes < 10 ? '0' + minutes : minutes;
+            value = hours + ':' + minutesStr + ' ' + ampm;
+          } else {
+            // For other date fields, convert to string
+            value = Utilities.formatDate(value, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+          }
+        }
 
         // Convert boolean strings
         if (value === 'TRUE' || value === true) {
@@ -252,8 +301,21 @@ function saveEvent(event) {
 
     if (rowIndex > 0) {
       sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
+      // Format text columns to prevent auto-conversion
+      sheet.getRange(rowIndex, 1).setNumberFormat('@');  // id
+      sheet.getRange(rowIndex, 3).setNumberFormat('@');  // date
+      sheet.getRange(rowIndex, 4).setNumberFormat('@');  // dateDisplay
+      sheet.getRange(rowIndex, 5).setNumberFormat('@');  // time
+      sheet.getRange(rowIndex, 14).setNumberFormat('@'); // flyerUrl
     } else {
       sheet.appendRow(rowData);
+      var lastRow = sheet.getLastRow();
+      // Format text columns to prevent auto-conversion
+      sheet.getRange(lastRow, 1).setNumberFormat('@');  // id
+      sheet.getRange(lastRow, 3).setNumberFormat('@');  // date
+      sheet.getRange(lastRow, 4).setNumberFormat('@');  // dateDisplay
+      sheet.getRange(lastRow, 5).setNumberFormat('@');  // time
+      sheet.getRange(lastRow, 14).setNumberFormat('@'); // flyerUrl
     }
 
     return { success: true, event: event };
@@ -336,6 +398,13 @@ function saveAllEvents(events) {
         rows.push(row);
       }
       sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+
+      // Format text columns to prevent auto-conversion
+      sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@');  // id
+      sheet.getRange(2, 3, rows.length, 1).setNumberFormat('@');  // date
+      sheet.getRange(2, 4, rows.length, 1).setNumberFormat('@');  // dateDisplay
+      sheet.getRange(2, 5, rows.length, 1).setNumberFormat('@');  // time
+      sheet.getRange(2, 14, rows.length, 1).setNumberFormat('@'); // flyerUrl
     }
 
     return { success: true, count: events.length };
@@ -362,7 +431,7 @@ function handleRSVP(payload) {
   }
 
   var checkinToken = Utilities.getUuid();
-  var timestamp = Utilities.formatDate(new Date(), 'America/Los_Angeles', 'M/d/yyyy HH:mm:ss');
+  var timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
 
   sheet.appendRow([
     timestamp,
@@ -405,7 +474,7 @@ function handlePartnerRequest(payload) {
     ]);
   }
 
-  var timestamp = Utilities.formatDate(new Date(), 'America/Los_Angeles', 'M/d/yyyy HH:mm:ss');
+  var timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
 
   sheet.appendRow([
     timestamp,
@@ -467,14 +536,17 @@ function handleCheckinByToken(token) {
       }
 
       if (eventDate > tomorrow) {
-        return HtmlService.createHtmlOutput(buildEarlyCheckinPage(name, eventTitle, eventDateStr));
+        // Format date nicely for display
+        var formattedDate = Utilities.formatDate(eventDate, CONFIG.TIMEZONE, 'EEEE, MMMM d, yyyy');
+        return HtmlService.createHtmlOutput(buildEarlyCheckinPage(name, eventTitle, formattedDate));
       }
 
-      // Mark as checked in
+      // Mark as checked in with Pacific time (hour:minute PST)
       sheet.getRange(i + 1, 16).setValue('checked-in');
-      sheet.getRange(i + 1, 17).setValue(Utilities.formatDate(new Date(), 'America/Los_Angeles', 'M/d/yyyy HH:mm:ss'));
+      var checkinTime = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'h:mm a') + ' PST';
+      sheet.getRange(i + 1, 17).setValue(checkinTime);
 
-      return HtmlService.createHtmlOutput(buildSuccessPage(name, eventTitle));
+      return HtmlService.createHtmlOutput(buildSuccessPage(name, eventTitle, checkinTime));
     }
   }
 
@@ -506,27 +578,34 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
   // Build time line if eventTime is provided
   var timeLine = '';
   if (payload.eventTime) {
-    timeLine = '<p style="margin:5px 0;color:#666;"><strong>' + timeLabel + '</strong>' + payload.eventTime + '</p>';
+    timeLine = '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + timeLabel + '</strong>' + payload.eventTime + '</p>';
   }
 
   var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
-    '<body style="font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5;">' +
-    '<div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">' +
-    '<div style="background:#233dff;color:white;padding:30px;text-align:center;">' +
-    '<h1 style="margin:0;font-size:24px;">Health Matters Clinic Events</h1>' +
-    '<p style="margin:10px 0 0;opacity:0.9;">' + (payload.lang === 'es' ? 'Registro Confirmado' : 'Registration Confirmed') + '</p></div>' +
-    '<div style="padding:30px;">' +
-    '<p style="font-size:18px;color:#333;">' + greeting + payload.name + '!</p>' +
-    '<p style="color:#666;">' + confirmMsg + '</p>' +
-    '<div style="background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #233dff;">' +
-    '<h2 style="color:#233dff;margin:0 0 10px 0;font-size:20px;">' + payload.eventTitle + '</h2>' +
-    '<p style="margin:5px 0;color:#666;"><strong>' + dateLabel + '</strong>' + payload.eventDate + '</p>' +
+    '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+    '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid #e5e5e5;">' +
+    // Header with logo
+    '<div style="background:#233dff;color:white;padding:24px;text-align:center;">' +
+    '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;">' +
+    '<h1 style="margin:0;font-size:22px;font-weight:700;">Health Matters Clinic</h1>' +
+    '<p style="margin:8px 0 0;opacity:0.9;font-size:14px;">' + (payload.lang === 'es' ? 'Registro Confirmado' : 'Registration Confirmed') + '</p></div>' +
+    // Body content
+    '<div style="padding:32px;">' +
+    '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 8px;">' + greeting + payload.name + '!</p>' +
+    '<p style="color:#666;margin:0 0 24px;font-size:15px;">' + confirmMsg + '</p>' +
+    // Event details box
+    '<div style="background:#f0f4ff;padding:20px;border-radius:12px;margin:0 0 28px;border:1.5px solid rgba(35,61,255,0.2);">' +
+    '<h2 style="color:#233dff;margin:0 0 12px 0;font-size:18px;font-weight:700;">' + payload.eventTitle + '</h2>' +
+    '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + dateLabel + '</strong>' + payload.eventDate + '</p>' +
     timeLine + '</div>' +
-    '<div style="text-align:center;margin:30px 0;">' +
-    '<a href="' + checkinUrl + '" style="display:inline-block;background:#10b981;color:white;padding:15px 40px;border-radius:30px;text-decoration:none;font-weight:bold;font-size:16px;">' + checkinLabel + '</a></div>' +
-    '<p style="color:#999;font-size:12px;text-align:center;">' + checkinNote + '</p>' +
-    '<hr style="border:none;border-top:1px solid #eee;margin:30px 0;">' +
-    '<p style="color:#666;font-size:14px;">' + questionLabel + ' <a href="mailto:events@healthmatters.clinic" style="color:#233dff;">events@healthmatters.clinic</a></p>' +
+    // Check-in button
+    '<div style="text-align:center;margin:0 0 20px;">' +
+    '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:white;padding:16px 48px;border-radius:30px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(35,61,255,0.3);">' + checkinLabel + '</a></div>' +
+    '<p style="color:#999;font-size:12px;text-align:center;margin:0;">' + checkinNote + '</p>' +
+    '</div>' +
+    // Footer
+    '<div style="background:#f5f3ef;padding:20px;border-top:1px solid #e5e5e5;text-align:center;">' +
+    '<p style="color:#666;font-size:13px;margin:0;">' + questionLabel + ' <a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
     '</div></div></body></html>';
 
   try {
@@ -556,21 +635,27 @@ function sendPartnerConfirmationEmail(payload) {
   var questionLabel = payload.lang === 'es' ? '¿Preguntas?' : 'Questions?';
 
   var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
-    '<body style="font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5;">' +
-    '<div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">' +
-    '<div style="background:#233dff;color:white;padding:30px;text-align:center;">' +
-    '<h1 style="margin:0;font-size:24px;">Health Matters Clinic Events</h1>' +
-    '<p style="margin:10px 0 0;opacity:0.9;">' + (payload.lang === 'es' ? 'Solicitud de Evento' : 'Event Request') + '</p></div>' +
-    '<div style="padding:30px;">' +
-    '<p style="font-size:18px;color:#333;">' + greeting + payload.name + '!</p>' +
-    '<p style="color:#666;">' + receivedMsg + '</p>' +
-    '<div style="background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #233dff;">' +
-    '<h3 style="color:#233dff;margin:0 0 15px 0;">' + payload.eventTitle + '</h3>' +
-    '<p style="margin:5px 0;color:#666;"><strong>' + orgLabel + '</strong>' + payload.organization + '</p>' +
-    '<p style="margin:5px 0;color:#666;"><strong>' + dateLabel + '</strong>' + payload.proposedDate + '</p>' +
-    '<p style="margin:5px 0;color:#666;"><strong>' + locLabel + '</strong>' + payload.location + '</p></div>' +
-    '<hr style="border:none;border-top:1px solid #eee;margin:30px 0;">' +
-    '<p style="color:#666;font-size:14px;">' + questionLabel + ' <a href="mailto:events@healthmatters.clinic" style="color:#233dff;">events@healthmatters.clinic</a></p>' +
+    '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+    '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid #e5e5e5;">' +
+    // Header with logo
+    '<div style="background:#233dff;color:white;padding:24px;text-align:center;">' +
+    '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;">' +
+    '<h1 style="margin:0;font-size:22px;font-weight:700;">Health Matters Clinic</h1>' +
+    '<p style="margin:8px 0 0;opacity:0.9;font-size:14px;">' + (payload.lang === 'es' ? 'Solicitud de Evento' : 'Event Request') + '</p></div>' +
+    // Body content
+    '<div style="padding:32px;">' +
+    '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 8px;">' + greeting + payload.name + '!</p>' +
+    '<p style="color:#666;margin:0 0 24px;font-size:15px;">' + receivedMsg + '</p>' +
+    // Event details box
+    '<div style="background:#f0f4ff;padding:20px;border-radius:12px;margin:0 0 28px;border:1.5px solid rgba(35,61,255,0.2);">' +
+    '<h3 style="color:#233dff;margin:0 0 15px 0;font-size:18px;font-weight:700;">' + payload.eventTitle + '</h3>' +
+    '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + orgLabel + '</strong>' + payload.organization + '</p>' +
+    '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + dateLabel + '</strong>' + payload.proposedDate + '</p>' +
+    '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + locLabel + '</strong>' + payload.location + '</p></div>' +
+    '</div>' +
+    // Footer
+    '<div style="background:#f5f3ef;padding:20px;border-top:1px solid #e5e5e5;text-align:center;">' +
+    '<p style="color:#666;font-size:13px;margin:0;">' + questionLabel + ' <a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
     '</div></div></body></html>';
 
   try {
@@ -613,58 +698,95 @@ function sendPartnerAdminNotification(payload) {
 }
 
 // ========================================
-// HTML PAGE BUILDERS
+// HTML PAGE BUILDERS - Apple-level design
 // ========================================
-function buildSuccessPage(name, eventTitle) {
-  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Check-in | Health Matters Clinic</title></head>' +
-    '<body style="font-family:Arial,sans-serif;margin:0;padding:40px 20px;background:#f0fdf4;min-height:100vh;box-sizing:border-box;">' +
-    '<div style="background:white;padding:40px;border-radius:16px;max-width:400px;margin:0 auto;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">' +
-    '<div style="width:70px;height:70px;background:#10b981;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;">' +
-    '<span style="color:white;font-size:36px;">✓</span></div>' +
-    '<h1 style="color:#166534;margin:0 0 10px;font-size:24px;">Check-in Successful!</h1>' +
-    '<p style="color:#666;margin:10px 0;">Welcome, ' + name + '!</p>' +
-    '<p style="font-weight:bold;color:#233dff;font-size:18px;">' + eventTitle + '</p>' +
-    '<p style="color:#999;font-size:12px;margin-top:30px;">Health Matters Clinic Events</p>' +
+function buildSuccessPage(name, eventTitle, checkinTime) {
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>Check-in | Health Matters Clinic</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">' +
+    '<style>*{box-sizing:border-box}body{-webkit-font-smoothing:antialiased}</style></head>' +
+    '<body style="font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:48px 24px;background:linear-gradient(180deg,#f5f3ef 0%,#eae7e2 100%);min-height:100vh;">' +
+    '<div style="max-width:380px;margin:0 auto;">' +
+    // Main card
+    '<div style="background:white;border-radius:24px;padding:40px 32px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.08);">' +
+    // Logo inside card
+    '<img src="' + CONFIG.LOGO_URL + '" alt="Health Matters Clinic" style="width:72px;height:72px;border-radius:18px;margin:0 auto 24px;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.1);">' +
+    '<h1 style="color:#1a1a1a;margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.5px;">You\'re Checked In</h1>' +
+    '<p style="color:#666;margin:0 0 28px;font-size:17px;font-weight:400;">Welcome, ' + name + '</p>' +
+    // Event info
+    '<div style="background:#f8f9fc;padding:20px;border-radius:16px;">' +
+    '<p style="font-weight:600;color:#1a1a1a;font-size:16px;margin:0 0 4px;line-height:1.4;">' + eventTitle + '</p>' +
+    '<p style="color:#233dff;font-size:13px;font-weight:600;margin:0;">' + (checkinTime || '') + '</p></div>' +
+    '</div>' +
+    // Footer
+    '<p style="text-align:center;color:#999;font-size:11px;margin-top:24px;font-weight:500;letter-spacing:0.5px;">HEALTH MATTERS CLINIC</p>' +
     '</div></body></html>';
 }
 
 function buildAlreadyCheckedInPage(name, eventTitle) {
-  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Check-in | Health Matters Clinic</title></head>' +
-    '<body style="font-family:Arial,sans-serif;margin:0;padding:40px 20px;background:#f0fdf4;min-height:100vh;box-sizing:border-box;">' +
-    '<div style="background:white;padding:40px;border-radius:16px;max-width:400px;margin:0 auto;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">' +
-    '<div style="width:70px;height:70px;background:#10b981;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;">' +
-    '<span style="color:white;font-size:36px;">✓</span></div>' +
-    '<h1 style="color:#166534;margin:0 0 10px;font-size:24px;">Already Checked In!</h1>' +
-    '<p style="color:#666;margin:10px 0;">Welcome back, ' + name + '!</p>' +
-    '<p style="font-weight:bold;color:#233dff;font-size:18px;">' + eventTitle + '</p>' +
-    '<p style="color:#999;font-size:12px;margin-top:30px;">Health Matters Clinic Events</p>' +
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>Check-in | Health Matters Clinic</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">' +
+    '<style>*{box-sizing:border-box}body{-webkit-font-smoothing:antialiased}</style></head>' +
+    '<body style="font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:48px 24px;background:linear-gradient(180deg,#f5f3ef 0%,#eae7e2 100%);min-height:100vh;">' +
+    '<div style="max-width:380px;margin:0 auto;">' +
+    // Main card
+    '<div style="background:white;border-radius:24px;padding:40px 32px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.08);">' +
+    // Logo inside card
+    '<img src="' + CONFIG.LOGO_URL + '" alt="Health Matters Clinic" style="width:72px;height:72px;border-radius:18px;margin:0 auto 24px;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.1);">' +
+    '<h1 style="color:#1a1a1a;margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.5px;">Already Checked In</h1>' +
+    '<p style="color:#666;margin:0 0 28px;font-size:17px;font-weight:400;">Welcome back, ' + name + '</p>' +
+    // Event info
+    '<div style="background:#f8f9fc;padding:20px;border-radius:16px;">' +
+    '<p style="font-weight:600;color:#1a1a1a;font-size:16px;margin:0;line-height:1.4;">' + eventTitle + '</p></div>' +
+    '</div>' +
+    // Footer
+    '<p style="text-align:center;color:#999;font-size:11px;margin-top:24px;font-weight:500;letter-spacing:0.5px;">HEALTH MATTERS CLINIC</p>' +
     '</div></body></html>';
 }
 
 function buildEarlyCheckinPage(name, eventTitle, eventDate) {
-  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Check-in | Health Matters Clinic</title></head>' +
-    '<body style="font-family:Arial,sans-serif;margin:0;padding:40px 20px;background:#fffbeb;min-height:100vh;box-sizing:border-box;">' +
-    '<div style="background:white;padding:40px;border-radius:16px;max-width:400px;margin:0 auto;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">' +
-    '<div style="width:70px;height:70px;background:#f59e0b;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;">' +
-    '<span style="color:white;font-size:36px;">📅</span></div>' +
-    '<h1 style="color:#92400e;margin:0 0 10px;font-size:24px;">Too Early to Check In</h1>' +
-    '<p style="color:#666;margin:10px 0;">Hi ' + name + '!</p>' +
-    '<p style="color:#666;">Check-in opens on the day of the event.</p>' +
-    '<p style="font-weight:bold;color:#233dff;font-size:18px;">' + eventTitle + '</p>' +
-    '<p style="color:#666;">' + eventDate + '</p>' +
-    '<p style="color:#999;font-size:12px;margin-top:30px;">Health Matters Clinic Events</p>' +
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>Check-in | Health Matters Clinic</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">' +
+    '<style>*{box-sizing:border-box}body{-webkit-font-smoothing:antialiased}</style></head>' +
+    '<body style="font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:48px 24px;background:linear-gradient(180deg,#f5f3ef 0%,#eae7e2 100%);min-height:100vh;">' +
+    '<div style="max-width:380px;margin:0 auto;">' +
+    // Main card
+    '<div style="background:white;border-radius:24px;padding:40px 32px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.08);">' +
+    // Logo inside card
+    '<img src="' + CONFIG.LOGO_URL + '" alt="Health Matters Clinic" style="width:72px;height:72px;border-radius:18px;margin:0 auto 24px;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.1);">' +
+    '<h1 style="color:#1a1a1a;margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.5px;">Not Yet</h1>' +
+    '<p style="color:#666;margin:0 0 8px;font-size:17px;font-weight:400;">Hi ' + name + '</p>' +
+    '<p style="color:#888;margin:0 0 28px;font-size:15px;font-weight:400;">Check-in opens on the day of the event</p>' +
+    // Event info
+    '<div style="background:#f8f9fc;padding:20px;border-radius:16px;">' +
+    '<p style="font-weight:600;color:#1a1a1a;font-size:16px;margin:0 0 6px;line-height:1.4;">' + eventTitle + '</p>' +
+    '<p style="color:#233dff;font-size:14px;font-weight:600;margin:0;">' + eventDate + '</p></div>' +
+    '</div>' +
+    // Footer
+    '<p style="text-align:center;color:#999;font-size:11px;margin-top:24px;font-weight:500;letter-spacing:0.5px;">HEALTH MATTERS CLINIC</p>' +
     '</div></body></html>';
 }
 
 function buildErrorPage(message) {
-  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Error | Health Matters Clinic</title></head>' +
-    '<body style="font-family:Arial,sans-serif;margin:0;padding:40px 20px;background:#fef2f2;min-height:100vh;box-sizing:border-box;">' +
-    '<div style="background:white;padding:40px;border-radius:16px;max-width:400px;margin:0 auto;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">' +
-    '<div style="font-size:50px;margin-bottom:20px;">❌</div>' +
-    '<h1 style="color:#dc2626;margin:0 0 10px;font-size:24px;">Oops!</h1>' +
-    '<p style="color:#666;">' + message + '</p>' +
-    '<a href="https://www.healthmatters.clinic" style="display:inline-block;margin-top:20px;color:#233dff;text-decoration:none;">Go to Website</a>' +
-    '<p style="color:#999;font-size:12px;margin-top:30px;">Health Matters Clinic Events</p>' +
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>Check-in | Health Matters Clinic</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">' +
+    '<style>*{box-sizing:border-box}body{-webkit-font-smoothing:antialiased}</style></head>' +
+    '<body style="font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:48px 24px;background:linear-gradient(180deg,#f5f3ef 0%,#eae7e2 100%);min-height:100vh;">' +
+    '<div style="max-width:380px;margin:0 auto;">' +
+    // Main card
+    '<div style="background:white;border-radius:24px;padding:40px 32px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.08);">' +
+    // Logo inside card
+    '<img src="' + CONFIG.LOGO_URL + '" alt="Health Matters Clinic" style="width:72px;height:72px;border-radius:18px;margin:0 auto 24px;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.1);">' +
+    '<h1 style="color:#1a1a1a;margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.5px;">Something\'s Off</h1>' +
+    '<p style="color:#666;margin:0 0 28px;font-size:16px;font-weight:400;line-height:1.5;">' + message + '</p>' +
+    // Button
+    '<a href="https://www.healthmatters.clinic" style="display:inline-block;background:#233dff;color:white;padding:16px 36px;border-radius:100px;text-decoration:none;font-weight:600;font-size:15px;">Visit Website</a>' +
+    '</div>' +
+    // Footer
+    '<p style="text-align:center;color:#999;font-size:11px;margin-top:24px;font-weight:500;letter-spacing:0.5px;">HEALTH MATTERS CLINIC</p>' +
     '</div></body></html>';
 }
 
@@ -739,6 +861,7 @@ function testWithEmails() {
       eventId: 'TEST-001',
       eventTitle: 'Test Event - RSVP Email Test',
       eventDate: 'February 10, 2026',
+      eventTime: '10:00 AM - 2:00 PM',
       name: 'Test User',
       email: testEmail,
       phone: '5551234567',
@@ -865,4 +988,366 @@ function setupSheets() {
 
   Logger.log('\n=== SETUP COMPLETE ===');
   Logger.log('All required sheets are ready!');
+}
+
+// ========================================
+// RESTORE ORIGINAL EVENTS - Run this once!
+// ========================================
+function restoreOriginalEvents() {
+  var events = [
+    {
+      id: 'dec-17-2025',
+      title: 'Unstoppable Community Event',
+      date: '2025-12-17',
+      dateDisplay: 'December 17, 2025',
+      time: '5:00 PM - 7:00 PM',
+      location: 'Inglewood',
+      city: 'Inglewood',
+      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
+      program: 'Community Wellness',
+      lat: 33.9719,
+      lng: -118.2108,
+      description: 'Join us for an evening of connection, resources, and community support.',
+      saveTheDate: false
+    },
+    {
+      id: 'dec-19-2025',
+      title: 'Community Health & Wellness Event',
+      date: '2025-12-19',
+      dateDisplay: 'Friday, December 19, 2025',
+      time: '12:00 PM - 4:00 PM',
+      location: 'Compton',
+      city: 'Compton',
+      address: 'Gym Basketball Courts, 11251 Compton Ave, Compton, CA 90059',
+      program: 'Community Fair',
+      lat: 33.8962,
+      lng: -118.2207,
+      description: 'Free health screenings, wellness resources, and community support.',
+      saveTheDate: true
+    },
+    {
+      id: 'jan-09-2026',
+      title: 'Unstoppable Workshop: Social Connections',
+      date: '2026-01-09',
+      dateDisplay: 'Friday, January 9, 2026',
+      time: '10:15 AM - 11:45 AM',
+      location: 'Palmdale',
+      city: 'Palmdale',
+      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
+      program: 'Unstoppable Workshop',
+      lat: 34.5801,
+      lng: -118.1164,
+      description: 'Build authentic connections and community in a safe, welcoming space.',
+      saveTheDate: false
+    },
+    {
+      id: 'jan-10-2026',
+      title: 'Community Walk & Run',
+      date: '2026-01-10',
+      dateDisplay: 'Saturday, January 10, 2026',
+      time: '8:00 AM',
+      location: 'Inglewood',
+      city: 'Inglewood',
+      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
+      program: 'Community Walk & Run',
+      lat: 33.9719,
+      lng: -118.2108,
+      description: 'Join our monthly community walk and run. Community building through movement.',
+      saveTheDate: false
+    },
+    {
+      id: 'jan-21-2026',
+      title: 'Unstoppable Wellness Meetup',
+      date: '2026-01-21',
+      dateDisplay: 'Wednesday, January 21, 2026',
+      time: '6:00 PM - 7:15 PM',
+      location: 'Inglewood',
+      city: 'Inglewood',
+      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
+      program: 'Unstoppable Wellness Meetup',
+      lat: 33.9719,
+      lng: -118.2108,
+      description: 'Safe space for authentic healing conversations. Set-up at 5:30 PM.',
+      saveTheDate: false
+    },
+    {
+      id: 'feb-06-2026',
+      title: 'Unstoppable Workshop: Community Advocacy & Empowerment',
+      date: '2026-02-06',
+      dateDisplay: 'Friday, February 6, 2026',
+      time: '10:15 AM - 11:45 AM',
+      location: 'Palmdale',
+      city: 'Palmdale',
+      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
+      program: 'Unstoppable Workshop',
+      lat: 34.5801,
+      lng: -118.1164,
+      description: 'Learn about advocacy and empower yourself and your community.',
+      saveTheDate: false
+    },
+    {
+      id: 'feb-14-2026',
+      title: 'Community Walk & Run',
+      date: '2026-02-14',
+      dateDisplay: 'Saturday, February 14, 2026',
+      time: '8:00 AM',
+      location: 'Inglewood',
+      city: 'Inglewood',
+      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
+      program: 'Community Walk & Run',
+      lat: 33.9719,
+      lng: -118.2108,
+      description: 'Join our monthly community walk and run.',
+      saveTheDate: false
+    },
+    {
+      id: 'feb-18-2026',
+      title: 'Unstoppable Wellness Meetup',
+      date: '2026-02-18',
+      dateDisplay: 'Wednesday, February 18, 2026',
+      time: '6:00 PM - 7:15 PM',
+      location: 'Inglewood',
+      city: 'Inglewood',
+      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
+      program: 'Unstoppable Wellness Meetup',
+      lat: 33.9719,
+      lng: -118.2108,
+      description: 'Safe space for authentic healing conversations.',
+      saveTheDate: false
+    },
+    {
+      id: 'mar-06-2026',
+      title: 'Unstoppable Workshop: Mental Health Awareness',
+      date: '2026-03-06',
+      dateDisplay: 'Friday, March 6, 2026',
+      time: '10:15 AM - 11:45 AM',
+      location: 'Palmdale',
+      city: 'Palmdale',
+      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
+      program: 'Unstoppable Workshop',
+      lat: 34.5801,
+      lng: -118.1164,
+      description: 'Explore mental health awareness and destigmatize mental wellness.',
+      saveTheDate: false
+    },
+    {
+      id: 'mar-14-2026',
+      title: 'Community Walk & Run',
+      date: '2026-03-14',
+      dateDisplay: 'Saturday, March 14, 2026',
+      time: '8:00 AM',
+      location: 'Inglewood',
+      city: 'Inglewood',
+      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
+      program: 'Community Walk & Run',
+      lat: 33.9719,
+      lng: -118.2108,
+      description: 'Join our monthly community walk and run.',
+      saveTheDate: false
+    },
+    {
+      id: 'mar-18-2026',
+      title: 'Unstoppable Wellness Meetup',
+      date: '2026-03-18',
+      dateDisplay: 'Wednesday, March 18, 2026',
+      time: '6:00 PM - 7:15 PM',
+      location: 'Inglewood',
+      city: 'Inglewood',
+      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
+      program: 'Unstoppable Wellness Meetup',
+      lat: 33.9719,
+      lng: -118.2108,
+      description: 'Safe space for authentic healing conversations.',
+      saveTheDate: false
+    },
+    {
+      id: 'mar-27-2026',
+      title: 'Unstoppable Workshop: Access to Healthcare',
+      date: '2026-03-27',
+      dateDisplay: 'Friday, March 27, 2026',
+      time: '10:15 AM - 11:45 AM',
+      location: 'Palmdale',
+      city: 'Palmdale',
+      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
+      program: 'Unstoppable Workshop',
+      lat: 34.5801,
+      lng: -118.1164,
+      description: 'Navigate healthcare access and resources in your community.',
+      saveTheDate: false
+    },
+    {
+      id: 'mar-28-2026',
+      title: '5K Walk + Health Fair',
+      date: '2026-03-28',
+      dateDisplay: 'Saturday, March 28, 2026',
+      time: 'TBD',
+      location: 'East Los Angeles',
+      city: 'East Los Angeles',
+      address: 'East Los Angeles, CA',
+      program: 'Community Fair',
+      lat: 34.0233,
+      lng: -118.2013,
+      description: 'Community health event with 5K walk and health screenings.',
+      saveTheDate: true
+    },
+    {
+      id: 'may-08-2026',
+      title: 'Unstoppable Workshop: Cultural Competence & Inclusion',
+      date: '2026-05-08',
+      dateDisplay: 'Friday, May 8, 2026',
+      time: '10:15 AM - 11:45 AM',
+      location: 'Palmdale',
+      city: 'Palmdale',
+      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
+      program: 'Unstoppable Workshop',
+      lat: 34.5801,
+      lng: -118.1164,
+      description: 'Celebrate cultural diversity and build inclusive communities.',
+      saveTheDate: false
+    },
+    {
+      id: 'jun-05-2026',
+      title: 'Unstoppable Workshop: Physical Well-being',
+      date: '2026-06-05',
+      dateDisplay: 'Friday, June 5, 2026',
+      time: '10:15 AM - 11:45 AM',
+      location: 'Palmdale',
+      city: 'Palmdale',
+      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
+      program: 'Unstoppable Workshop',
+      lat: 34.5801,
+      lng: -118.1164,
+      description: 'Explore physical health, movement, and wellness practices.',
+      saveTheDate: false
+    },
+    {
+      id: 'jun-06-2026',
+      title: 'Health + Resources Fair',
+      date: '2026-06-06',
+      dateDisplay: 'Saturday, June 6, 2026',
+      time: 'TBD',
+      location: 'Lynwood',
+      city: 'Lynwood',
+      address: 'Lynwood, CA',
+      program: 'Community Fair',
+      lat: 33.9229,
+      lng: -118.2114,
+      description: 'Community health and resources fair.',
+      saveTheDate: true
+    },
+    {
+      id: 'jul-10-2026',
+      title: 'Unstoppable Workshop: Financial Wellness',
+      date: '2026-07-10',
+      dateDisplay: 'Friday, July 10, 2026',
+      time: '10:15 AM - 11:45 AM',
+      location: 'Palmdale',
+      city: 'Palmdale',
+      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
+      program: 'Unstoppable Workshop',
+      lat: 34.5801,
+      lng: -118.1164,
+      description: 'Build financial literacy and economic empowerment.',
+      saveTheDate: false
+    },
+    {
+      id: 'aug-07-2026',
+      title: 'Unstoppable Workshop: Environmental Health',
+      date: '2026-08-07',
+      dateDisplay: 'Friday, August 7, 2026',
+      time: '10:15 AM - 11:45 AM',
+      location: 'Palmdale',
+      city: 'Palmdale',
+      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
+      program: 'Unstoppable Workshop',
+      lat: 34.5801,
+      lng: -118.1164,
+      description: 'Understand environmental health and community sustainability.',
+      saveTheDate: false
+    },
+    {
+      id: 'aug-08-2026',
+      title: 'Back to School Wellness Event',
+      date: '2026-08-08',
+      dateDisplay: 'Saturday, August 8, 2026',
+      time: 'TBD',
+      location: 'Huntington Park',
+      city: 'Huntington Park',
+      address: 'Huntington Park, CA',
+      program: 'Community Fair',
+      lat: 33.9773,
+      lng: -118.2272,
+      description: 'Back to school health and wellness fair.',
+      saveTheDate: true
+    },
+    {
+      id: 'dec-12-2026',
+      title: 'Toy Distribution',
+      date: '2026-12-12',
+      dateDisplay: 'Saturday, December 12, 2026',
+      time: 'TBD',
+      location: 'Huntington Park',
+      city: 'Huntington Park',
+      address: 'Huntington Park, CA',
+      program: 'Community Fair',
+      lat: 33.9773,
+      lng: -118.2272,
+      description: 'Holiday toy distribution event.',
+      saveTheDate: true
+    }
+  ];
+
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Events');
+
+  if (!sheet) {
+    sheet = ss.insertSheet('Events');
+    sheet.appendRow([
+      'id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
+      'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
+      'isPromoted', 'isSponsored', 'createdAt'
+    ]);
+  }
+
+  // Clear existing data (keep headers)
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.deleteRows(2, lastRow - 1);
+  }
+
+  // Add all events
+  var headers = ['id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
+    'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
+    'isPromoted', 'isSponsored', 'createdAt'];
+
+  var rows = [];
+  for (var i = 0; i < events.length; i++) {
+    var event = events[i];
+    var row = [];
+    for (var j = 0; j < headers.length; j++) {
+      var header = headers[j];
+      var value = event[header];
+      if (value === undefined || value === null) {
+        row.push('');
+      } else if (typeof value === 'boolean') {
+        row.push(value ? 'TRUE' : 'FALSE');
+      } else {
+        row.push(value);
+      }
+    }
+    rows.push(row);
+  }
+
+  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+
+  // IMPORTANT: Format columns as plain text to prevent auto-conversion
+  // Column 1 = id, Column 3 = date, Column 4 = dateDisplay, Column 5 = time, Column 14 = flyerUrl
+  sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@');  // id
+  sheet.getRange(2, 3, rows.length, 1).setNumberFormat('@');  // date
+  sheet.getRange(2, 4, rows.length, 1).setNumberFormat('@');  // dateDisplay
+  sheet.getRange(2, 5, rows.length, 1).setNumberFormat('@');  // time
+  sheet.getRange(2, 14, rows.length, 1).setNumberFormat('@'); // flyerUrl
+
+  Logger.log('=== RESTORED ' + events.length + ' ORIGINAL EVENTS ===');
+  Logger.log('Events restored successfully!');
 }

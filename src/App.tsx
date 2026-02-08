@@ -42,7 +42,12 @@ const PROGRAM_COLORS: { [key: string]: string } = {
 const DEFAULT_CENTER: [number, number] = [33.9719, -118.2108];
 
 const isPast = (dateStr: string) => {
-  const eventDate = new Date(`${dateStr}T00:00:00`);
+  // Handle both YYYY-MM-DD and ISO date strings (2026-06-05T05:00:00.000Z)
+  let dateOnly = dateStr;
+  if (dateStr.includes('T')) {
+    dateOnly = dateStr.split('T')[0];
+  }
+  const eventDate = new Date(`${dateOnly}T00:00:00`);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return eventDate < today;
@@ -50,7 +55,7 @@ const isPast = (dateStr: string) => {
 
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>('en');
-  const [events, setEvents] = useState<ClinicEvent[]>(EVENTS);
+  const [events, setEvents] = useState<ClinicEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<ClinicEvent | null>(null);
   const [isRSVPOpen, setIsRSVPOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -80,16 +85,22 @@ const App: React.FC = () => {
 
   // Load events from Google Sheets backend on mount
   useEffect(() => {
+    let isMounted = true;
+
     const loadEvents = async () => {
-      // Try to fetch from Google Apps Script backend
+      // Clear stale cache
+      localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE);
+
+      // Always fetch fresh from Google Apps Script backend
       try {
         const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`);
         if (response.ok) {
           const data = await response.json();
           if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-            setEvents(data.events);
-            // Cache locally for faster subsequent loads
-            localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(data.events));
+            if (isMounted) {
+              setEvents(data.events);
+              localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(data.events));
+            }
             return;
           }
         }
@@ -97,25 +108,17 @@ const App: React.FC = () => {
         console.warn('Failed to fetch events from backend:', e);
       }
 
-      // Try cached events
-      const cachedEvents = localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE);
-      if (cachedEvents) {
-        try {
-          const parsed = JSON.parse(cachedEvents);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setEvents(parsed);
-            return;
-          }
-        } catch (e) {
-          console.warn('Failed to parse cached events:', e);
-        }
+      // Fall back to hardcoded events only if backend failed
+      if (isMounted) {
+        setEvents(EVENTS);
       }
-
-      // Fall back to hardcoded events
-      setEvents(EVENTS);
     };
 
     loadEvents();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Handle deep link after events are loaded
@@ -143,7 +146,9 @@ const App: React.FC = () => {
   const filteredEvents = useMemo(() => {
     return events
       .filter((event) => {
-        const monthMatch = !filters.month || event.date.includes(`-${filters.month}-`);
+        // Handle both YYYY-MM-DD and ISO date strings
+        const dateOnly = event.date.includes('T') ? event.date.split('T')[0] : event.date;
+        const monthMatch = !filters.month || dateOnly.includes(`-${filters.month}-`);
         const programMatch = !filters.program || event.program === filters.program;
 
         const locQuery = locationSearch.toLowerCase();
@@ -152,7 +157,7 @@ const App: React.FC = () => {
           event.city.toLowerCase().includes(locQuery) ||
           event.address.toLowerCase().includes(locQuery);
 
-        const eventIsPast = isPast(event.date);
+        const eventIsPast = isPast(dateOnly);
         const archivalMatch = filters.showPast ? eventIsPast : !eventIsPast;
 
         return monthMatch && programMatch && locationMatch && archivalMatch;
@@ -166,8 +171,10 @@ const App: React.FC = () => {
         if (a.isSponsored && !b.isSponsored) return -1;
         if (!a.isSponsored && b.isSponsored) return 1;
 
-        // Then sort by date
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
+        // Then sort by date (handle ISO date strings)
+        const dateA = a.date.includes('T') ? a.date.split('T')[0] : a.date;
+        const dateB = b.date.includes('T') ? b.date.split('T')[0] : b.date;
+        return new Date(dateA).getTime() - new Date(dateB).getTime();
       });
   }, [events, filters, locationSearch]);
 
@@ -278,10 +285,18 @@ const App: React.FC = () => {
   const handleShare = async () => {
     if (!selectedEvent) return;
     const shareText = `${translateEventTitle(selectedEvent.title, lang)} - ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
-    // Create event-specific share URL with deep link
-    const eventSlug = selectedEvent.id.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+    // Create event-specific share URL - use title if ID looks like a date
+    let eventSlug = selectedEvent.id;
+    if (eventSlug.includes('T') || eventSlug.includes(':')) {
+      // ID is a date string, create slug from title instead
+      eventSlug = selectedEvent.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    } else {
+      eventSlug = eventSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    }
     const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}`;
 
+    // Try native share first (mobile devices)
     if (navigator.share) {
       try {
         await navigator.share({
@@ -289,12 +304,23 @@ const App: React.FC = () => {
           text: shareText,
           url: shareUrl,
         });
-      } catch (err) {
-        console.warn('Navigator share cancelled or failed', err);
+        return; // Success, don't fall through
+      } catch (err: any) {
+        // User cancelled or share failed - fall through to clipboard
+        if (err.name !== 'AbortError') {
+          console.warn('Share failed:', err);
+        }
       }
-    } else {
+    }
+
+    // Fallback: copy to clipboard
+    try {
       await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
       alert(t.toast_copied);
+    } catch (err) {
+      // Final fallback: open email
+      const mailtoUrl = `mailto:?subject=${encodeURIComponent(translateEventTitle(selectedEvent.title, lang))}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`;
+      window.open(mailtoUrl, '_blank');
     }
   };
 

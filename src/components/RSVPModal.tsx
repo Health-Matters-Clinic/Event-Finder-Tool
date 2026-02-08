@@ -327,9 +327,9 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
               {/* Needs */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  {lang === 'es' ? 'Necesidades:' : 'Needs:'}
+                  {lang === 'es' ? 'Estoy aquí para:' : "I'm here for:"}
                 </span>
-                {['Screening', 'Resources', 'Mental Health', 'Insurance', 'Housing'].map((n) => {
+                {['Screening', 'Resources', 'Mental Health', 'Insurance', 'Housing', 'Volunteer'].map((n) => {
                   const active = needs.includes(n);
                   return (
                     <button
