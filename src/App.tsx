@@ -75,13 +75,46 @@ const App: React.FC = () => {
 
   const t = I18N[lang];
 
-  // Check URL parameters for deep linking
+  // Check URL parameters for deep linking (supports both ?event= and #event=)
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const eventParam = urlParams.get('event');
+    const getEventParam = () => {
+      // Check query string first: ?event=slug
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryEvent = urlParams.get('event');
+      if (queryEvent) return queryEvent;
+
+      // Check hash: #event=slug
+      const hash = window.location.hash;
+      if (hash.startsWith('#event=')) return hash.slice(7);
+
+      // Check parent window query string (for iframe embedding)
+      try {
+        if (window.parent !== window) {
+          const parentParams = new URLSearchParams(window.parent.location.search);
+          const parentEvent = parentParams.get('event');
+          if (parentEvent) return parentEvent;
+        }
+      } catch {
+        // Cross-origin parent — can't access, that's fine
+      }
+
+      return null;
+    };
+
+    const eventParam = getEventParam();
     if (eventParam) {
       setPendingEventSlug(eventParam);
     }
+
+    // Listen for hash changes (e.g., parent page updating iframe hash)
+    const onHashChange = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#event=')) {
+        setPendingEventSlug(hash.slice(7));
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
   // Load events from Google Sheets backend on mount
@@ -303,7 +336,7 @@ const App: React.FC = () => {
     const eventTitle = translateEventTitle(selectedEvent.title, lang);
     const shareText = `${eventTitle} - ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
 
-    // Create event-specific share URL - use title if ID looks like a date
+    // Create event-specific share URL using hash-based deep linking
     let eventSlug = selectedEvent.id;
     if (eventSlug.includes('T') || eventSlug.includes(':')) {
       // ID is a date string, create slug from title instead
@@ -311,7 +344,7 @@ const App: React.FC = () => {
     } else {
       eventSlug = eventSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     }
-    const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}`;
+    const shareUrl = `https://teamhmc.github.io/Event-Finder-Tool/#event=${eventSlug}`;
 
     // Try native share first (Safari, iOS, Android - shows AirDrop, email, copy, etc.)
     if (navigator.share) {
