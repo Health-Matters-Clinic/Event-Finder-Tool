@@ -348,7 +348,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white">
-      <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 z-50 flex items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+      <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 z-[200] relative flex items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
         {/* Left: Logo */}
         <div className="flex items-center gap-4">
           <HMCLogo />
@@ -568,6 +568,18 @@ const App: React.FC = () => {
                     </Button>
                   )}
                 </div>
+
+                {/* Mobile: View List button */}
+                <Button
+                  variant="outline"
+                  className="md:hidden justify-center h-11 mt-1"
+                  onClick={() => {
+                    setSelectedEvent(null);
+                    setMobileView('list');
+                  }}
+                >
+                  {lang === 'es' ? '← Ver Lista' : '← View List'}
+                </Button>
               </div>
             </div>
             </div>
