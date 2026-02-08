@@ -604,11 +604,32 @@
     containers.forEach(initWidget);
   }
 
+  // Forward deep link params from parent page to Event Finder iframe
+  function forwardDeepLink() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var eventSlug = urlParams.get('event');
+    if (!eventSlug) return;
+
+    // Find the Event Finder iframe and forward the event param
+    var iframes = document.querySelectorAll('iframe');
+    iframes.forEach(function(iframe) {
+      var src = iframe.getAttribute('src') || '';
+      if (src.indexOf('Event-Finder-Tool') !== -1 || src.indexOf('teamhmc.github.io') !== -1) {
+        // Append the event param to the iframe src if not already present
+        if (src.indexOf('event=') === -1) {
+          var separator = src.indexOf('?') !== -1 ? '&' : '?';
+          iframe.src = src + separator + 'event=' + encodeURIComponent(eventSlug);
+        }
+      }
+    });
+  }
+
   // Run on DOM ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', function() { init(); forwardDeepLink(); });
   } else {
     init();
+    forwardDeepLink();
   }
 
   // Expose for manual initialization
