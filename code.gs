@@ -3,7 +3,7 @@
 // ========================================
 const CONFIG = {
   SPREADSHEET_ID: '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM',
-  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxWCsuJczUbaPbRA48bskH7EMb31bZahT6w78IXZC6LjymUhv7wN-gMCPj8xNtnt8kqJw/exec',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzv540Zgngq2DOrt4nA0tG46LEPmLIO17FWLICSdDl4UxiFPHfnWLm-Rel_7kDmoEvPCA/exec',
   ADMIN_EMAIL: 'admin@healthmatters.clinic',
   CC_EMAILS: 'events@healthmatters.clinic',
   LOGO_URL: 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
