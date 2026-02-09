@@ -300,7 +300,7 @@ const App: React.FC = () => {
           </div>
         `,
         iconSize: [32, 40],
-        iconAnchor: [0, 0],
+        iconAnchor: [16, 40],
       });
 
       const marker = L.marker([event.lat, event.lng], {
@@ -580,7 +580,7 @@ const App: React.FC = () => {
                       {lang === 'es' ? 'Mas Info' : 'More Info'}
                     </label>
                     <a
-                      href={selectedEvent.websiteUrl}
+                      href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm font-semibold text-[#233dff] hover:underline break-all"

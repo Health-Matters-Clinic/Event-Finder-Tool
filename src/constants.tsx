@@ -1,9 +1,6 @@
 
 import { ClinicEvent } from './types';
 
-// REPLACE THIS with your actual deployed Google Apps Script URL for production
-export const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-KmIXY2Qu8zooU4f-hjbdpb59WKonTPJOwcktDV0SjxW5CJPMbtAV1rO0SdJx_0tK8Q/exec";
-
 export const EVENTS: ClinicEvent[] = [
     {
         id: 'dec-17-2025',
@@ -13,7 +10,7 @@ export const EVENTS: ClinicEvent[] = [
         time: '5:00 PM - 7:00 PM',
         location: 'Inglewood',
         city: 'Inglewood',
-        address: '123 W. Manchester Blvd, Inglewood, <CA> 90301',
+        address: '123 W. Manchester Blvd, Inglewood, CA 90301',
         program: 'Community Wellness',
         lat: 33.9719,
         lng: -118.2108,

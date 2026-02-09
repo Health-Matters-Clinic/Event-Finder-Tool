@@ -85,7 +85,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   const handleCreateNew = () => {
     const newId = `event-${Date.now()}`;
-    setFormData({ ...emptyEvent, id: newId });
+    setFormData({ ...emptyEvent, id: newId, date: getDefaultDate(), createdAt: new Date().toISOString() });
     setEditingEvent(null);
     setView('edit');
   };
@@ -103,7 +103,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
       try {
         // Delete from backend
-        await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=deleteEvent&id=${encodeURIComponent(eventId)}`);
+        await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=deleteEvent&id=${encodeURIComponent(eventId)}`, { mode: 'no-cors' });
 
         // Update local state
         const updated = events.filter((e) => e.id !== eventId);
