@@ -654,7 +654,7 @@ const App: React.FC = () => {
         </div>
 
         <aside
-          className={`w-full md:w-[420px] bg-white border-l md:border-l border-t md:border-t-0 border-gray-200 flex flex-col z-30 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] flex-1 md:h-auto ${
+          className={`w-full md:w-[420px] bg-white border-l md:border-l border-t md:border-t-0 border-gray-200 flex flex-col z-30 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] flex-1 overflow-hidden ${
             mobileView === 'list' ? 'flex' : 'hidden'
           } md:flex`}
         >
