@@ -574,6 +574,21 @@ const App: React.FC = () => {
                     {selectedEvent.address}
                   </p>
                 </div>
+                {selectedEvent.websiteUrl && (
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                      {lang === 'es' ? 'Mas Info' : 'More Info'}
+                    </label>
+                    <a
+                      href={selectedEvent.websiteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-semibold text-[#233dff] hover:underline break-all"
+                    >
+                      {selectedEvent.websiteUrl}
+                    </a>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-3">
@@ -589,7 +604,7 @@ const App: React.FC = () => {
                   </div>
                 )}
 
-                <div className={`grid gap-3 ${selectedEvent.websiteUrl ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                <div className="grid grid-cols-2 gap-3">
                   <Button
                     variant="outline"
                     className="justify-center h-11"
@@ -619,15 +634,6 @@ const App: React.FC = () => {
                   <Button variant="outline" className="justify-center h-11" onClick={handleShare}>
                     {lang === 'es' ? 'Compartir' : 'Share'}
                   </Button>
-                  {selectedEvent.websiteUrl && (
-                    <Button
-                      variant="outline"
-                      className="justify-center h-11"
-                      onClick={() => window.open(selectedEvent.websiteUrl, '_blank')}
-                    >
-                      {lang === 'es' ? 'Mas Info' : 'More Info'}
-                    </Button>
-                  )}
                 </div>
 
                 {/* Mobile: View List button */}
@@ -879,6 +885,12 @@ const App: React.FC = () => {
                           strokeLinejoin="round"
                           strokeWidth={2.5}
                           d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2.5}
+                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                         />
                       </svg>
                       {event.city}
