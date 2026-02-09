@@ -581,7 +581,7 @@ const App: React.FC = () => {
                     rel="noopener noreferrer"
                     className="text-sm font-semibold text-[#233dff] hover:underline inline-flex items-center gap-1.5"
                   >
-                    {lang === 'es' ? 'Mas Informacion' : 'More Info'} ↗
+                    {lang === 'es' ? 'Mas Informacion' : 'More Info'}
                   </a>
                 )}
               </div>
