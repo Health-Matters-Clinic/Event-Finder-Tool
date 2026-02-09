@@ -169,7 +169,7 @@ function doPost(e) {
 // Normalize an ID value for comparison (handles Sheets auto-formatting IDs as Date objects)
 function normalizeId(val) {
   if (val instanceof Date) {
-    return Utilities.formatDate(val, CONFIG.TIMEZONE, 'MMM-dd-yyyy');
+    return Utilities.formatDate(val, 'UTC', 'MMM-dd-yyyy');
   }
   return String(val);
 }
@@ -204,26 +204,21 @@ function getEvents() {
         // Handle Date objects from Google Sheets
         // Sheets auto-formats date-like strings (e.g. "Mar-14-2026") as Date objects,
         // which causes timezone-related corruption when serialized to JSON.
+        // Use 'UTC' to avoid timezone shifts — the dates were entered as plain text
+        // and Sheets stores them as midnight UTC internally.
         if (value instanceof Date) {
           if (header === 'id') {
             // Preserve original Mon-DD-YYYY format for IDs (e.g. "Mar-14-2026")
-            // This prevents ID corruption from timezone shifts during JSON serialization
-            value = Utilities.formatDate(value, CONFIG.TIMEZONE, 'MMM-dd-yyyy');
+            value = Utilities.formatDate(value, 'UTC', 'MMM-dd-yyyy');
           } else if (header === 'date') {
             // Format as YYYY-MM-DD for the date field
-            value = Utilities.formatDate(value, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+            value = Utilities.formatDate(value, 'UTC', 'yyyy-MM-dd');
           } else if (header === 'time') {
-            // Format time as h:mm AM/PM
-            var hours = value.getHours();
-            var minutes = value.getMinutes();
-            var ampm = hours >= 12 ? 'PM' : 'AM';
-            hours = hours % 12;
-            hours = hours ? hours : 12;
-            var minutesStr = minutes < 10 ? '0' + minutes : minutes;
-            value = hours + ':' + minutesStr + ' ' + ampm;
+            // Time values: use project timezone since times are entered in local time
+            value = Utilities.formatDate(value, CONFIG.TIMEZONE, 'h:mm a');
           } else {
-            // For other date fields, convert to string
-            value = Utilities.formatDate(value, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+            // For other date fields, convert to string using UTC
+            value = Utilities.formatDate(value, 'UTC', 'yyyy-MM-dd');
           }
         }
 
@@ -551,22 +546,27 @@ function handleCheckinByToken(token) {
         return HtmlService.createHtmlOutput(buildAlreadyCheckedInPage(name, eventTitle));
       }
 
-      // Check if event is today or tomorrow
-      var today = new Date();
-      today.setHours(0, 0, 0, 0);
-      var tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      // Check if event is today or tomorrow (in Pacific time)
+      var now = new Date();
+      var todayStr = Utilities.formatDate(now, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+      var tomorrowDate = new Date(now.getTime() + 86400000);
+      var tomorrowStr = Utilities.formatDate(tomorrowDate, CONFIG.TIMEZONE, 'yyyy-MM-dd');
 
-      var eventDate = new Date(eventDateStr);
-      eventDate.setHours(0, 0, 0, 0);
+      // Parse event date as UTC to avoid timezone shift
+      // (dates stored as "2026-02-14" would shift back a day if parsed as local)
+      var eventDateNorm = eventDateStr;
+      if (eventDateStr instanceof Date) {
+        eventDateNorm = Utilities.formatDate(eventDateStr, 'UTC', 'yyyy-MM-dd');
+      }
 
-      if (eventDate < today) {
+      if (eventDateNorm < todayStr) {
         return HtmlService.createHtmlOutput(buildErrorPage('This event has already passed.'));
       }
 
-      if (eventDate > tomorrow) {
-        // Format date nicely for display
-        var formattedDate = Utilities.formatDate(eventDate, CONFIG.TIMEZONE, 'EEEE, MMMM d, yyyy');
+      if (eventDateNorm > tomorrowStr) {
+        // Format date nicely for display — parse as UTC to preserve correct date
+        var eventDate = new Date(eventDateNorm + 'T12:00:00Z');
+        var formattedDate = Utilities.formatDate(eventDate, 'UTC', 'EEEE, MMMM d, yyyy');
         return HtmlService.createHtmlOutput(buildEarlyCheckinPage(name, eventTitle, formattedDate));
       }
 
