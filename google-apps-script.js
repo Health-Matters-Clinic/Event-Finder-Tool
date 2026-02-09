@@ -300,9 +300,25 @@ function saveEvent(event) {
     var eventIdNorm = normalizeId(event.id);
 
     // Find existing event row using normalized comparison
+    // Also try Pacific timezone normalization for backwards compatibility
+    // (frontend may have cached IDs generated with the old timezone)
     var rowIndex = -1;
     for (var i = 1; i < data.length; i++) {
-      if (normalizeId(data[i][0]) === eventIdNorm) {
+      var sheetIdNorm = normalizeId(data[i][0]);
+      if (sheetIdNorm === eventIdNorm) {
+        rowIndex = i + 1;
+        break;
+      }
+      // Fallback: if sheet cell is a Date, also try Pacific timezone match
+      if (data[i][0] instanceof Date) {
+        var ptNorm = Utilities.formatDate(data[i][0], CONFIG.TIMEZONE, 'MMM-dd-yyyy');
+        if (ptNorm === eventIdNorm || ptNorm.toLowerCase() === eventIdNorm.toLowerCase()) {
+          rowIndex = i + 1;
+          break;
+        }
+      }
+      // Case-insensitive fallback
+      if (sheetIdNorm.toLowerCase() === eventIdNorm.toLowerCase()) {
         rowIndex = i + 1;
         break;
       }
