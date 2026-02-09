@@ -575,19 +575,14 @@ const App: React.FC = () => {
                   </p>
                 </div>
                 {selectedEvent.websiteUrl && (
-                  <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      {lang === 'es' ? 'Mas Info' : 'More Info'}
-                    </label>
-                    <a
-                      href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-semibold text-[#233dff] hover:underline break-all"
-                    >
-                      {selectedEvent.websiteUrl}
-                    </a>
-                  </div>
+                  <a
+                    href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-semibold text-[#233dff] hover:underline inline-flex items-center gap-1.5"
+                  >
+                    {lang === 'es' ? 'Mas Informacion' : 'More Info'} ↗
+                  </a>
                 )}
               </div>
 
