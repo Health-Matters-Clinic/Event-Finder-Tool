@@ -183,13 +183,14 @@ function getEvents() {
       return { success: true, events: [] };
     }
 
-    var data = sheet.getDataRange().getValues();
-
-    if (data.length <= 1) {
+    var lastRow = sheet.getLastRow();
+    if (lastRow <= 1) {
       return { success: true, events: [] };
     }
 
-    var headers = data[0];
+    // Read all 18 columns explicitly — getDataRange() can miss trailing empty columns
+    var headers = sheet.getRange(1, 1, 1, 18).getValues()[0];
+    var data = sheet.getRange(1, 1, lastRow, 18).getValues();
     var events = [];
 
     for (var i = 1; i < data.length; i++) {
@@ -290,8 +291,10 @@ function saveEvent(event) {
       ]);
     }
 
-    var data = sheet.getDataRange().getValues();
-    var headers = data[0];
+    // Read all 18 columns explicitly — getDataRange() can miss trailing empty columns
+    var lastRow = sheet.getLastRow();
+    var headers = sheet.getRange(1, 1, 1, 18).getValues()[0];
+    var data = sheet.getRange(1, 1, lastRow, 18).getValues();
 
     // Normalize incoming event ID for comparison
     var eventIdNorm = normalizeId(event.id);
