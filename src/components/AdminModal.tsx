@@ -191,17 +191,22 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
     if (hasBase64Flyer) {
       // For events with base64 flyers, use POST (too large for URL)
-      await fetch(GOOGLE_APPS_SCRIPT_URL, {
+      const resp = await fetch(GOOGLE_APPS_SCRIPT_URL, {
         method: 'POST',
         body: JSON.stringify({ action: 'saveEvent', event }),
         mode: 'no-cors',
       });
+      console.log('[Save] POST (base64 flyer), status:', resp.status, 'type:', resp.type);
     } else {
-      // For events without flyers, use GET (readable response for debugging)
+      // For events without base64 flyers, use GET
       const params = new URLSearchParams();
       params.append('action', 'saveEvent');
       params.append('event', JSON.stringify(event));
-      await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
+      const url = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
+      console.log('[Save] GET url length:', url.length);
+      const resp = await fetch(url);
+      const text = await resp.text();
+      console.log('[Save] GET response:', resp.status, text.substring(0, 200));
     }
   };
 
