@@ -105,7 +105,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-2.5">
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {t.partner_name} *
@@ -173,7 +173,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {t.partner_proposed_date} *
