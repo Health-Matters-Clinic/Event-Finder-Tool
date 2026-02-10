@@ -283,7 +283,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!mapRef.current) return;
 
-    Object.values(markersRef.current).forEach((marker) => marker.remove());
+    Object.values(markersRef.current).forEach((marker: any) => marker.remove());
     markersRef.current = {};
 
     filteredEvents.forEach((event) => {

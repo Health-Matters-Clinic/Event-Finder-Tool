@@ -43,7 +43,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     setNeeds((prev) => (prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]));
   };
 
-  const postJson = async (payload: any): Promise<{ success: boolean }> => {
+  const postJson = async (payload: any): Promise<{ success: boolean; checkinToken?: string }> => {
     // Send as individual URL params - no encoding issues
     const params = new URLSearchParams();
     Object.entries(payload).forEach(([key, value]) => {
