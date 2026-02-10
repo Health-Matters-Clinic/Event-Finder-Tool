@@ -378,7 +378,7 @@ const App: React.FC = () => {
       const eventDate = selectedEvent.date?.includes('T') ? selectedEvent.date.split('T')[0] : selectedEvent.date;
       eventSlug = slugify(`${selectedEvent.title}-${eventDate || selectedEvent.id}`);
     }
-    const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}`;
+    const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}&rsvp=true`;
 
     // Try native share first (Safari, iOS, Android - shows AirDrop, email, copy, etc.)
     if (navigator.share) {
