@@ -417,7 +417,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-4">
           <HMCLogo />
           <div className="hidden sm:block">
-            <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight leading-none">
+            <h1 className="text-xl font-medium text-[#1a1a1a] tracking-normal leading-none">
               Event Finder
             </h1>
             <p className="text-[10px] text-gray-500 font-semibold tracking-[0.02em]">{t.app_subtitle}</p>
@@ -467,7 +467,7 @@ const App: React.FC = () => {
         <div className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center gap-3">
           <button
             onClick={() => setMobileView('map')}
-            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.2em] border-2 border-gray-200 transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wide border-2 border-gray-200 transition-all flex items-center justify-center gap-2 ${
               mobileView === 'map'
                 ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
                 : 'bg-white text-gray-500'
@@ -482,7 +482,7 @@ const App: React.FC = () => {
           </button>
           <button
             onClick={() => setMobileView('list')}
-            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.2em] border-2 border-gray-200 transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wide border-2 border-gray-200 transition-all flex items-center justify-center gap-2 ${
               mobileView === 'list'
                 ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
                 : 'bg-white text-gray-500'
@@ -521,23 +521,23 @@ const App: React.FC = () => {
 
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <span
-                  className="inline-block bg-[#f0f4ff] border border-[#233dff]/20 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-widest"
+                  className="inline-block bg-[#f0f4ff] border border-[#233dff]/20 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide"
                   style={{ color: PROGRAM_COLORS[selectedEvent.program] || PROGRAM_COLORS.default }}
                 >
                   {programLabel(selectedEvent.program)}
                 </span>
                 {selectedEvent.isPromoted && (
-                  <span className="inline-block bg-[#233dff] text-white border border-[#233dff] px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-widest">
+                  <span className="inline-block bg-[#233dff] text-white border border-[#233dff] px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide">
                     {lang === 'es' ? 'NUEVO' : 'JUST ADDED'}
                   </span>
                 )}
                 {selectedEvent.isSponsored && (
-                  <span className="inline-block bg-[#f0f4ff] text-[#233dff] border border-[#233dff]/30 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-widest">
+                  <span className="inline-block bg-[#f0f4ff] text-[#233dff] border border-[#233dff]/30 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide">
                     {lang === 'es' ? 'PATROCINADO' : 'SPONSORED'}
                   </span>
                 )}
                 {isPast(selectedEvent.date) && (
-                  <span className="inline-block bg-gray-100 text-gray-600 border border-gray-200 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-widest">
+                  <span className="inline-block bg-gray-100 text-gray-600 border border-gray-200 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide">
                     {t.past}
                   </span>
                 )}
@@ -560,7 +560,7 @@ const App: React.FC = () => {
                   </div>
                 )}
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
                     {lang === 'es' ? 'Cuando' : 'When'}
                   </label>
                   <p className="text-base font-bold text-gray-900 leading-snug">
@@ -570,7 +570,7 @@ const App: React.FC = () => {
                   </p>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
                     {lang === 'es' ? 'Donde' : 'Where'}
                   </label>
                   <p className="text-sm font-semibold text-gray-700 leading-relaxed">
@@ -595,7 +595,7 @@ const App: React.FC = () => {
                     {t.submit_btn}
                   </Button>
                 ) : (
-                  <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-xs font-semibold uppercase tracking-widest border-2 border-gray-200">
+                  <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-xs font-semibold uppercase tracking-wide border-2 border-gray-200">
                     {selectedEvent.saveTheDate
                       ? lang === 'es' ? 'Proximamente' : 'Coming Soon'
                       : lang === 'es' ? 'Evento archivado' : 'Archived Event'}
@@ -662,7 +662,7 @@ const App: React.FC = () => {
               onClick={() => setFiltersCollapsed(!filtersCollapsed)}
               className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
-              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500 flex items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-2">
                 <svg
                   className="w-4 h-4"
                   fill="none"
@@ -769,7 +769,7 @@ const App: React.FC = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setFilters((f) => ({ ...f, showPast: false }))}
-                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.15em] transition-all border-2 border-gray-200 flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-2 border-gray-200 flex items-center justify-center gap-2 ${
                       !filters.showPast
                         ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
                         : 'bg-white text-gray-500 hover:bg-gray-50'
@@ -782,7 +782,7 @@ const App: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setFilters((f) => ({ ...f, showPast: true }))}
-                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.15em] transition-all border-2 border-gray-200 flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-2 border-gray-200 flex items-center justify-center gap-2 ${
                       filters.showPast
                         ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
                         : 'bg-white text-gray-500 hover:bg-gray-50'
@@ -799,7 +799,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="p-4 px-6 border-b border-gray-200 flex justify-between items-center bg-white">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-[0.2em]">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
               {t.showing_events(filteredEvents.length)}
             </p>
             {(filters.month || filters.program || locationSearch) && (
@@ -808,7 +808,7 @@ const App: React.FC = () => {
                   setFilters({ month: '', program: '', showPast: false });
                   setLocationSearch('');
                 }}
-                className="text-[10px] font-semibold text-[#233dff] uppercase tracking-widest hover:underline"
+                className="text-[10px] font-semibold text-[#233dff] uppercase tracking-wide hover:underline"
               >
                 {t.clear_filters}
               </button>
@@ -839,7 +839,7 @@ const App: React.FC = () => {
                         }}
                       />
                       <span
-                        className="text-[10px] font-semibold uppercase tracking-[0.2em]"
+                        className="text-[10px] font-semibold uppercase tracking-wide"
                         style={{ color: PROGRAM_COLORS[event.program] || PROGRAM_COLORS.default }}
                       >
                         {event.dateDisplay}
@@ -898,7 +898,7 @@ const App: React.FC = () => {
               ))
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center p-16 opacity-30">
-                <p className="text-base font-semibold text-gray-500 uppercase tracking-widest">
+                <p className="text-base font-semibold text-gray-500 uppercase tracking-wide">
                   {t.no_events}
                 </p>
               </div>
@@ -906,7 +906,7 @@ const App: React.FC = () => {
           </div>
 
           <footer className="p-6 bg-white border-t border-gray-200 text-center">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.2em]">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
               &copy; {new Date().getFullYear()} {t.copyright}
               <span className="mx-2">|</span>
               <button
