@@ -4,7 +4,7 @@
 export const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby-KmIXY2Qu8zooU4f-hjbdpb59WKonTPJOwcktDV0SjxW5CJPMbtAV1rO0SdJx_0tK8Q/exec';
 
 // Admin passcode for accessing the admin panel
-export const ADMIN_PASSCODE = 'HMC2026';
+export const ADMIN_PASSCODE = import.meta.env.VITE_ADMIN_PASSCODE || '';
 
 // Volunteer Portal API - dual-write RSVPs for volunteer matching
 export const PORTAL_API_URL = 'https://hmc-volunteer-portal-172668994130.us-west2.run.app';

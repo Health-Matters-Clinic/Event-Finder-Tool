@@ -45,7 +45,6 @@ const emptyEvent: ClinicEvent = {
   saveTheDate: false,
   isPromoted: false,
   isSponsored: false,
-  createdAt: new Date().toISOString(),
 };
 
 export const AdminModal: React.FC<AdminModalProps> = ({
@@ -103,7 +102,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
       try {
         // Delete from backend
-        await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=deleteEvent&id=${encodeURIComponent(eventId)}`, { mode: 'no-cors' });
+        await fetch(GOOGLE_APPS_SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'deleteEvent', id: eventId }),
+          mode: 'no-cors',
+        });
 
         // Update local state
         const updated = events.filter((e) => e.id !== eventId);
