@@ -193,9 +193,12 @@ const App: React.FC = () => {
         const titleSlug = toSlug(e.title);
         if (titleSlug === slugLower) return true;
 
+        // Match by date (YYYY-MM-DD) — e.g. ?event=2026-03-13
+        const eventDate = e.date?.includes('T') ? e.date.split('T')[0] : e.date;
+        if (eventDate === slugLower) return true;
+
         // Match by title+date combo slug (e.g. "community-walk-run-2026-03-14")
         // This handles share URLs that combine title + date for uniqueness
-        const eventDate = e.date?.includes('T') ? e.date.split('T')[0] : e.date;
         if (eventDate) {
           const comboSlug = toSlug(`${e.title}-${eventDate}`);
           if (comboSlug === slugLower) return true;
