@@ -455,7 +455,7 @@ const App: React.FC = () => {
           {/* Partner Events Button */}
           <Button
             variant="outline"
-            className="h-9 px-4 text-[10px]"
+            className="h-9 px-4"
             onClick={() => setIsPartnerOpen(true)}
           >
             {t.partner_events}
@@ -463,7 +463,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex flex-1 overflow-hidden relative flex-col md:flex-row">
+      <main className="flex flex-1 overflow-hidden relative flex-col md:flex-row min-h-0">
         <div className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center gap-3">
           <button
             onClick={() => setMobileView('map')}
@@ -498,11 +498,11 @@ const App: React.FC = () => {
         </div>
 
         <div
-          className={`flex-1 relative bg-[#e8e6e0] h-[48vh] md:h-auto ${
+          className={`flex-1 relative bg-[#e8e6e0] min-h-0 h-[50vh] md:h-auto ${
             mobileView === 'map' ? 'block' : 'hidden'
           } md:block`}
         >
-          <div ref={mapContainerRef} id="map-container" className="h-full w-full" />
+          <div ref={mapContainerRef} id="map-container" className="absolute inset-0" />
           {selectedEvent && (
             <div
               className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40"
@@ -591,11 +591,11 @@ const App: React.FC = () => {
 
               <div className="flex flex-col gap-3">
                 {!selectedEvent.saveTheDate && !isPast(selectedEvent.date) ? (
-                  <Button onClick={() => setIsRSVPOpen(true)} className="w-full justify-center h-12 text-sm">
+                  <Button onClick={() => setIsRSVPOpen(true)} className="w-full justify-center h-12">
                     {t.submit_btn}
                   </Button>
                 ) : (
-                  <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-xs font-semibold uppercase tracking-wide border-2 border-gray-200">
+                  <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-base font-normal border border-gray-200">
                     {selectedEvent.saveTheDate
                       ? lang === 'es' ? 'Proximamente' : 'Coming Soon'
                       : lang === 'es' ? 'Evento archivado' : 'Archived Event'}
@@ -652,7 +652,7 @@ const App: React.FC = () => {
         </div>
 
         <aside
-          className={`w-full md:w-[420px] bg-white border-l md:border-l border-t md:border-t-0 border-gray-200 flex flex-col z-30 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] flex-1 overflow-hidden ${
+          className={`w-full md:w-[420px] bg-white border-l md:border-l border-t md:border-t-0 border-gray-200 flex flex-col z-30 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] flex-1 min-h-0 overflow-hidden ${
             mobileView === 'list' ? 'flex' : 'hidden'
           } md:flex`}
         >
@@ -905,7 +905,7 @@ const App: React.FC = () => {
             )}
           </div>
 
-          <footer className="p-6 bg-white border-t border-gray-200 text-center">
+          <footer className="p-6 bg-white border-t border-gray-200 text-center shrink-0">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
               &copy; {new Date().getFullYear()} {t.copyright}
               <span className="mx-2">|</span>
@@ -913,7 +913,7 @@ const App: React.FC = () => {
                 onClick={() => setIsAdminOpen(true)}
                 className="text-gray-400 hover:text-[#233dff] transition-colors"
               >
-                Admin
+                ADMIN
               </button>
             </p>
           </footer>

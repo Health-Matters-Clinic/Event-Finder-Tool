@@ -406,14 +406,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       <div className="flex gap-2 shrink-0">
                         <button
                           onClick={() => handleEditEvent(event)}
-                          className="px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.15em] border-2 border-[#233dff] text-[#233dff] hover:bg-[#f0f4ff] transition-all"
+                          className="px-4 py-2 rounded-full text-base font-normal leading-[1.2] border border-[#233dff] text-[#233dff] hover:bg-[#f0f4ff] transition-all inline-flex items-center gap-2"
                         >
+                          <span className="w-2 h-2 rounded-full bg-[#233dff]"></span>
                           {lang === 'es' ? 'Editar' : 'Edit'}
                         </button>
                         <button
                           onClick={() => handleDeleteEvent(event.id)}
-                          className="px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-[0.15em] border-2 border-red-500 text-red-500 hover:bg-red-50 transition-all"
+                          className="px-4 py-2 rounded-full text-base font-normal leading-[1.2] border border-red-500 text-red-500 hover:bg-red-50 transition-all inline-flex items-center gap-2"
                         >
+                          <span className="w-2 h-2 rounded-full bg-red-500"></span>
                           {lang === 'es' ? 'Eliminar' : 'Delete'}
                         </button>
                       </div>
@@ -590,7 +592,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </label>
 
                   <div className="flex items-center gap-3 mb-3">
-                    <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-sm border-[1.5px] border-black bg-white text-[#1a1a1a] hover:bg-gray-50 transition-all">
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-normal text-base leading-[1.2] border border-[#0f0f0f] bg-white text-[#1a1a1a] hover:bg-gray-50 transition-all">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>

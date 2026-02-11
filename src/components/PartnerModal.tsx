@@ -99,7 +99,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
             <div className="text-center py-6">
               <div className="text-3xl mb-2">✓</div>
               <p className="text-sm font-semibold text-gray-900">{t.partner_success}</p>
-              <Button onClick={onClose} variant="outline" className="mt-3 h-8 text-xs">
+              <Button onClick={onClose} variant="outline" className="mt-3 h-8">
                 {lang === 'es' ? 'Cerrar' : 'Close'}
               </Button>
             </div>
