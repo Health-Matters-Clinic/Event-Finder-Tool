@@ -236,7 +236,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                   ? 'Revisa tu correo para los detalles.'
                   : 'Check your email for details.'}
               </p>
-              <Button variant="outline" className="h-8 text-xs mt-3" onClick={onClose}>
+              <Button variant="outline" className="h-8 mt-3" onClick={onClose}>
                 {lang === 'es' ? 'Cerrar' : 'Close'}
               </Button>
             </div>
@@ -378,7 +378,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-9 justify-center text-xs"
+                  className="h-9 justify-center"
                   type="button"
                   onClick={downloadICS}
                 >
