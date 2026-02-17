@@ -11,6 +11,118 @@ const CONFIG = {
 };
 
 // ========================================
+// PASSCODE AUTH FUNCTIONS
+// ========================================
+
+function sha256(text) {
+  var raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text);
+  return raw.map(function(b) { return ('0' + ((b + 256) % 256).toString(16)).slice(-2); }).join('');
+}
+
+function getConfigSheet() {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Config');
+  if (!sheet) {
+    sheet = ss.insertSheet('Config');
+    sheet.appendRow(['key', 'value', 'expires']);
+  }
+  return sheet;
+}
+
+function getConfigValue(key) {
+  var sheet = getConfigSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === key) return { value: data[i][1], expires: data[i][2], row: i + 1 };
+  }
+  return null;
+}
+
+function setConfigValue(key, value, expires) {
+  var sheet = getConfigSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === key) {
+      sheet.getRange(i + 1, 2).setValue(value);
+      sheet.getRange(i + 1, 3).setValue(expires || '');
+      return;
+    }
+  }
+  sheet.appendRow([key, value, expires || '']);
+}
+
+function verifyPasscode(hash) {
+  var stored = getConfigValue('passcode_hash');
+  if (!stored || !stored.value) {
+    return { success: false, needsSetup: true };
+  }
+  return { success: stored.value === hash };
+}
+
+function requestPasscodeReset() {
+  var code = '';
+  for (var i = 0; i < 6; i++) code += Math.floor(Math.random() * 10);
+  var codeHash = sha256(code);
+  var expires = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
+  setConfigValue('reset_code', codeHash, expires);
+
+  try {
+    var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
+      '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+      '<div style="max-width:480px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid #e5e5e5;">' +
+      '<div style="background:#233dff;color:white;padding:24px;text-align:center;">' +
+      '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;">' +
+      '<h1 style="margin:0;font-size:22px;font-weight:700;">Event Finder Admin</h1>' +
+      '<p style="margin:8px 0 0;opacity:0.9;font-size:14px;">Passcode Reset</p></div>' +
+      '<div style="padding:32px;text-align:center;">' +
+      '<p style="color:#666;font-size:15px;margin:0 0 24px;">Your admin reset code is:</p>' +
+      '<div style="background:#f0f4ff;padding:20px;border-radius:12px;margin:0 0 24px;border:1.5px solid rgba(35,61,255,0.2);">' +
+      '<p style="font-size:36px;font-weight:800;color:#233dff;letter-spacing:8px;margin:0;">' + code + '</p></div>' +
+      '<p style="color:#999;font-size:13px;margin:0;">This code expires in 15 minutes.</p>' +
+      '</div></div></body></html>';
+
+    MailApp.sendEmail({
+      to: CONFIG.ADMIN_EMAIL,
+      subject: 'Event Finder Admin - Passcode Reset Code',
+      htmlBody: htmlBody,
+      name: 'Health Matters Clinic Events'
+    });
+  } catch (err) {
+    Logger.log('Reset email error: ' + err);
+    return { success: false, error: 'Failed to send email' };
+  }
+
+  return { success: true };
+}
+
+function resetPasscode(codeHash, newPasscodeHash) {
+  if (!codeHash || !newPasscodeHash) {
+    return { success: false, error: 'Missing code or new passcode' };
+  }
+
+  var stored = getConfigValue('reset_code');
+  if (!stored || !stored.value) {
+    return { success: false, error: 'No reset code found. Request a new one.' };
+  }
+
+  // Check expiry
+  if (stored.expires && new Date(stored.expires) < new Date()) {
+    setConfigValue('reset_code', '', '');
+    return { success: false, error: 'Reset code expired. Request a new one.' };
+  }
+
+  if (stored.value !== codeHash) {
+    return { success: false, error: 'Invalid reset code' };
+  }
+
+  // Set new passcode and clear reset code
+  setConfigValue('passcode_hash', newPasscodeHash, '');
+  setConfigValue('reset_code', '', '');
+
+  return { success: true };
+}
+
+// ========================================
 // doGet - handles all incoming requests
 // ========================================
 function doGet(e) {
@@ -21,6 +133,25 @@ function doGet(e) {
 
   var p = e.parameter;
   var action = p.action || '';
+
+  // ===== AUTH ACTIONS =====
+  if (action === 'verifyPasscode') {
+    var result = verifyPasscode(p.hash || '');
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === 'requestPasscodeReset') {
+    var result = requestPasscodeReset();
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === 'resetPasscode') {
+    var result = resetPasscode(p.codeHash || '', p.newHash || '');
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 
   // ===== EVENT ACTIONS (return JSON) =====
   if (action === 'getEvents') {
@@ -130,6 +261,15 @@ function doPost(e) {
     var result;
 
     switch (action) {
+      case 'verifyPasscode':
+        result = verifyPasscode(params.hash || '');
+        break;
+      case 'requestPasscodeReset':
+        result = requestPasscodeReset();
+        break;
+      case 'resetPasscode':
+        result = resetPasscode(params.codeHash || '', params.newHash || '');
+        break;
       case 'saveEvent':
         result = saveEvent(params.event || params);
         break;

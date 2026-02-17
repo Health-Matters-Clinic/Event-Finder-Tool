@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { ClinicEvent, Language } from '../types';
-import { ADMIN_PASSCODE, STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL } from '../config';
+import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, hashPasscode } from '../config';
 
 interface AdminModalProps {
   lang: Language;
@@ -10,7 +10,7 @@ interface AdminModalProps {
   onEventsUpdate: (events: ClinicEvent[]) => void;
 }
 
-type AdminView = 'passcode' | 'main' | 'edit';
+type AdminView = 'passcode' | 'main' | 'edit' | 'reset-request' | 'reset-confirm';
 
 const PROGRAM_OPTIONS = [
   'Unstoppable Workshop',
@@ -56,6 +56,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [view, setView] = useState<AdminView>('passcode');
   const [passcode, setPasscode] = useState('');
   const [passcodeError, setPasscodeError] = useState('');
+  const [passcodeLoading, setPasscodeLoading] = useState(false);
+  const [resetCode, setResetCode] = useState('');
+  const [newPasscode, setNewPasscode] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
   const [editingEvent, setEditingEvent] = useState<ClinicEvent | null>(null);
   const [formData, setFormData] = useState<ClinicEvent>(emptyEvent);
   const [importText, setImportText] = useState('');
@@ -71,14 +75,86 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   }, []);
 
-  const handlePasscodeSubmit = (e: React.FormEvent) => {
+  const handlePasscodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passcode === ADMIN_PASSCODE) {
-      sessionStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, 'true');
-      setView('main');
-      setPasscodeError('');
-    } else {
-      setPasscodeError(lang === 'es' ? 'Codigo incorrecto' : 'Incorrect passcode');
+    if (!passcode.trim()) {
+      setPasscodeError(lang === 'es' ? 'Ingresa un codigo' : 'Enter a passcode');
+      return;
+    }
+    setPasscodeLoading(true);
+    setPasscodeError('');
+    try {
+      const hash = await hashPasscode(passcode);
+      const url = `${GOOGLE_APPS_SCRIPT_URL}?action=verifyPasscode&hash=${encodeURIComponent(hash)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        sessionStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, 'true');
+        setView('main');
+      } else if (data.needsSetup) {
+        setPasscodeError(lang === 'es' ? 'No hay codigo configurado. Usa "Restablecer Codigo" para crear uno.' : 'No passcode set. Use "Reset Passcode" to create one.');
+      } else {
+        setPasscodeError(lang === 'es' ? 'Codigo incorrecto' : 'Incorrect passcode');
+      }
+    } catch {
+      setPasscodeError(lang === 'es' ? 'Error de conexion' : 'Connection error. Try again.');
+    } finally {
+      setPasscodeLoading(false);
+    }
+  };
+
+  const handleRequestReset = async () => {
+    setPasscodeLoading(true);
+    setResetMessage('');
+    setPasscodeError('');
+    try {
+      const url = `${GOOGLE_APPS_SCRIPT_URL}?action=requestPasscodeReset`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setView('reset-confirm');
+        setResetMessage(lang === 'es' ? 'Codigo enviado al correo del admin.' : 'Reset code sent to admin email.');
+      } else {
+        setPasscodeError(data.error || 'Failed to send reset code');
+      }
+    } catch {
+      setPasscodeError(lang === 'es' ? 'Error de conexion' : 'Connection error');
+    } finally {
+      setPasscodeLoading(false);
+    }
+  };
+
+  const handleResetPasscode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetCode.trim() || !newPasscode.trim()) {
+      setPasscodeError(lang === 'es' ? 'Completa todos los campos' : 'Fill in all fields');
+      return;
+    }
+    if (newPasscode.length < 4) {
+      setPasscodeError(lang === 'es' ? 'El codigo debe tener al menos 4 caracteres' : 'Passcode must be at least 4 characters');
+      return;
+    }
+    setPasscodeLoading(true);
+    setPasscodeError('');
+    try {
+      const codeHash = await hashPasscode(resetCode);
+      const newHash = await hashPasscode(newPasscode);
+      const url = `${GOOGLE_APPS_SCRIPT_URL}?action=resetPasscode&codeHash=${encodeURIComponent(codeHash)}&newHash=${encodeURIComponent(newHash)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        sessionStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, 'true');
+        setView('main');
+        setPasscode('');
+        setResetCode('');
+        setNewPasscode('');
+      } else {
+        setPasscodeError(data.error || (lang === 'es' ? 'Codigo invalido' : 'Invalid code'));
+      }
+    } catch {
+      setPasscodeError(lang === 'es' ? 'Error de conexion' : 'Connection error');
+    } finally {
+      setPasscodeLoading(false);
     }
   };
 
@@ -253,10 +329,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               {lang === 'es' ? 'Panel de Admin' : 'Admin Panel'}
             </div>
             <div className="text-xl font-semibold text-[#1a1a1a] leading-tight mt-1">
-              {view === 'passcode'
+              {view === 'passcode' || view === 'reset-request' || view === 'reset-confirm'
                 ? lang === 'es'
-                  ? 'Autenticacion'
-                  : 'Authentication'
+                  ? view === 'reset-confirm' ? 'Restablecer Codigo' : 'Autenticacion'
+                  : view === 'reset-confirm' ? 'Reset Passcode' : 'Authentication'
                 : view === 'edit'
                 ? editingEvent
                   ? lang === 'es'
@@ -311,14 +387,82 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   placeholder={lang === 'es' ? 'Ingresa el codigo' : 'Enter passcode'}
                   autoFocus
+                  disabled={passcodeLoading}
                 />
                 {passcodeError && (
                   <p className="text-red-500 text-sm font-semibold mt-2">{passcodeError}</p>
                 )}
               </div>
-              <Button type="submit" className="w-full justify-center h-12">
-                {lang === 'es' ? 'Ingresar' : 'Enter'}
+              <Button type="submit" className="w-full justify-center h-12" disabled={passcodeLoading}>
+                {passcodeLoading
+                  ? lang === 'es' ? 'Verificando...' : 'Verifying...'
+                  : lang === 'es' ? 'Ingresar' : 'Enter'}
               </Button>
+              <button
+                type="button"
+                onClick={handleRequestReset}
+                disabled={passcodeLoading}
+                className="w-full text-center text-sm font-semibold text-[#233dff] hover:underline disabled:opacity-50"
+              >
+                {passcodeLoading
+                  ? lang === 'es' ? 'Enviando...' : 'Sending...'
+                  : lang === 'es' ? 'Restablecer Codigo' : 'Reset Passcode'}
+              </button>
+            </form>
+          )}
+
+          {/* Reset Confirm View — enter code from email + new passcode */}
+          {view === 'reset-confirm' && (
+            <form onSubmit={handleResetPasscode} className="space-y-6">
+              {resetMessage && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <p className="text-sm font-semibold text-blue-700">{resetMessage}</p>
+                </div>
+              )}
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  {lang === 'es' ? 'Codigo de Verificacion' : 'Verification Code'}
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value)}
+                  className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-2xl font-bold tracking-[0.3em] text-center focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                  placeholder="000000"
+                  maxLength={6}
+                  autoFocus
+                  disabled={passcodeLoading}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  {lang === 'es' ? 'Nuevo Codigo de Acceso' : 'New Passcode'}
+                </label>
+                <input
+                  type="password"
+                  value={newPasscode}
+                  onChange={(e) => setNewPasscode(e.target.value)}
+                  className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                  placeholder={lang === 'es' ? 'Minimo 4 caracteres' : 'Minimum 4 characters'}
+                  disabled={passcodeLoading}
+                />
+              </div>
+              {passcodeError && (
+                <p className="text-red-500 text-sm font-semibold">{passcodeError}</p>
+              )}
+              <Button type="submit" className="w-full justify-center h-12" disabled={passcodeLoading}>
+                {passcodeLoading
+                  ? lang === 'es' ? 'Guardando...' : 'Saving...'
+                  : lang === 'es' ? 'Establecer Codigo' : 'Set Passcode'}
+              </Button>
+              <button
+                type="button"
+                onClick={() => { setView('passcode'); setPasscodeError(''); setResetMessage(''); }}
+                className="w-full text-center text-sm font-semibold text-gray-400 hover:text-gray-600"
+              >
+                {lang === 'es' ? 'Volver' : 'Back to Login'}
+              </button>
             </form>
           )}
 
