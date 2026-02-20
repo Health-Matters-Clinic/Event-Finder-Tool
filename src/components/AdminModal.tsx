@@ -67,11 +67,26 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  // Check if already authenticated
+  // Verify authentication on mount — always confirm with backend
   useEffect(() => {
     const auth = sessionStorage.getItem(STORAGE_KEYS.ADMIN_AUTH);
     if (auth === 'true') {
-      setView('main');
+      // Re-verify that a passcode is actually configured before trusting session
+      fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=verifyPasscode&hash=__check__`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.needsSetup) {
+            // No passcode configured — clear stale session, stay on passcode screen
+            sessionStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
+          } else {
+            // Passcode exists and session is valid
+            setView('main');
+          }
+        })
+        .catch(() => {
+          // Backend unreachable — don't trust stale session, require re-auth
+          sessionStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
+        });
     }
   }, []);
 
@@ -588,6 +603,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   />
                 </div>
 
+                {/* Title (Spanish) */}
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    Titulo en Espanol (optional)
+                  </label>
+                  <input
+                    name="title_es"
+                    value={formData.title_es || ''}
+                    onChange={handleFormChange}
+                    placeholder={lang === 'es' ? 'Titulo traducido' : 'Spanish title for ES toggle'}
+                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                  />
+                </div>
+
                 {/* Date */}
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
@@ -724,6 +753,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     onChange={handleFormChange}
                     required
                     rows={3}
+                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all resize-none"
+                  />
+                </div>
+
+                {/* Description (Spanish) */}
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    Descripcion en Espanol (optional)
+                  </label>
+                  <textarea
+                    name="description_es"
+                    value={formData.description_es || ''}
+                    onChange={handleFormChange}
+                    rows={3}
+                    placeholder={lang === 'es' ? 'Descripcion traducida' : 'Spanish description for ES toggle'}
                     className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all resize-none"
                   />
                 </div>

@@ -213,13 +213,25 @@ const App: React.FC = () => {
           setFilters(f => ({ ...f, showPast: true }));
         }
         setSelectedEvent(foundEvent);
-        // Check if URL also has rsvp=true parameter
+        // Check if URL also has rsvp=true parameter — check both own URL and parent/referrer
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('rsvp') === 'true') {
+        let hasRsvp = urlParams.get('rsvp') === 'true';
+        if (!hasRsvp) {
+          try {
+            if (window.parent !== window) {
+              hasRsvp = new URLSearchParams(window.parent.location.search).get('rsvp') === 'true';
+            }
+          } catch { /* cross-origin */ }
+        }
+        if (!hasRsvp && document.referrer) {
+          try { hasRsvp = new URL(document.referrer).searchParams.get('rsvp') === 'true'; } catch {}
+        }
+        if (hasRsvp) {
           setIsRSVPOpen(true);
         }
+        setPendingEventSlug(null);
       }
-      setPendingEventSlug(null);
+      // Don't clear pendingEventSlug if event not found — fresh data may still be loading
     }
   }, [pendingEventSlug, events]);
 
@@ -364,7 +376,7 @@ const App: React.FC = () => {
 
   const handleShare = async () => {
     if (!selectedEvent) return;
-    const eventTitle = translateEventTitle(selectedEvent.title, lang);
+    const eventTitle = translateEventTitle(selectedEvent.title, lang, selectedEvent);
     const shareText = `${eventTitle} - ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
 
     // Create event-specific share URL using hash-based deep linking
@@ -544,7 +556,7 @@ const App: React.FC = () => {
               </div>
 
               <h3 className="text-2xl font-semibold text-[#1a1a1a] mb-6 pr-6 leading-tight">
-                {translateEventTitle(selectedEvent.title, lang)}
+                {translateEventTitle(selectedEvent.title, lang, selectedEvent)}
               </h3>
 
               <div className="space-y-6 mb-8">
@@ -867,7 +879,7 @@ const App: React.FC = () => {
                       selectedEvent?.id === event.id ? 'text-[#233dff]' : 'text-[#1a1a1a]'
                     }`}
                   >
-                    {translateEventTitle(event.title, lang)}
+                    {translateEventTitle(event.title, lang, event)}
                   </h4>
 
                   <div className="space-y-2">
