@@ -226,14 +226,9 @@ const App: React.FC = () => {
         if (!hasRsvp && document.referrer) {
           try { hasRsvp = new URL(document.referrer).searchParams.get('rsvp') === 'true'; } catch {}
         }
-        if (hasRsvp) {
-          if (foundEvent.websiteUrl) {
-            // External RSVP — redirect to the event's own registration page
-            const url = foundEvent.websiteUrl.startsWith('http') ? foundEvent.websiteUrl : `https://${foundEvent.websiteUrl}`;
-            window.open(url, '_blank');
-          } else {
-            setIsRSVPOpen(true);
-          }
+        if (hasRsvp && !foundEvent.websiteUrl) {
+          // Only auto-open HMC's RSVP modal for events without their own registration page
+          setIsRSVPOpen(true);
         }
         setPendingEventSlug(null);
       }
