@@ -227,7 +227,13 @@ const App: React.FC = () => {
           try { hasRsvp = new URL(document.referrer).searchParams.get('rsvp') === 'true'; } catch {}
         }
         if (hasRsvp) {
-          setIsRSVPOpen(true);
+          if (foundEvent.websiteUrl) {
+            // External RSVP — redirect to the event's own registration page
+            const url = foundEvent.websiteUrl.startsWith('http') ? foundEvent.websiteUrl : `https://${foundEvent.websiteUrl}`;
+            window.open(url, '_blank');
+          } else {
+            setIsRSVPOpen(true);
+          }
         }
         setPendingEventSlug(null);
       }
@@ -603,9 +609,21 @@ const App: React.FC = () => {
 
               <div className="flex flex-col gap-3">
                 {!selectedEvent.saveTheDate && !isPast(selectedEvent.date) ? (
+                  selectedEvent.websiteUrl ? (
+                  <a
+                    href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button className="w-full justify-center h-12">
+                      {lang === 'es' ? 'Registrarse' : 'Register'}
+                    </Button>
+                  </a>
+                  ) : (
                   <Button onClick={() => setIsRSVPOpen(true)} className="w-full justify-center h-12">
                     {t.submit_btn}
                   </Button>
+                  )
                 ) : (
                   <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-base font-normal border border-gray-200">
                     {selectedEvent.saveTheDate
