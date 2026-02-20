@@ -21,6 +21,8 @@ export interface ClinicEvent {
   isSponsored?: boolean;      // Sponsored event
   promotedUntil?: string;     // Date promotion expires
   createdAt?: string;         // When event was added
+  title_es?: string;          // Spanish title (admin-provided)
+  description_es?: string;    // Spanish description (admin-provided)
 }
 
 export interface PartnerEventRequest {

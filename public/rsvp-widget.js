@@ -610,7 +610,9 @@
     var eventSlug = urlParams.get('event');
     if (!eventSlug) return;
 
-    // Find the Event Finder iframe and forward the event param
+    var rsvpFlag = urlParams.get('rsvp');
+
+    // Find the Event Finder iframe and forward the event + rsvp params
     var iframes = document.querySelectorAll('iframe');
     iframes.forEach(function(iframe) {
       var src = iframe.getAttribute('src') || '';
@@ -618,7 +620,11 @@
         // Append the event param to the iframe src if not already present
         if (src.indexOf('event=') === -1) {
           var separator = src.indexOf('?') !== -1 ? '&' : '?';
-          iframe.src = src + separator + 'event=' + encodeURIComponent(eventSlug);
+          var params = 'event=' + encodeURIComponent(eventSlug);
+          if (rsvpFlag === 'true') {
+            params += '&rsvp=true';
+          }
+          iframe.src = src + separator + params;
         }
       }
     });

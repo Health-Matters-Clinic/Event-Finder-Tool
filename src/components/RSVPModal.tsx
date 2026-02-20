@@ -37,7 +37,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
 
   if (!event) return null;
 
-  const displayTitle = translateEventTitle(event.title, lang);
+  const displayTitle = translateEventTitle(event.title, lang, event);
 
   const toggleNeed = (val: string) => {
     setNeeds((prev) => (prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]));
