@@ -408,13 +408,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   placeholder={lang === 'es' ? 'Ingresa el codigo' : 'Enter passcode'}
                   autoFocus
+                  required
+                  minLength={4}
                   disabled={passcodeLoading}
                 />
                 {passcodeError && (
                   <p className="text-red-500 text-sm font-semibold mt-2">{passcodeError}</p>
                 )}
               </div>
-              <Button type="submit" className="w-full justify-center h-12" disabled={passcodeLoading}>
+              <Button type="submit" className="w-full justify-center h-12" disabled={passcodeLoading || !passcode.trim()}>
                 {passcodeLoading
                   ? lang === 'es' ? 'Verificando...' : 'Verifying...'
                   : lang === 'es' ? 'Ingresar' : 'Enter'}
