@@ -78,6 +78,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           if (data.needsSetup) {
             // No passcode configured — clear stale session, stay on passcode screen
             sessionStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
+          } else if ('events' in data) {
+            // Stale Apps Script deployment — response fell through to getEvents
+            sessionStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
           } else {
             // Passcode exists and session is valid
             setView('main');
@@ -103,11 +106,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       const url = `${GOOGLE_APPS_SCRIPT_URL}?action=verifyPasscode&hash=${encodeURIComponent(hash)}`;
       const res = await fetch(url);
       const data = await res.json();
-      if (data.success) {
+      // Only accept a clean {success:true} response — reject if it has unrelated fields (e.g. "events")
+      // which indicates the Apps Script deployment is stale and fell through to getEvents
+      if (data.success === true && !('events' in data)) {
         sessionStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, 'true');
         setView('main');
       } else if (data.needsSetup) {
         setPasscodeError(lang === 'es' ? 'No hay codigo configurado. Usa "Restablecer Codigo" para crear uno.' : 'No passcode set. Use "Reset Passcode" to create one.');
+      } else if (data.success === true && 'events' in data) {
+        // Stale Apps Script deployment — fell through to getEvents instead of verifyPasscode
+        setPasscodeError(lang === 'es' ? 'Error del servidor — contacta al admin' : 'Server auth not configured. Redeploy the Apps Script.');
       } else {
         setPasscodeError(lang === 'es' ? 'Codigo incorrecto' : 'Incorrect passcode');
       }
