@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { ClinicEvent, Language } from '../types';
-import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, hashPasscode } from '../config';
+import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, hashPasscode } from '../config';
 
 interface AdminModalProps {
   lang: Language;
@@ -279,14 +279,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  // Helper to save a single event to backend
+  // Helper to save a single event to backend (Google Sheets + Volunteer Portal)
   const saveEventToBackend = async (event: ClinicEvent) => {
-    // Always use POST to avoid URL length limits and CORS redirect issues
+    // Save to Google Sheets
     await fetch(GOOGLE_APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'saveEvent', event }),
       mode: 'no-cors',
     });
+    // Also sync to Volunteer Portal so event appears in portal dashboard
+    fetch(`${PORTAL_API_URL}/api/public/sync-event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(event),
+    }).catch(() => {}); // Fire-and-forget — don't block on portal sync
   };
 
   const handleImportJSON = async () => {
