@@ -182,12 +182,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       setSaveError('');
 
       try {
-        // Delete from backend
-        await fetch(GOOGLE_APPS_SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'deleteEvent', id: eventId }),
-          mode: 'no-cors',
-        });
+        // Delete from backend via GET
+        await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=deleteEvent&id=${encodeURIComponent(eventId)}`);
 
         // Update local state
         const updated = events.filter((e) => e.id !== eventId);
@@ -270,12 +266,25 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   // Helper to save a single event to backend (Google Sheets + Volunteer Portal)
   const saveEventToBackend = async (event: ClinicEvent) => {
-    // Save to Google Sheets (no-cors required — Apps Script doesn't support CORS on POST)
-    await fetch(GOOGLE_APPS_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'saveEvent', event }),
-      mode: 'no-cors',
-    });
+    // Save to Google Sheets via GET (doPost is not available in current deployment)
+    // Encode event as URL param — strip flyerUrl if too large for URL
+    const eventForUrl = { ...event };
+    if (eventForUrl.flyerUrl && eventForUrl.flyerUrl.length > 5000) {
+      // flyerUrl too large for GET param — save without it, then save flyerUrl via separate request
+      const flyerUrl = eventForUrl.flyerUrl;
+      delete eventForUrl.flyerUrl;
+      const url = `${GOOGLE_APPS_SCRIPT_URL}?action=saveEvent&event=${encodeURIComponent(JSON.stringify(eventForUrl))}`;
+      await fetch(url);
+      // Save flyerUrl separately via POST (no-cors, best-effort)
+      await fetch(GOOGLE_APPS_SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'saveEvent', event: { id: event.id, flyerUrl } }),
+        mode: 'no-cors',
+      });
+    } else {
+      const url = `${GOOGLE_APPS_SCRIPT_URL}?action=saveEvent&event=${encodeURIComponent(JSON.stringify(eventForUrl))}`;
+      await fetch(url);
+    }
     // Also sync to Volunteer Portal so event appears in portal dashboard
     fetch(`${PORTAL_API_URL}/api/public/sync-event`, {
       method: 'POST',
