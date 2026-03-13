@@ -67,29 +67,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  // Verify authentication on mount — always confirm with backend
+  // Trust session auth within the same browser session — passcode was already verified
   useEffect(() => {
     const auth = sessionStorage.getItem(STORAGE_KEYS.ADMIN_AUTH);
     if (auth === 'true') {
-      // Re-verify that a passcode is actually configured before trusting session
-      fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=verifyPasscode&hash=__check__`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.needsSetup) {
-            // No passcode configured — clear stale session, stay on passcode screen
-            sessionStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
-          } else if ('events' in data) {
-            // Stale Apps Script deployment — response fell through to getEvents
-            sessionStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
-          } else {
-            // Passcode exists and session is valid
-            setView('main');
-          }
-        })
-        .catch(() => {
-          // Backend unreachable — don't trust stale session, require re-auth
-          sessionStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
-        });
+      setView('main');
     }
   }, []);
 
