@@ -201,11 +201,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
       try {
         // Delete from backend
-        await fetch(GOOGLE_APPS_SCRIPT_URL, {
+        const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
           method: 'POST',
           body: JSON.stringify({ action: 'deleteEvent', id: eventId }),
-          mode: 'no-cors',
+          redirect: 'follow',
         });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error || 'Delete failed');
 
         // Update local state
         const updated = events.filter((e) => e.id !== eventId);
@@ -254,15 +256,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       eventToSave.location = eventToSave.city;
     }
 
-    // Save to backend (fire and forget - CORS prevents reading response)
+    // Save to backend
     try {
       await saveEventToBackend(eventToSave);
     } catch (error) {
-      console.warn('Backend save request:', error);
-      // Don't show error - request likely went through, CORS just blocks response
+      console.error('Backend save failed:', error);
+      setSaveError(lang === 'es' ? 'Error al guardar en el servidor' : `Save failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setIsSaving(false);
+      return;
     }
 
-    // Update local state optimistically
+    // Update local state after confirmed backend save
     let updated: ClinicEvent[];
     if (editingEvent) {
       updated = events.map((e) => (e.id === editingEvent.id ? eventToSave : e));
@@ -289,12 +293,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   // Helper to save a single event to backend (Google Sheets + Volunteer Portal)
   const saveEventToBackend = async (event: ClinicEvent) => {
-    // Save to Google Sheets
-    await fetch(GOOGLE_APPS_SCRIPT_URL, {
+    // Save to Google Sheets — use redirect:follow to get CORS-enabled response
+    const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'saveEvent', event }),
-      mode: 'no-cors',
+      redirect: 'follow',
     });
+    const result = await res.json();
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to save event');
+    }
     // Also sync to Volunteer Portal so event appears in portal dashboard
     fetch(`${PORTAL_API_URL}/api/public/sync-event`, {
       method: 'POST',
