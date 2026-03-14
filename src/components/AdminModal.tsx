@@ -182,12 +182,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       setSaveError('');
 
       try {
-        // Delete from backend
-        await fetch(GOOGLE_APPS_SCRIPT_URL, {
+        // Delete from backend via portal proxy
+        const delRes = await fetch(`${PORTAL_API_URL}/api/public/save-event`, {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'deleteEvent', id: eventId }),
-          mode: 'no-cors',
         });
+        const delResult = await delRes.json();
+        if (!delResult.success) throw new Error(delResult.error || 'Delete failed');
 
         // Update local state
         const updated = events.filter((e) => e.id !== eventId);
@@ -270,12 +272,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   // Helper to save a single event to backend (Google Sheets + Volunteer Portal)
   const saveEventToBackend = async (event: ClinicEvent) => {
-    // Save to Google Sheets
-    await fetch(GOOGLE_APPS_SCRIPT_URL, {
+    // Save to Google Sheets via portal proxy (direct browser POST to Apps Script fails due to 302 redirect)
+    const proxyRes = await fetch(`${PORTAL_API_URL}/api/public/save-event`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'saveEvent', event }),
-      mode: 'no-cors',
     });
+    const result = await proxyRes.json();
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to save event');
+    }
     // Also sync to Volunteer Portal so event appears in portal dashboard
     fetch(`${PORTAL_API_URL}/api/public/sync-event`, {
       method: 'POST',
