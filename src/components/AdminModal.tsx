@@ -182,12 +182,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       setSaveError('');
 
       try {
-        // Delete from backend
-        await fetch(GOOGLE_APPS_SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'deleteEvent', id: eventId }),
-          mode: 'no-cors',
-        });
+        // Delete from backend via GET (POST breaks on Apps Script 302 redirect)
+        const delUrl = `${GOOGLE_APPS_SCRIPT_URL}?action=deleteEvent&id=${encodeURIComponent(eventId)}`;
+        const delRes = await fetch(delUrl);
+        const delResult = await delRes.json();
+        if (!delResult.success) throw new Error(delResult.error || 'Delete failed');
 
         // Update local state
         const updated = events.filter((e) => e.id !== eventId);
@@ -236,14 +235,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       eventToSave.location = eventToSave.city;
     }
 
-    // Save to backend (no-cors — can't read response, update local state optimistically)
+    // Save to backend — now uses GET so we can verify success
     try {
       await saveEventToBackend(eventToSave);
     } catch (error) {
-      console.warn('Backend save request:', error);
+      console.error('Backend save failed:', error);
+      setSaveError(lang === 'es' ? 'Error al guardar' : `Save failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setIsSaving(false);
+      return;
     }
 
-    // Update local state optimistically
+    // Update local state after confirmed backend save
     let updated: ClinicEvent[];
     if (editingEvent) {
       updated = events.map((e) => (e.id === editingEvent.id ? eventToSave : e));
@@ -270,12 +272,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   // Helper to save a single event to backend (Google Sheets + Volunteer Portal)
   const saveEventToBackend = async (event: ClinicEvent) => {
-    // Save to Google Sheets
-    await fetch(GOOGLE_APPS_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'saveEvent', event }),
-      mode: 'no-cors',
-    });
+    // Save to Google Sheets via GET (POST breaks on Apps Script 302 redirect which converts POST→GET)
+    const eventJson = encodeURIComponent(JSON.stringify(event));
+    const url = `${GOOGLE_APPS_SCRIPT_URL}?action=saveEvent&event=${eventJson}`;
+    const res = await fetch(url);
+    const result = await res.json();
+    if (!result.success) throw new Error(result.error || 'Save failed');
     // Also sync to Volunteer Portal so event appears in portal dashboard
     fetch(`${PORTAL_API_URL}/api/public/sync-event`, {
       method: 'POST',
