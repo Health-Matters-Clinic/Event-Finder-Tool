@@ -182,9 +182,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       setSaveError('');
 
       try {
-        // Delete from backend via GET (POST breaks on Apps Script 302 redirect)
-        const delUrl = `${GOOGLE_APPS_SCRIPT_URL}?action=deleteEvent&id=${encodeURIComponent(eventId)}`;
-        const delRes = await fetch(delUrl);
+        // Delete from backend via portal proxy
+        const delRes = await fetch(`${PORTAL_API_URL}/api/public/save-event`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'deleteEvent', id: eventId }),
+        });
         const delResult = await delRes.json();
         if (!delResult.success) throw new Error(delResult.error || 'Delete failed');
 
@@ -270,20 +273,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  // Helper to save a single event to backend (Google Sheets + Volunteer Portal)
+  // Helper to save a single event to backend via portal proxy
+  // (Browser can't POST directly to Apps Script — 302 redirect drops the body)
   const saveEventToBackend = async (event: ClinicEvent) => {
-    // Save to Google Sheets via GET (POST breaks on Apps Script 302 redirect which converts POST→GET)
-    const eventJson = encodeURIComponent(JSON.stringify(event));
-    const url = `${GOOGLE_APPS_SCRIPT_URL}?action=saveEvent&event=${eventJson}`;
-    const res = await fetch(url);
-    const result = await res.json();
-    if (!result.success) throw new Error(result.error || 'Save failed');
-    // Also sync to Volunteer Portal so event appears in portal dashboard
-    fetch(`${PORTAL_API_URL}/api/public/sync-event`, {
+    const res = await fetch(`${PORTAL_API_URL}/api/public/save-event`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(event),
-    }).catch(() => {}); // Fire-and-forget — don't block on portal sync
+      body: JSON.stringify({ action: 'saveEvent', event }),
+    });
+    const result = await res.json();
+    if (!result.success) throw new Error(result.error || 'Save failed');
   };
 
   const handleImportJSON = async () => {
