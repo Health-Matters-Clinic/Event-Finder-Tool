@@ -248,7 +248,7 @@ const App: React.FC = () => {
         const locationMatch =
           !locationSearch ||
           event.city.toLowerCase().includes(locQuery) ||
-          event.address.toLowerCase().includes(locQuery);
+          (event.address && event.address.toLowerCase().includes(locQuery));
 
         const eventIsPast = isPast(dateOnly);
         const archivalMatch = filters.showPast ? eventIsPast : !eventIsPast;
@@ -300,6 +300,8 @@ const App: React.FC = () => {
     markersRef.current = {};
 
     filteredEvents.forEach((event) => {
+      // Skip virtual events (no address) — they have no map pin
+      if (!event.address) return;
       const isSelected = selectedEvent?.id === event.id;
       const color = PROGRAM_COLORS[event.program] || PROGRAM_COLORS.default;
 
@@ -341,14 +343,16 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!mapRef.current) return;
 
-    const points = filteredEvents.map(
-      (event) =>
-        [event.lat, event.lng, selectedEvent?.id === event.id ? 0.9 : 0.5] as [
-          number,
-          number,
-          number
-        ]
-    );
+    const points = filteredEvents
+      .filter((event) => event.address)
+      .map(
+        (event) =>
+          [event.lat, event.lng, selectedEvent?.id === event.id ? 0.9 : 0.5] as [
+            number,
+            number,
+            number
+          ]
+      );
 
     if (!heatLayerRef.current) {
       heatLayerRef.current = L.heatLayer(points, {
@@ -378,7 +382,7 @@ const App: React.FC = () => {
   const handleShare = async () => {
     if (!selectedEvent) return;
     const eventTitle = translateEventTitle(selectedEvent.title, lang, selectedEvent);
-    const shareText = `${eventTitle} - ${selectedEvent.dateDisplay} @ ${selectedEvent.address}`;
+    const shareText = `${eventTitle} - ${selectedEvent.dateDisplay}${selectedEvent.address ? ` @ ${selectedEvent.address}` : ''}`;
 
     // Create event-specific share URL using hash-based deep linking
     const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
@@ -587,7 +591,7 @@ const App: React.FC = () => {
                     {lang === 'es' ? 'Donde' : 'Where'}
                   </label>
                   <p className="text-sm font-semibold text-gray-700 leading-relaxed">
-                    {selectedEvent.address}
+                    {selectedEvent.address || (lang === 'es' ? 'Evento Virtual' : 'Virtual Event')}
                   </p>
                 </div>
                 {selectedEvent.websiteUrl && (
@@ -640,7 +644,7 @@ const App: React.FC = () => {
                         `DTSTART:${d}T120000`,
                         `DTEND:${d}T140000`,
                         `SUMMARY:${selectedEvent.title}`,
-                        `LOCATION:${selectedEvent.address}`,
+                        `LOCATION:${selectedEvent.address || 'Virtual Event'}`,
                         `UID:${selectedEvent.id}@healthmatters.clinic`,
                         'END:VEVENT',
                         'END:VCALENDAR'
