@@ -62,6 +62,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [resetMessage, setResetMessage] = useState('');
   const [editingEvent, setEditingEvent] = useState<ClinicEvent | null>(null);
   const [formData, setFormData] = useState<ClinicEvent>(emptyEvent);
+  const [eventFormat, setEventFormat] = useState<'in-person' | 'virtual'>('in-person');
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -167,12 +168,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     const newId = `event-${Date.now()}`;
     setFormData({ ...emptyEvent, id: newId, date: getDefaultDate(), createdAt: new Date().toISOString() });
     setEditingEvent(null);
+    setEventFormat('in-person');
     setView('edit');
   };
 
   const handleEditEvent = (event: ClinicEvent) => {
     setFormData({ ...event });
     setEditingEvent(event);
+    setEventFormat(event.address ? 'in-person' : 'virtual');
     setView('edit');
   };
 
@@ -660,7 +663,29 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   />
                 </div>
 
-                {/* City */}
+                {/* Event Format */}
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    {lang === 'es' ? 'Formato' : 'Format'} *
+                  </label>
+                  <select
+                    value={eventFormat}
+                    onChange={(e) => {
+                      const fmt = e.target.value as 'in-person' | 'virtual';
+                      setEventFormat(fmt);
+                      if (fmt === 'virtual') {
+                        setFormData((prev) => ({ ...prev, address: '', city: '', lat: 0, lng: 0 }));
+                      }
+                    }}
+                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="in-person">{lang === 'es' ? 'En Persona' : 'In-Person'}</option>
+                    <option value="virtual">{lang === 'es' ? 'Virtual' : 'Virtual'}</option>
+                  </select>
+                </div>
+
+                {/* City (in-person only) */}
+                {eventFormat === 'in-person' && (
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
                     {lang === 'es' ? 'Ciudad' : 'City'} *
@@ -673,6 +698,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   />
                 </div>
+                )}
 
                 {/* Program */}
                 <div>
@@ -694,23 +720,23 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </select>
                 </div>
 
-                {/* Address */}
+                {/* Address (in-person only) */}
+                {eventFormat === 'in-person' && (
+                <>
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {lang === 'es' ? 'Direccion' : 'Address'}{' '}
-                    <span className="text-gray-300">{lang === 'es' ? '(dejar vacio para evento virtual)' : '(leave empty for virtual events)'}</span>
+                    {lang === 'es' ? 'Direccion' : 'Address'} *
                   </label>
                   <input
                     name="address"
                     value={formData.address}
                     onChange={handleFormChange}
-                    placeholder={lang === 'es' ? 'Direccion fisica o dejar vacio para virtual' : 'Physical address or leave empty for virtual'}
+                    required
                     className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   />
                 </div>
 
                 {/* Latitude */}
-                {formData.address && (
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
                     {lang === 'es' ? 'Latitud' : 'Latitude'} *
@@ -725,10 +751,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   />
                 </div>
-                )}
 
                 {/* Longitude */}
-                {formData.address && (
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
                     {lang === 'es' ? 'Longitud' : 'Longitude'} *
@@ -743,6 +767,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   />
                 </div>
+                </>
                 )}
 
                 {/* Description */}
