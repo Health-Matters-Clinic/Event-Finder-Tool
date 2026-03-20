@@ -697,18 +697,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 {/* Address */}
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    {lang === 'es' ? 'Direccion' : 'Address'} *
+                    {lang === 'es' ? 'Direccion' : 'Address'}{' '}
+                    <span className="text-gray-300">{lang === 'es' ? '(dejar vacio para evento virtual)' : '(leave empty for virtual events)'}</span>
                   </label>
                   <input
                     name="address"
                     value={formData.address}
                     onChange={handleFormChange}
-                    required
+                    placeholder={lang === 'es' ? 'Direccion fisica o dejar vacio para virtual' : 'Physical address or leave empty for virtual'}
                     className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   />
                 </div>
 
                 {/* Latitude */}
+                {formData.address && (
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
                     {lang === 'es' ? 'Latitud' : 'Latitude'} *
@@ -723,8 +725,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   />
                 </div>
+                )}
 
                 {/* Longitude */}
+                {formData.address && (
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-2">
                     {lang === 'es' ? 'Longitud' : 'Longitude'} *
@@ -739,6 +743,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
                   />
                 </div>
+                )}
 
                 {/* Description */}
                 <div className="sm:col-span-2">
