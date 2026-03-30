@@ -1,6 +1,17 @@
 
 export type Language = 'en' | 'es';
 
+export interface EventSession {
+  id: string;
+  title: string;
+  description?: string;
+  time: string;
+  location?: string;
+  capacity?: number;
+  rsvpCount?: number;
+  instructor?: string;
+}
+
 export interface ClinicEvent {
   id: string;
   title: string;
@@ -23,6 +34,7 @@ export interface ClinicEvent {
   createdAt?: string;         // When event was added
   title_es?: string;          // Spanish title (admin-provided)
   description_es?: string;    // Spanish description (admin-provided)
+  sessions?: EventSession[];  // Sub-events/agenda items within this event
 }
 
 export interface PartnerEventRequest {
@@ -59,6 +71,9 @@ export interface RSVPPayload {
   needs?: string[];
   lang: Language;
   source: string;
+
+  // Session selections
+  sessionIds?: string[];
 
   // For check-in
   checkinToken?: string;

@@ -24,6 +24,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
 
   // Minor exception (allows same guardian email/phone to preregister multiple minors)
   const [isMinor, setIsMinor] = useState<boolean>(false);
+  const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
 
   const t = I18N[lang];
 
@@ -44,7 +45,6 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const postJson = async (payload: any): Promise<{ success: boolean; checkinToken?: string }> => {
-    // Send as individual URL params - no encoding issues
     const params = new URLSearchParams();
     Object.entries(payload).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
@@ -52,11 +52,20 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       }
     });
 
-    const img = new Image();
-    img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
-
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    return { success: true };
+    try {
+      const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        return { success: true, checkinToken: data.checkinToken };
+      }
+      throw new Error('Server error');
+    } catch {
+      // Apps Script redirects can fail fetch — fall back to image ping as backup
+      const img = new Image();
+      img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return { success: true };
+    }
   };
 
   const handlePreRegister = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -107,6 +116,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       needs,
       lang,
       source: isToday ? 'Live Event (Pre-register)' : 'Planning Ahead (Pre-register)',
+      sessionIds: selectedSessions.length > 0 ? selectedSessions : undefined,
     };
 
     try {
@@ -366,6 +376,49 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                   );
                 })}
               </div>
+
+              {/* Session picker */}
+              {event?.sessions && event.sessions.length > 0 && (
+                <div>
+                  <span className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                    {lang === 'es' ? 'Selecciona actividades' : 'Select activities'}
+                    <span className="text-gray-300 normal-case"> ({lang === 'es' ? 'opcional' : 'optional'})</span>
+                  </span>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {event.sessions.map(session => {
+                      const isFull = session.capacity ? (session.rsvpCount || 0) >= session.capacity : false;
+                      const isSelected = selectedSessions.includes(session.id);
+                      return (
+                        <label key={session.id} className={`flex items-start gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-all ${
+                          isSelected ? 'border-[#233dff] bg-[#f0f4ff]' : isFull ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed' : 'border-gray-200 hover:border-[#233dff]'
+                        }`}>
+                          <input
+                            type="checkbox"
+                            disabled={isFull && !isSelected}
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedSessions(prev => [...prev, session.id]);
+                              else setSelectedSessions(prev => prev.filter(id => id !== session.id));
+                            }}
+                            className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#233dff] focus:ring-[#233dff]"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-800">{session.title}</p>
+                            <p className="text-[10px] text-gray-500">{session.time}{session.instructor ? ` · ${session.instructor}` : ''}</p>
+                          </div>
+                          {session.capacity != null && (
+                            <span className={`shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                              isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+                            }`}>
+                              {isFull ? (lang === 'es' ? 'Lleno' : 'Full') : `${session.capacity - (session.rsvpCount || 0)}`}
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-2 pt-1">
