@@ -428,6 +428,45 @@ const App: React.FC = () => {
 
   const programLabel = (program: string) => translateProgram(program, lang);
 
+  // SEO: Inject JSON-LD structured data for Google rich results
+  useEffect(() => {
+    const upcoming = events.filter(e => !isPast(e.date));
+    const jsonLd = upcoming.map(e => ({
+      '@context': 'https://schema.org',
+      '@type': 'Event',
+      name: e.title,
+      startDate: e.date,
+      endDate: e.date,
+      eventAttendanceMode: e.address ? 'https://schema.org/OfflineEventAttendanceMode' : 'https://schema.org/OnlineEventAttendanceMode',
+      eventStatus: 'https://schema.org/EventScheduled',
+      location: e.address ? {
+        '@type': 'Place',
+        name: e.location || e.city,
+        address: { '@type': 'PostalAddress', streetAddress: e.address, addressLocality: e.city, addressRegion: 'CA', addressCountry: 'US' },
+        ...(e.lat && e.lng ? { geo: { '@type': 'GeoCoordinates', latitude: e.lat, longitude: e.lng } } : {}),
+      } : { '@type': 'VirtualLocation', url: 'https://www.healthmatters.clinic/resources/eventfinder' },
+      description: e.description || `${e.title} — free community health event by Health Matters Clinic`,
+      organizer: { '@type': 'Organization', name: 'Health Matters Clinic', url: 'https://www.healthmatters.clinic' },
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: `https://www.healthmatters.clinic/resources/eventfinder?event=${e.id}&rsvp=true` },
+      image: e.flyerUrl || 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
+    }));
+
+    // Remove old script tags
+    document.querySelectorAll('script[data-event-jsonld]').forEach(el => el.remove());
+
+    if (jsonLd.length > 0) {
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.setAttribute('data-event-jsonld', 'true');
+      script.textContent = JSON.stringify(jsonLd);
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      document.querySelectorAll('script[data-event-jsonld]').forEach(el => el.remove());
+    };
+  }, [events]);
+
   return (
     <div className="flex flex-col h-screen bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white">
       <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 z-[200] relative flex items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
