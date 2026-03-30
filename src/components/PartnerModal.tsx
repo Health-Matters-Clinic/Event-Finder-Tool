@@ -52,10 +52,15 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
         }
       });
 
-      const img = new Image();
-      img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
-
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      try {
+        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
+        if (response.ok) await response.json();
+      } catch {
+        // Apps Script redirects can fail fetch — fall back to image ping
+        const img = new Image();
+        img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
 
       setSubmitted(true);
     } catch {

@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { EVENTS, I18N } from './constants';
 import { GOOGLE_APPS_SCRIPT_URL, STORAGE_KEYS } from './config';
 import { ClinicEvent, Language } from './types';
 import { Button } from './components/Button';
-import { RSVPModal } from './components/RSVPModal';
-import { AdminModal } from './components/AdminModal';
-import { PartnerModal } from './components/PartnerModal';
 import { translateEventTitle, translateProgram } from './utils/translation';
+
+const RSVPModal = lazy(() => import('./components/RSVPModal').then(m => ({ default: m.RSVPModal })));
+const AdminModal = lazy(() => import('./components/AdminModal').then(m => ({ default: m.AdminModal })));
+const PartnerModal = lazy(() => import('./components/PartnerModal').then(m => ({ default: m.PartnerModal })));
 
 // HMC Logo Component with hover animation
 const HMC_LOGO_URL = 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png';
@@ -594,6 +595,37 @@ const App: React.FC = () => {
                     {selectedEvent.address || (lang === 'es' ? 'Evento Virtual' : 'Virtual Event')}
                   </p>
                 </div>
+                {selectedEvent.sessions && selectedEvent.sessions.length > 0 && (
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-3">
+                      {lang === 'es' ? 'Agenda' : 'Agenda'}
+                    </label>
+                    <div className="space-y-2">
+                      {selectedEvent.sessions.map(session => (
+                        <div key={session.id} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-800">{session.title}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {session.time}{session.instructor ? ` · ${session.instructor}` : ''}{session.location ? ` · ${session.location}` : ''}
+                              </p>
+                              {session.description && <p className="text-xs text-gray-400 mt-1">{session.description}</p>}
+                            </div>
+                            {session.capacity != null && (
+                              <span className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full ${
+                                (session.rsvpCount || 0) >= session.capacity ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+                              }`}>
+                                {(session.rsvpCount || 0) >= session.capacity
+                                  ? (lang === 'es' ? 'Lleno' : 'Full')
+                                  : `${session.capacity - (session.rsvpCount || 0)} ${lang === 'es' ? 'disponibles' : 'spots'}`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {selectedEvent.websiteUrl && (
                   <a
                     href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
@@ -949,30 +981,32 @@ const App: React.FC = () => {
         </aside>
       </main>
 
-      {isRSVPOpen && (
-        <RSVPModal
-          event={selectedEvent}
-          lang={lang}
-          setLang={setLang}
-          onClose={() => setIsRSVPOpen(false)}
-        />
-      )}
+      <Suspense fallback={null}>
+        {isRSVPOpen && (
+          <RSVPModal
+            event={selectedEvent}
+            lang={lang}
+            setLang={setLang}
+            onClose={() => setIsRSVPOpen(false)}
+          />
+        )}
 
-      {isAdminOpen && (
-        <AdminModal
-          lang={lang}
-          events={events}
-          onClose={() => setIsAdminOpen(false)}
-          onEventsUpdate={handleEventsUpdate}
-        />
-      )}
+        {isAdminOpen && (
+          <AdminModal
+            lang={lang}
+            events={events}
+            onClose={() => setIsAdminOpen(false)}
+            onEventsUpdate={handleEventsUpdate}
+          />
+        )}
 
-      {isPartnerOpen && (
-        <PartnerModal
-          lang={lang}
-          onClose={() => setIsPartnerOpen(false)}
-        />
-      )}
+        {isPartnerOpen && (
+          <PartnerModal
+            lang={lang}
+            onClose={() => setIsPartnerOpen(false)}
+          />
+        )}
+      </Suspense>
 
     </div>
   );
