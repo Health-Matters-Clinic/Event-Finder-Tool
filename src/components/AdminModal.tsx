@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
-import { ClinicEvent, Language } from '../types';
+import { ClinicEvent, EventSession, Language } from '../types';
 import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, hashPasscode } from '../config';
 
 interface AdminModalProps {
@@ -63,6 +63,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [editingEvent, setEditingEvent] = useState<ClinicEvent | null>(null);
   const [formData, setFormData] = useState<ClinicEvent>(emptyEvent);
   const [eventFormat, setEventFormat] = useState<'in-person' | 'virtual'>('in-person');
+  const [sessions, setSessions] = useState<EventSession[]>([]);
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -169,6 +170,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setFormData({ ...emptyEvent, id: newId, date: getDefaultDate(), createdAt: new Date().toISOString() });
     setEditingEvent(null);
     setEventFormat('in-person');
+    setSessions([]);
     setView('edit');
   };
 
@@ -176,6 +178,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setFormData({ ...event });
     setEditingEvent(event);
     setEventFormat(event.address ? 'in-person' : 'virtual');
+    setSessions(event.sessions || []);
     setView('edit');
   };
 
@@ -225,7 +228,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setSaveError('');
 
     // Generate dateDisplay from date if not provided
-    let eventToSave = { ...formData };
+    let eventToSave = { ...formData, sessions: sessions.length > 0 ? sessions : undefined };
     if (eventToSave.date && !eventToSave.dateDisplay) {
       const d = new Date(eventToSave.date + 'T00:00:00');
       eventToSave.dateDisplay = d.toLocaleDateString('en-US', {
@@ -949,6 +952,84 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </span>
                   </label>
                 </div>
+              </div>
+
+              {/* Sessions / Agenda */}
+              <div className="sm:col-span-2 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
+                    {lang === 'es' ? 'Agenda / Sesiones' : 'Agenda / Sessions'}
+                    <span className="text-gray-300"> (optional)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setSessions(prev => [...prev, { id: `s-${Date.now()}`, title: '', time: '', capacity: undefined, instructor: '', description: '' }])}
+                    className="text-xs font-semibold text-[#233dff] hover:underline"
+                  >
+                    + {lang === 'es' ? 'Agregar Sesion' : 'Add Session'}
+                  </button>
+                </div>
+                {sessions.length === 0 && (
+                  <p className="text-xs text-gray-400 italic">
+                    {lang === 'es' ? 'Sin sesiones — usa esto para eventos con multiples actividades' : 'No sessions — use this for events with multiple activities'}
+                  </p>
+                )}
+                {sessions.map((session, idx) => (
+                  <div key={session.id} className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                        {lang === 'es' ? 'Sesion' : 'Session'} {idx + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSessions(prev => prev.filter(s => s.id !== session.id))}
+                        className="text-xs text-red-500 hover:underline"
+                      >
+                        {lang === 'es' ? 'Eliminar' : 'Remove'}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        value={session.title}
+                        onChange={e => setSessions(prev => prev.map(s => s.id === session.id ? { ...s, title: e.target.value } : s))}
+                        placeholder={lang === 'es' ? 'Titulo (ej. Clase de Baile)' : 'Title (e.g. Dance Class)'}
+                        className="col-span-2 bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] outline-none"
+                      />
+                      <input
+                        value={session.time}
+                        onChange={e => setSessions(prev => prev.map(s => s.id === session.id ? { ...s, time: e.target.value } : s))}
+                        placeholder="5:45 PM - 6:05 PM"
+                        className="bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] outline-none"
+                      />
+                      <input
+                        value={session.capacity || ''}
+                        onChange={e => setSessions(prev => prev.map(s => s.id === session.id ? { ...s, capacity: e.target.value ? Number(e.target.value) : undefined } : s))}
+                        type="number"
+                        placeholder={lang === 'es' ? 'Capacidad (opc.)' : 'Capacity (opt.)'}
+                        className="bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] outline-none"
+                      />
+                      <input
+                        value={session.instructor || ''}
+                        onChange={e => setSessions(prev => prev.map(s => s.id === session.id ? { ...s, instructor: e.target.value } : s))}
+                        placeholder={lang === 'es' ? 'Instructor (opc.)' : 'Instructor (opt.)'}
+                        className="bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] outline-none"
+                      />
+                      <input
+                        value={session.location || ''}
+                        onChange={e => setSessions(prev => prev.map(s => s.id === session.id ? { ...s, location: e.target.value } : s))}
+                        placeholder={lang === 'es' ? 'Ubicacion (opc.)' : 'Room/area (opt.)'}
+                        className="bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] outline-none"
+                      />
+                    </div>
+                    <textarea
+                      value={session.description || ''}
+                      onChange={e => setSessions(prev => prev.map(s => s.id === session.id ? { ...s, description: e.target.value } : s))}
+                      rows={2}
+                      placeholder={lang === 'es' ? 'Descripcion (opc.)' : 'Description (opt.)'}
+                      className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm focus:border-[#233dff] outline-none resize-none"
+                    />
+                  </div>
+                ))}
               </div>
 
               {/* Form Actions */}
