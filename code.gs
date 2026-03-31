@@ -153,6 +153,24 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // ===== RSVP COUNT (for landing page counter) =====
+  if (action === 'getRSVPCount') {
+    var eventIds = (p.eventIds || '').split(',').filter(function(id) { return id; });
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('RSVPs');
+    var count = 0;
+    if (sheet && sheet.getLastRow() > 1) {
+      var data = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues(); // Column B = Event ID
+      for (var i = 0; i < data.length; i++) {
+        if (eventIds.length === 0 || eventIds.indexOf(String(data[i][0])) !== -1) {
+          count++;
+        }
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: true, count: count }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // ===== EVENT ACTIONS (return JSON) =====
   if (action === 'getEvents') {
     return ContentService.createTextOutput(JSON.stringify(getEvents()))
