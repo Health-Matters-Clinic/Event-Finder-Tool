@@ -551,9 +551,9 @@ const App: React.FC = () => {
         <div className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center gap-3">
           <button
             onClick={() => setMobileView('map')}
-            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wide border-2 border-gray-200 transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wide border-[1.5px] border-solid border-gray-200 transition-all flex items-center justify-center gap-2 ${
               mobileView === 'map'
-                ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                ? 'bg-[#233dff] text-white border-solid border-[#233dff] shadow-md'
                 : 'bg-white text-gray-500'
             }`}
           >
@@ -566,9 +566,9 @@ const App: React.FC = () => {
           </button>
           <button
             onClick={() => setMobileView('list')}
-            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wide border-2 border-gray-200 transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wide border-[1.5px] border-solid border-gray-200 transition-all flex items-center justify-center gap-2 ${
               mobileView === 'list'
-                ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                ? 'bg-[#233dff] text-white border-solid border-[#233dff] shadow-md'
                 : 'bg-white text-gray-500'
             }`}
           >
@@ -836,7 +836,7 @@ const App: React.FC = () => {
                     placeholder={lang === 'es' ? 'Buscar ubicacion...' : 'Search location...'}
                     value={locationSearch}
                     onChange={(e) => setLocationSearch(e.target.value)}
-                    className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-xl text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all pl-11"
+                    className="w-full bg-white border-[1.5px] border-solid border-gray-200 px-4 py-3 rounded-xl text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all pl-11"
                   />
                   <svg
                     className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#233dff] transition-colors"
@@ -858,7 +858,7 @@ const App: React.FC = () => {
                   <select
                     value={filters.month}
                     onChange={(e) => setFilters((f) => ({ ...f, month: e.target.value }))}
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-3 rounded-xl text-[11px] font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none appearance-none cursor-pointer"
+                    className="w-full bg-white border-[1.5px] border-solid border-gray-200 px-3 py-3 rounded-xl text-[11px] font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none appearance-none cursor-pointer"
                   >
                     <option value="">{lang === 'es' ? 'Todos' : 'All Months'}</option>
                     <option value="01">{lang === 'es' ? 'Enero' : 'January'}</option>
@@ -877,7 +877,7 @@ const App: React.FC = () => {
                   <select
                     value={filters.program}
                     onChange={(e) => setFilters((f) => ({ ...f, program: e.target.value }))}
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-3 rounded-xl text-[11px] font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none appearance-none cursor-pointer"
+                    className="w-full bg-white border-[1.5px] border-solid border-gray-200 px-3 py-3 rounded-xl text-[11px] font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none appearance-none cursor-pointer"
                   >
                     <option value="">{lang === 'es' ? 'Todos' : 'All Types'}</option>
                     <option value="Unstoppable Wellness Meetup">
@@ -896,9 +896,9 @@ const App: React.FC = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setFilters((f) => ({ ...f, showPast: false }))}
-                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-2 border-gray-200 flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-[1.5px] border-solid border-gray-200 flex items-center justify-center gap-2 ${
                       !filters.showPast
-                        ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                        ? 'bg-[#233dff] text-white border-solid border-[#233dff] shadow-md'
                         : 'bg-white text-gray-500 hover:bg-gray-50'
                     }`}
                   >
@@ -909,9 +909,9 @@ const App: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setFilters((f) => ({ ...f, showPast: true }))}
-                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-2 border-gray-200 flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-[1.5px] border-solid border-gray-200 flex items-center justify-center gap-2 ${
                       filters.showPast
-                        ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                        ? 'bg-[#233dff] text-white border-solid border-[#233dff] shadow-md'
                         : 'bg-white text-gray-500 hover:bg-gray-50'
                     }`}
                   >
@@ -951,7 +951,7 @@ const App: React.FC = () => {
                     listRefs.current[event.id] = el;
                   }}
                   onClick={() => handleSelectEvent(event)}
-                  className={`group relative p-4 rounded-xl border-2 border-gray-200 transition-all cursor-pointer ${
+                  className={`group relative p-4 rounded-xl border-[1.5px] border-solid border-gray-200 transition-all cursor-pointer ${
                     selectedEvent?.id === event.id
                       ? 'bg-[#f0f4ff] border-[#233dff] shadow-[0_4px_12px_rgba(35,61,255,0.15)]'
                       : 'bg-white hover:border-[#233dff] hover:shadow-[0_4px_12px_rgba(35,61,255,0.12)]'
