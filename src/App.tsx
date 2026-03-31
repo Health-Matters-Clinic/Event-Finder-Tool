@@ -735,13 +735,32 @@ const App: React.FC = () => {
                     className="justify-center h-11"
                     onClick={() => {
                       const d = selectedEvent.date.replace(/-/g, '');
+                      // Parse actual event time (e.g., "8:00 AM", "5:45 PM - 7:30 PM", "10:15 AM - 11:45 AM")
+                      const parseTime = (timeStr: string): string => {
+                        if (!timeStr || timeStr === 'TBD') return '120000';
+                        const match = timeStr.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM|am|pm)?/i);
+                        if (!match) return '120000';
+                        let hours = parseInt(match[1]);
+                        const mins = match[2] ? match[2] : '00';
+                        const ampm = (match[3] || '').toUpperCase();
+                        if (ampm === 'PM' && hours < 12) hours += 12;
+                        if (ampm === 'AM' && hours === 12) hours = 0;
+                        return `${String(hours).padStart(2,'0')}${mins}00`;
+                      };
+                      const timeStr = selectedEvent.time || '';
+                      const parts = timeStr.split(/[-–]/);
+                      const startTime = parseTime(parts[0]?.trim() || '');
+                      const endTime = parts[1] ? parseTime(parts[1].trim()) :
+                        // Default to 2 hours after start if no end time
+                        String(Math.min(23, parseInt(startTime.substring(0,2)) + 2)).padStart(2,'0') + startTime.substring(2);
                       const ics = [
                         'BEGIN:VCALENDAR',
                         'VERSION:2.0',
                         'BEGIN:VEVENT',
-                        `DTSTART:${d}T120000`,
-                        `DTEND:${d}T140000`,
+                        `DTSTART:${d}T${startTime}`,
+                        `DTEND:${d}T${endTime}`,
                         `SUMMARY:${selectedEvent.title}`,
+                        `DESCRIPTION:${selectedEvent.description || ''}`,
                         `LOCATION:${selectedEvent.address || 'Virtual Event'}`,
                         `UID:${selectedEvent.id}@healthmatters.clinic`,
                         'END:VEVENT',
