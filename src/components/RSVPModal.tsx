@@ -10,11 +10,12 @@ interface RSVPModalProps {
   lang: Language;
   onClose: () => void;
   setLang: (l: Language) => void;
+  referralCode?: string | null;
 }
 
 type SubmitState = 'idle' | 'submitting' | 'preregistered' | 'checking_in' | 'checked_in' | 'error';
 
-export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setLang }) => {
+export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setLang, referralCode }) => {
   const [state, setState] = useState<SubmitState>('idle');
   const [needs, setNeeds] = useState<string[]>([]);
   const [contactMethod, setContactMethod] = useState<'text' | 'email' | 'none'>('text');
@@ -116,6 +117,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       needs,
       lang,
       source: isToday ? 'Live Event (Pre-register)' : 'Planning Ahead (Pre-register)',
+      referralCode: referralCode || undefined,
       sessionIds: selectedSessions.length > 0 ? selectedSessions : undefined,
     };
 
@@ -136,6 +138,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
             phone: payload.phone || '',
             needs: (payload.needs || []).join(', '),
             source: payload.source,
+            referralCode: referralCode || '',
           }),
         }).catch(() => {}); // Fire-and-forget — never block UX
       }
@@ -216,6 +219,11 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
           <div className="min-w-0">
             <div className="text-sm font-bold leading-tight truncate">{displayTitle}</div>
             <div className="text-[11px] opacity-80">{event.dateDisplay} • {event.time}</div>
+            {referralCode && (
+              <p className="text-[10px] text-gray-400 mt-1">
+                {lang === 'es' ? 'Referido por' : 'Referred by'} {referralCode}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
