@@ -4,7 +4,7 @@
 export const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyiCw_yisTVlgT5CGR07ABLNt0O-zEoHV7o6L3vLRTEaQJcDGXD00jkTinDVuZ_v_lBqA/exec';
 
 // Volunteer Portal API - dual-write RSVPs for volunteer matching
-export const PORTAL_API_URL = 'https://hmc-volunteer-portal-172668994130.us-west2.run.app';
+export const PORTAL_API_URL = 'https://hmc-volunteer-portal-172668994130.us-central1.run.app';
 
 // Local storage keys (used as cache only, backend is source of truth)
 export const STORAGE_KEYS = {
