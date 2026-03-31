@@ -72,6 +72,9 @@ export interface RSVPPayload {
   lang: Language;
   source: string;
 
+  // Ambassador/referral tracking
+  referralCode?: string;
+
   // Session selections
   sessionIds?: string[];
 

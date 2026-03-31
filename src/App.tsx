@@ -67,6 +67,7 @@ const App: React.FC = () => {
   const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [pendingEventSlug, setPendingEventSlug] = useState<string | null>(null);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
 
   const mapRef = useRef<any | null>(null);
   const markersRef = useRef<Record<string, any>>({});
@@ -117,6 +118,32 @@ const App: React.FC = () => {
     if (eventParam) {
       setPendingEventSlug(eventParam);
     }
+
+    // Capture referral code (ambassador tracking) from any URL source
+    const getRefParam = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const refParam = urlParams.get('ref');
+      if (refParam) return refParam;
+
+      try {
+        if (window.parent !== window) {
+          const parentRef = new URLSearchParams(window.parent.location.search).get('ref');
+          if (parentRef) return parentRef;
+        }
+      } catch { /* cross-origin */ }
+
+      if (document.referrer) {
+        try {
+          const referrerRef = new URL(document.referrer).searchParams.get('ref');
+          if (referrerRef) return referrerRef;
+        } catch { /* invalid referrer */ }
+      }
+
+      return null;
+    };
+
+    const refParam = getRefParam();
+    if (refParam) setReferralCode(refParam);
 
     // Listen for postMessage from parent (Webflow can send event param)
     const onMessage = (e: MessageEvent) => {
@@ -1027,6 +1054,7 @@ const App: React.FC = () => {
             lang={lang}
             setLang={setLang}
             onClose={() => setIsRSVPOpen(false)}
+            referralCode={referralCode}
           />
         )}
 
