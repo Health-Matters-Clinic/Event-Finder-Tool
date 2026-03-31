@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from './Button';
 import { I18N } from '../constants';
-import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL } from '../config';
+import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, RECAPTCHA_SITE_KEY } from '../config';
 import { Language, ClinicEvent, RSVPPayload } from '../types';
 import { translateEventTitle } from '../utils/translation';
 
@@ -45,14 +45,48 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     setNeeds((prev) => (prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]));
   };
 
+  const getRecaptchaToken = async (): Promise<string> => {
+    try {
+      const grecaptcha = (window as any).grecaptcha;
+      if (!grecaptcha) return '';
+      return await new Promise<string>((resolve) => {
+        grecaptcha.ready(() => {
+          grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'rsvp' }).then(resolve).catch(() => resolve(''));
+        });
+      });
+    } catch {
+      return '';
+    }
+  };
+
   const postJson = async (payload: any): Promise<{ success: boolean; checkinToken?: string }> => {
+    // Get reCAPTCHA token for bot protection
+    const recaptchaToken = await getRecaptchaToken();
+
     const params = new URLSearchParams();
     Object.entries(payload).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         params.append(key, Array.isArray(value) ? value.join(',') : String(value));
       }
     });
+    if (recaptchaToken) params.append('recaptchaToken', recaptchaToken);
 
+    // Try sending through portal proxy (has server-side reCAPTCHA verification)
+    try {
+      const portalResponse = await fetch(`${PORTAL_API_URL}/api/public/rsvp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, recaptchaToken }),
+      });
+      if (portalResponse.ok) {
+        const data = await portalResponse.json();
+        if (data.success) return { success: true, checkinToken: data.checkinToken };
+      }
+    } catch {
+      // Portal unavailable — fall through to Apps Script
+    }
+
+    // Fallback: send directly to Apps Script
     try {
       const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
       if (response.ok) {
@@ -61,7 +95,6 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       }
       throw new Error('Server error');
     } catch {
-      // Apps Script redirects can fail fetch — fall back to image ping as backup
       const img = new Image();
       img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
       await new Promise(resolve => setTimeout(resolve, 2000));
