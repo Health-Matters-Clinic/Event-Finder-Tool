@@ -6,6 +6,9 @@ export const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycb
 // Volunteer Portal API - dual-write RSVPs for volunteer matching
 export const PORTAL_API_URL = 'https://hmc-volunteer-portal-172668994130.us-central1.run.app';
 
+// reCAPTCHA v3 - invisible bot protection
+export const RECAPTCHA_SITE_KEY = '6LfHmlssAAAAAB_K8kuGyUn_GgPf_m8ZsPiBhh0L';
+
 // Local storage keys (used as cache only, backend is source of truth)
 export const STORAGE_KEYS = {
   EVENTS_CACHE: 'event-finder-events-cache',
