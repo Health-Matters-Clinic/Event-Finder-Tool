@@ -425,46 +425,51 @@ const App: React.FC = () => {
     }
     const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}&rsvp=true`;
 
-    // 1. Try native share (mobile Safari, Android, etc.)
-    if (navigator.share) {
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(eventTitle)}&body=${encodeURIComponent(`${shareText}\n\nRSVP here: ${shareUrl}`)}`;
+
+    // Detect if we're in an iframe (cross-origin blocks navigator.share and location.href)
+    const inIframe = window.self !== window.top;
+
+    // 1. Try native share (Safari share sheet, Android share) — only works outside iframes
+    if (navigator.share && !inIframe) {
       try {
         await navigator.share({ title: eventTitle, text: shareText, url: shareUrl });
         return;
       } catch (err: any) {
         if (err.name === 'AbortError') return;
-        console.warn('Native share failed, trying clipboard:', err);
+        console.warn('Native share failed:', err);
       }
     }
 
-    // 2. Try clipboard copy (works in iframes + mobile)
-    try {
-      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
-      setShareConfirm(lang === 'es' ? 'Enlace copiado' : 'Link copied!');
-      setTimeout(() => setShareConfirm(''), 2500);
-      return;
-    } catch (err) {
-      console.warn('Clipboard failed, trying fallback:', err);
+    // 2. If in iframe, try to open mailto via parent window
+    if (inIframe) {
+      try {
+        window.top!.location.href = mailtoUrl;
+        return;
+      } catch {
+        // Cross-origin — can't access parent, try window.open
+        try {
+          window.open(mailtoUrl, '_blank');
+          return;
+        } catch {
+          // Last resort: copy link to clipboard
+          try {
+            await navigator.clipboard.writeText(`${shareText}\n\nRSVP here: ${shareUrl}`);
+            setShareConfirm(lang === 'es' ? 'Enlace copiado' : 'Link copied!');
+            setTimeout(() => setShareConfirm(''), 2500);
+          } catch {
+            // Nothing else we can do in a locked iframe
+            setShareConfirm(lang === 'es' ? 'Copia este enlace:' : 'Copy this link:');
+            prompt(lang === 'es' ? 'Enlace del evento:' : 'Event link:', shareUrl);
+            setShareConfirm('');
+          }
+          return;
+        }
+      }
     }
 
-    // 3. Fallback: manual copy via textarea (older browsers / iframe restrictions)
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = `${shareText}\n${shareUrl}`;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      setShareConfirm(lang === 'es' ? 'Enlace copiado' : 'Link copied!');
-      setTimeout(() => setShareConfirm(''), 2500);
-      return;
-    } catch (err) {
-      console.warn('Textarea copy failed:', err);
-    }
-
-    // 4. Last resort: open in new tab so they can copy URL manually
-    window.open(shareUrl, '_blank');
+    // 3. Normal (not in iframe) email fallback
+    window.location.href = mailtoUrl;
   };
 
   const handleEventsUpdate = (newEvents: ClinicEvent[]) => {
