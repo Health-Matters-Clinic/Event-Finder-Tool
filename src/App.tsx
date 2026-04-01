@@ -407,46 +407,64 @@ const App: React.FC = () => {
     }
   };
 
+  const [shareConfirm, setShareConfirm] = useState('');
+
   const handleShare = async () => {
     if (!selectedEvent) return;
     const eventTitle = translateEventTitle(selectedEvent.title, lang, selectedEvent);
     const shareText = `${eventTitle} - ${selectedEvent.dateDisplay}${selectedEvent.address ? ` @ ${selectedEvent.address}` : ''}`;
 
-    // Create event-specific share URL using hash-based deep linking
+    // Create event-specific share URL
     const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     let eventSlug: string;
     if (selectedEvent.id.startsWith('event-')) {
-      // Unique timestamp-based ID — use directly
       eventSlug = selectedEvent.id;
     } else {
-      // Date-based or other ID — combine title + date for a unique, readable slug
       const eventDate = selectedEvent.date?.includes('T') ? selectedEvent.date.split('T')[0] : selectedEvent.date;
       eventSlug = slugify(`${selectedEvent.title}-${eventDate || selectedEvent.id}`);
     }
     const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}&rsvp=true`;
 
-    // Try native share first (Safari, iOS, Android - shows AirDrop, email, copy, etc.)
+    // 1. Try native share (mobile Safari, Android, etc.)
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: eventTitle,
-          text: shareText,
-          url: shareUrl,
-        });
-        return; // Success, don't fall through
+        await navigator.share({ title: eventTitle, text: shareText, url: shareUrl });
+        return;
       } catch (err: any) {
-        // User cancelled - don't fall through to email
-        if (err.name === 'AbortError') {
-          return;
-        }
-        // Other error - fall through to email
-        console.warn('Share failed:', err);
+        if (err.name === 'AbortError') return;
+        console.warn('Native share failed, trying clipboard:', err);
       }
     }
 
-    // Fallback for desktop browsers: open email
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(eventTitle)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`;
-    window.location.href = mailtoUrl;
+    // 2. Try clipboard copy (works in iframes + mobile)
+    try {
+      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+      setShareConfirm(lang === 'es' ? 'Enlace copiado' : 'Link copied!');
+      setTimeout(() => setShareConfirm(''), 2500);
+      return;
+    } catch (err) {
+      console.warn('Clipboard failed, trying fallback:', err);
+    }
+
+    // 3. Fallback: manual copy via textarea (older browsers / iframe restrictions)
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = `${shareText}\n${shareUrl}`;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setShareConfirm(lang === 'es' ? 'Enlace copiado' : 'Link copied!');
+      setTimeout(() => setShareConfirm(''), 2500);
+      return;
+    } catch (err) {
+      console.warn('Textarea copy failed:', err);
+    }
+
+    // 4. Last resort: open in new tab so they can copy URL manually
+    window.open(shareUrl, '_blank');
   };
 
   const handleEventsUpdate = (newEvents: ClinicEvent[]) => {
@@ -776,7 +794,7 @@ const App: React.FC = () => {
                     {lang === 'es' ? 'Calendario' : 'Calendar'}
                   </Button>
                   <Button variant="outline" className="justify-center h-11" onClick={handleShare}>
-                    {lang === 'es' ? 'Compartir' : 'Share'}
+                    {shareConfirm || (lang === 'es' ? 'Compartir' : 'Share')}
                   </Button>
                 </div>
 
