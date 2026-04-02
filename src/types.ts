@@ -9,6 +9,7 @@ export interface EventSession {
   location?: string;
   capacity?: number;
   rsvpCount?: number;
+  waitlistCount?: number;
   instructor?: string;
 }
 
@@ -49,7 +50,7 @@ export interface PartnerEventRequest {
 }
 
 export interface RSVPPayload {
-  action?: 'preregister' | 'checkin';
+  action?: 'preregister' | 'checkin' | 'joinWaitlist' | 'cancelWaitlist';
   eventId: string;
   eventTitle: string;
   eventDate: string; // display date is fine for UI; backend uses eventId to look up actual date

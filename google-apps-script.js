@@ -219,6 +219,20 @@ function doGet(e) {
     }
   }
 
+  // ===== WAITLIST (via GET for CORS compatibility) =====
+  if (action === 'joinWaitlist') {
+    var result = handleJoinWaitlist(p);
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (action === 'cancelWaitlist') {
+    var result = handleCancelWaitlist(p);
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (action === 'cancelRSVP') {
+    var result = handleCancelRSVP(p);
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  }
+
   // ===== DELETE EVENT (via GET for CORS compatibility) =====
   if (action === 'deleteEvent') {
     var result = deleteEvent(p.id);
@@ -286,6 +300,15 @@ function doPost(e) {
       case 'partner_request':
         handlePartnerRequest(params);
         result = { success: true };
+        break;
+      case 'joinWaitlist':
+        result = handleJoinWaitlist(params);
+        break;
+      case 'cancelWaitlist':
+        result = handleCancelWaitlist(params);
+        break;
+      case 'cancelRSVP':
+        result = handleCancelRSVP(params);
         break;
       default:
         result = { success: false, error: 'Unknown action: ' + action };
@@ -1538,4 +1561,371 @@ function restoreOriginalEvents() {
 
   Logger.log('=== RESTORED ' + events.length + ' ORIGINAL EVENTS ===');
   Logger.log('Events restored successfully!');
+}
+
+// ========================================
+// WAITLIST SYSTEM
+// ========================================
+
+function getWaitlistSheet() {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Waitlist');
+  if (!sheet) {
+    sheet = ss.insertSheet('Waitlist');
+    sheet.appendRow([
+      'Timestamp', 'Event ID', 'Event Title', 'Session ID', 'Session Title',
+      'Name', 'Email', 'Phone', 'Contact Method', 'Language',
+      'Status', 'Position', 'Promoted At', 'Expires At', 'Waitlist Token'
+    ]);
+  }
+  return sheet;
+}
+
+// Join waitlist for a full session
+function handleJoinWaitlist(params) {
+  var eventId = params.eventId || '';
+  var sessionId = params.sessionId || '';
+  var name = params.name || '';
+  var email = params.email || '';
+  var phone = params.phone || '';
+  var contactMethod = params.contact_method || params.contactMethod || 'email';
+  var lang = params.lang || 'en';
+  var eventTitle = params.eventTitle || '';
+  var sessionTitle = params.sessionTitle || '';
+
+  if (!eventId || !sessionId || !name || (!email && !phone)) {
+    return { success: false, error: 'Missing required fields' };
+  }
+
+  var sheet = getWaitlistSheet();
+  var data = sheet.getDataRange().getValues();
+
+  // Check for duplicate (same person + same session)
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][1] === eventId && data[i][3] === sessionId && data[i][10] === 'waiting') {
+      var existingEmail = data[i][6];
+      var existingPhone = data[i][7];
+      if ((email && existingEmail === email) || (phone && existingPhone === phone)) {
+        return { success: false, error: lang === 'es' ? 'Ya estás en la lista de espera' : 'You are already on the waitlist' };
+      }
+    }
+  }
+
+  // Calculate position (count active waitlist entries for this session)
+  var position = 1;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][1] === eventId && data[i][3] === sessionId && data[i][10] === 'waiting') {
+      position++;
+    }
+  }
+
+  var token = Utilities.getUuid();
+  var timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
+
+  sheet.appendRow([
+    timestamp, eventId, eventTitle, sessionId, sessionTitle,
+    name, email, phone, contactMethod, lang,
+    'waiting', position, '', '', token
+  ]);
+
+  // Send waitlist confirmation email
+  if (email) {
+    sendWaitlistConfirmationEmail({
+      name: name, email: email, eventTitle: eventTitle,
+      sessionTitle: sessionTitle, position: position, lang: lang, token: token
+    });
+  }
+
+  // Update waitlistCount on the event's session
+  updateSessionWaitlistCount(eventId, sessionId);
+
+  return { success: true, position: position, token: token };
+}
+
+// Cancel waitlist entry
+function handleCancelWaitlist(params) {
+  var token = params.token || params.waitlistToken || '';
+  if (!token) return { success: false, error: 'Missing token' };
+
+  var sheet = getWaitlistSheet();
+  var data = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][14] === token && data[i][10] === 'waiting') {
+      sheet.getRange(i + 1, 11).setValue('cancelled');
+      var eventId = data[i][1];
+      var sessionId = data[i][3];
+      // Recompute positions for remaining waitlist entries
+      recomputeWaitlistPositions(eventId, sessionId);
+      updateSessionWaitlistCount(eventId, sessionId);
+      return { success: true };
+    }
+  }
+  return { success: false, error: 'Waitlist entry not found' };
+}
+
+// Cancel an RSVP — opens a spot and auto-promotes from waitlist
+function handleCancelRSVP(params) {
+  var eventId = params.eventId || '';
+  var sessionId = params.sessionId || '';
+  var email = params.email || '';
+  var phone = params.phone || '';
+
+  if (!eventId || !sessionId) return { success: false, error: 'Missing event/session ID' };
+
+  // Decrement rsvpCount on the session
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var eventsSheet = ss.getSheetByName('Events');
+  if (!eventsSheet) return { success: false, error: 'Events sheet not found' };
+
+  var eventsData = eventsSheet.getDataRange().getValues();
+  var headers = eventsData[0];
+  var sessionsCol = -1;
+  for (var c = 0; c < headers.length; c++) {
+    if (headers[c] === 'sessions') { sessionsCol = c; break; }
+  }
+  if (sessionsCol === -1) return { success: false, error: 'No sessions column' };
+
+  for (var i = 1; i < eventsData.length; i++) {
+    if (eventsData[i][0] === eventId) {
+      try {
+        var sessions = JSON.parse(eventsData[i][sessionsCol] || '[]');
+        for (var s = 0; s < sessions.length; s++) {
+          if (sessions[s].id === sessionId) {
+            sessions[s].rsvpCount = Math.max(0, (sessions[s].rsvpCount || 0) - 1);
+            eventsSheet.getRange(i + 1, sessionsCol + 1).setValue(JSON.stringify(sessions));
+            // Auto-promote from waitlist
+            promoteFromWaitlist(eventId, sessionId, sessions[s]);
+            return { success: true };
+          }
+        }
+      } catch (e) {
+        Logger.log('Cancel RSVP error: ' + e);
+      }
+    }
+  }
+  return { success: false, error: 'Session not found' };
+}
+
+// Auto-promote the next person on the waitlist when a spot opens
+function promoteFromWaitlist(eventId, sessionId, session) {
+  var sheet = getWaitlistSheet();
+  var data = sheet.getDataRange().getValues();
+
+  // Find the first 'waiting' entry for this session (lowest position)
+  var bestRow = -1;
+  var bestPosition = 99999;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][1] === eventId && data[i][3] === sessionId && data[i][10] === 'waiting') {
+      var pos = parseInt(data[i][11]) || 99999;
+      if (pos < bestPosition) {
+        bestPosition = pos;
+        bestRow = i;
+      }
+    }
+  }
+
+  if (bestRow === -1) return; // No one on waitlist
+
+  var promoted = data[bestRow];
+  var name = promoted[5];
+  var email = promoted[6];
+  var phone = promoted[7];
+  var contactMethod = promoted[8];
+  var lang = promoted[9];
+  var token = promoted[14];
+
+  // Set 24-hour confirmation window
+  var now = new Date();
+  var expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  var expiresStr = Utilities.formatDate(expires, CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
+  var promotedAt = Utilities.formatDate(now, CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
+
+  sheet.getRange(bestRow + 1, 11).setValue('promoted');
+  sheet.getRange(bestRow + 1, 13).setValue(promotedAt);
+  sheet.getRange(bestRow + 1, 14).setValue(expiresStr);
+
+  // Increment rsvpCount (they're now registered)
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var eventsSheet = ss.getSheetByName('Events');
+  var eventsData = eventsSheet.getDataRange().getValues();
+  var headers = eventsData[0];
+  var sessionsCol = -1;
+  for (var c = 0; c < headers.length; c++) {
+    if (headers[c] === 'sessions') { sessionsCol = c; break; }
+  }
+  if (sessionsCol >= 0) {
+    for (var i = 1; i < eventsData.length; i++) {
+      if (eventsData[i][0] === eventId) {
+        try {
+          var sessions = JSON.parse(eventsData[i][sessionsCol] || '[]');
+          for (var s = 0; s < sessions.length; s++) {
+            if (sessions[s].id === sessionId) {
+              sessions[s].rsvpCount = (sessions[s].rsvpCount || 0) + 1;
+              eventsSheet.getRange(i + 1, sessionsCol + 1).setValue(JSON.stringify(sessions));
+              break;
+            }
+          }
+        } catch (e) { Logger.log('Promote rsvpCount error: ' + e); }
+      }
+    }
+  }
+
+  // Add them to the RSVPs sheet
+  var rsvpSheet = ss.getSheetByName('RSVPs');
+  if (rsvpSheet) {
+    var checkinToken = Utilities.getUuid();
+    rsvpSheet.appendRow([
+      promotedAt, eventId, promoted[2], '', name,
+      email, phone, contactMethod, 'No', 'No',
+      '', '', lang, 'Waitlist Promotion', checkinToken,
+      'promoted-from-waitlist', ''
+    ]);
+  }
+
+  // Send promotion notification
+  if (email) {
+    sendWaitlistPromotionEmail({
+      name: name, email: email, eventTitle: promoted[2],
+      sessionTitle: promoted[4], lang: lang, expiresAt: expiresStr
+    });
+  }
+
+  // Update waitlist counts
+  recomputeWaitlistPositions(eventId, sessionId);
+  updateSessionWaitlistCount(eventId, sessionId);
+}
+
+// Recompute waitlist positions after changes
+function recomputeWaitlistPositions(eventId, sessionId) {
+  var sheet = getWaitlistSheet();
+  var data = sheet.getDataRange().getValues();
+  var pos = 1;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][1] === eventId && data[i][3] === sessionId && data[i][10] === 'waiting') {
+      sheet.getRange(i + 1, 12).setValue(pos);
+      pos++;
+    }
+  }
+}
+
+// Update the waitlistCount on an event's session in the Events sheet
+function updateSessionWaitlistCount(eventId, sessionId) {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var eventsSheet = ss.getSheetByName('Events');
+  if (!eventsSheet) return;
+
+  var data = eventsSheet.getDataRange().getValues();
+  var headers = data[0];
+  var sessionsCol = -1;
+  for (var c = 0; c < headers.length; c++) {
+    if (headers[c] === 'sessions') { sessionsCol = c; break; }
+  }
+  if (sessionsCol === -1) return;
+
+  // Count active waitlist entries
+  var waitlistSheet = getWaitlistSheet();
+  var wlData = waitlistSheet.getDataRange().getValues();
+  var count = 0;
+  for (var w = 1; w < wlData.length; w++) {
+    if (wlData[w][1] === eventId && wlData[w][3] === sessionId && wlData[w][10] === 'waiting') {
+      count++;
+    }
+  }
+
+  // Update the session's waitlistCount
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === eventId) {
+      try {
+        var sessions = JSON.parse(data[i][sessionsCol] || '[]');
+        for (var s = 0; s < sessions.length; s++) {
+          if (sessions[s].id === sessionId) {
+            sessions[s].waitlistCount = count;
+            eventsSheet.getRange(i + 1, sessionsCol + 1).setValue(JSON.stringify(sessions));
+            return;
+          }
+        }
+      } catch (e) { Logger.log('updateSessionWaitlistCount error: ' + e); }
+    }
+  }
+}
+
+// ========================================
+// WAITLIST EMAILS
+// ========================================
+
+function sendWaitlistConfirmationEmail(params) {
+  var subject = params.lang === 'es'
+    ? 'Lista de Espera Confirmada | Health Matters Clinic'
+    : 'Waitlist Confirmed | Health Matters Clinic';
+
+  var greeting = params.lang === 'es' ? 'Hola ' : 'Hi ';
+  var posLabel = params.lang === 'es' ? 'Tu posición: #' : 'Your position: #';
+  var bodyMsg = params.lang === 'es'
+    ? 'Te hemos agregado a la lista de espera. Te notificaremos tan pronto como se abra un lugar.'
+    : "You've been added to the waitlist. We'll notify you as soon as a spot opens up.";
+  var cancelLabel = params.lang === 'es' ? 'Si necesitas cancelar, responde a este correo.' : 'If you need to cancel, reply to this email.';
+
+  var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
+    '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+    '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid #e5e5e5;">' +
+    '<div style="background:#f59e0b;color:white;padding:24px;text-align:center;">' +
+    '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;">' +
+    '<h1 style="margin:0;font-size:22px;font-weight:700;">Health Matters Clinic</h1>' +
+    '<p style="margin:8px 0 0;opacity:0.9;font-size:14px;">' + (params.lang === 'es' ? 'Lista de Espera' : 'Waitlist') + '</p></div>' +
+    '<div style="padding:32px;">' +
+    '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 8px;">' + greeting + params.name + '!</p>' +
+    '<p style="color:#666;margin:0 0 24px;font-size:15px;">' + bodyMsg + '</p>' +
+    '<div style="background:#fef3c7;padding:20px;border-radius:12px;margin:0 0 28px;border:1.5px solid rgba(245,158,11,0.3);">' +
+    '<h2 style="color:#92400e;margin:0 0 8px;font-size:16px;">' + params.sessionTitle + '</h2>' +
+    '<p style="color:#92400e;margin:0 0 4px;font-size:14px;">' + params.eventTitle + '</p>' +
+    '<p style="color:#b45309;margin:12px 0 0;font-size:24px;font-weight:900;">' + posLabel + params.position + '</p>' +
+    '</div>' +
+    '<p style="color:#999;font-size:12px;text-align:center;">' + cancelLabel + '</p>' +
+    '</div>' +
+    '<div style="background:#f5f3ef;padding:20px;border-top:1px solid #e5e5e5;text-align:center;">' +
+    '<p style="color:#666;font-size:13px;margin:0;"><a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
+    '</div></div></body></html>';
+
+  try {
+    MailApp.sendEmail({ to: params.email, subject: subject, htmlBody: htmlBody, name: 'Health Matters Clinic Events' });
+  } catch (err) { Logger.log('Waitlist confirmation email error: ' + err); }
+}
+
+function sendWaitlistPromotionEmail(params) {
+  var subject = params.lang === 'es'
+    ? '¡Un lugar se abrió! | Health Matters Clinic'
+    : 'A Spot Opened Up! | Health Matters Clinic';
+
+  var greeting = params.lang === 'es' ? '¡' : '';
+  var bodyMsg = params.lang === 'es'
+    ? '¡Buenas noticias! Se abrió un lugar y has sido promovido de la lista de espera. Tu registro está confirmado.'
+    : 'Great news! A spot opened up and you\'ve been promoted from the waitlist. Your registration is now confirmed.';
+  var expiresMsg = params.lang === 'es'
+    ? 'Tu lugar está reservado. Si no puedes asistir, por favor avísanos para que otra persona pueda tomar tu lugar.'
+    : 'Your spot is reserved. If you can\'t make it, please let us know so someone else can take your spot.';
+
+  var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
+    '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+    '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid #e5e5e5;">' +
+    '<div style="background:#059669;color:white;padding:24px;text-align:center;">' +
+    '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;">' +
+    '<h1 style="margin:0;font-size:22px;font-weight:700;">Health Matters Clinic</h1>' +
+    '<p style="margin:8px 0 0;opacity:0.9;font-size:14px;">' + (params.lang === 'es' ? '¡Lugar Confirmado!' : 'Spot Confirmed!') + '</p></div>' +
+    '<div style="padding:32px;">' +
+    '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 8px;">' + greeting + (params.lang === 'es' ? 'Hola ' : 'Hi ') + params.name + '!</p>' +
+    '<p style="color:#666;margin:0 0 24px;font-size:15px;">' + bodyMsg + '</p>' +
+    '<div style="background:#ecfdf5;padding:20px;border-radius:12px;margin:0 0 28px;border:1.5px solid rgba(5,150,105,0.3);">' +
+    '<h2 style="color:#065f46;margin:0 0 8px;font-size:16px;">' + params.sessionTitle + '</h2>' +
+    '<p style="color:#065f46;margin:0;font-size:14px;">' + params.eventTitle + '</p>' +
+    '</div>' +
+    '<p style="color:#999;font-size:12px;text-align:center;">' + expiresMsg + '</p>' +
+    '</div>' +
+    '<div style="background:#f5f3ef;padding:20px;border-top:1px solid #e5e5e5;text-align:center;">' +
+    '<p style="color:#666;font-size:13px;margin:0;"><a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
+    '</div></div></body></html>';
+
+  try {
+    MailApp.sendEmail({ to: params.email, subject: subject, htmlBody: htmlBody, name: 'Health Matters Clinic Events' });
+  } catch (err) { Logger.log('Waitlist promotion email error: ' + err); }
 }

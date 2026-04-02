@@ -26,6 +26,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   // Minor exception (allows same guardian email/phone to preregister multiple minors)
   const [isMinor, setIsMinor] = useState<boolean>(false);
   const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
+  const [waitlistedSessions, setWaitlistedSessions] = useState<Record<string, { position: number; token: string }>>({});
+  const [waitlistLoading, setWaitlistLoading] = useState<string | null>(null);
 
   const t = I18N[lang];
 
@@ -99,6 +101,50 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
       await new Promise(resolve => setTimeout(resolve, 2000));
       return { success: true };
+    }
+  };
+
+  const handleJoinWaitlist = async (sessionId: string, sessionTitle: string) => {
+    if (!event) return;
+    // Get name/email/phone from the form if it exists
+    const form = document.querySelector('form') as HTMLFormElement | null;
+    const name = form ? String(new FormData(form).get('name') || '').trim() : '';
+    const email = form ? String(new FormData(form).get('email') || '').trim() : '';
+    const phone = form ? String(new FormData(form).get('phone') || '').trim() : '';
+
+    if (!name) {
+      setErrorMsg(lang === 'es' ? 'Por favor ingresa tu nombre primero' : 'Please enter your name first');
+      return;
+    }
+    if (!email && !phone) {
+      setErrorMsg(lang === 'es' ? 'Necesitamos tu email o teléfono para notificarte' : 'We need your email or phone to notify you');
+      return;
+    }
+
+    setWaitlistLoading(sessionId);
+    setErrorMsg('');
+    try {
+      const params = new URLSearchParams({
+        action: 'joinWaitlist',
+        eventId: event.id,
+        eventTitle: event.title,
+        sessionId,
+        sessionTitle,
+        name, email, phone,
+        contact_method: email ? 'email' : 'text',
+        lang,
+      });
+      const resp = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
+      const data = await resp.json();
+      if (data.success) {
+        setWaitlistedSessions(prev => ({ ...prev, [sessionId]: { position: data.position, token: data.token } }));
+      } else {
+        setErrorMsg(data.error || 'Failed to join waitlist');
+      }
+    } catch {
+      setErrorMsg(lang === 'es' ? 'Error al unirse a la lista de espera' : 'Failed to join waitlist');
+    } finally {
+      setWaitlistLoading(null);
     }
   };
 
@@ -438,13 +484,57 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                     {event.sessions.map(session => {
                       const isFull = session.capacity ? (session.rsvpCount || 0) >= session.capacity : false;
                       const isSelected = selectedSessions.includes(session.id);
+                      const isWaitlisted = waitlistedSessions[session.id];
+                      const isWaitlistLoading = waitlistLoading === session.id;
+                      const spotsLeft = session.capacity ? session.capacity - (session.rsvpCount || 0) : null;
+
+                      if (isWaitlisted) {
+                        return (
+                          <div key={session.id} className="flex items-start gap-2.5 p-2.5 rounded-lg border-2 border-amber-300 bg-amber-50">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-gray-800">{session.title}</p>
+                              <p className="text-[10px] text-gray-500">{session.time}{session.instructor ? ` · ${session.instructor}` : ''}</p>
+                            </div>
+                            <span className="shrink-0 text-[9px] font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700">
+                              {lang === 'es' ? `Lista #${isWaitlisted.position}` : `Waitlist #${isWaitlisted.position}`}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      if (isFull) {
+                        return (
+                          <div key={session.id} className="flex items-start gap-2.5 p-2.5 rounded-lg border-2 border-gray-200 bg-gray-50">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-gray-800">{session.title}</p>
+                              <p className="text-[10px] text-gray-500">{session.time}{session.instructor ? ` · ${session.instructor}` : ''}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">
+                                {lang === 'es' ? 'Lleno' : 'Full'}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={isWaitlistLoading}
+                                onClick={() => handleJoinWaitlist(session.id, session.title)}
+                                className="text-[9px] font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors disabled:opacity-50"
+                              >
+                                {isWaitlistLoading
+                                  ? (lang === 'es' ? 'Uniendo...' : 'Joining...')
+                                  : (lang === 'es' ? 'Lista de espera' : 'Join Waitlist')}
+                                {session.waitlistCount ? ` (${session.waitlistCount})` : ''}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                         <label key={session.id} className={`flex items-start gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-all ${
-                          isSelected ? 'border-[#233dff] bg-[#f0f4ff]' : isFull ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed' : 'border-gray-200 hover:border-[#233dff]'
+                          isSelected ? 'border-[#233dff] bg-[#f0f4ff]' : 'border-gray-200 hover:border-[#233dff]'
                         }`}>
                           <input
                             type="checkbox"
-                            disabled={isFull && !isSelected}
                             checked={isSelected}
                             onChange={(e) => {
                               if (e.target.checked) setSelectedSessions(prev => [...prev, session.id]);
@@ -456,11 +546,9 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                             <p className="text-xs font-semibold text-gray-800">{session.title}</p>
                             <p className="text-[10px] text-gray-500">{session.time}{session.instructor ? ` · ${session.instructor}` : ''}</p>
                           </div>
-                          {session.capacity != null && (
-                            <span className={`shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
-                              isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
-                            }`}>
-                              {isFull ? (lang === 'es' ? 'Lleno' : 'Full') : `${session.capacity - (session.rsvpCount || 0)}`}
+                          {spotsLeft != null && (
+                            <span className="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-600">
+                              {spotsLeft} {lang === 'es' ? 'disponibles' : 'spots'}
                             </span>
                           )}
                         </label>
