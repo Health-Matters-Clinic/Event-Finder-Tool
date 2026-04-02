@@ -73,22 +73,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     });
     if (recaptchaToken) params.append('recaptchaToken', recaptchaToken);
 
-    // Try sending through portal proxy (has server-side reCAPTCHA verification)
-    try {
-      const portalResponse = await fetch(`${PORTAL_API_URL}/api/public/rsvp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payload, recaptchaToken }),
-      });
-      if (portalResponse.ok) {
-        const data = await portalResponse.json();
-        if (data.success) return { success: true, checkinToken: data.checkinToken };
-      }
-    } catch {
-      // Portal unavailable — fall through to Apps Script
-    }
-
-    // Fallback: send directly to Apps Script
+    // Always send to Apps Script first — it writes to Google Sheet + sends confirmation email
     try {
       const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
       if (response.ok) {
@@ -97,6 +82,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       }
       throw new Error('Server error');
     } catch {
+      // Apps Script failed — use image ping as last resort
       const img = new Image();
       img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
       await new Promise(resolve => setTimeout(resolve, 2000));
