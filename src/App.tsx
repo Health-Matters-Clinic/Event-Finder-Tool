@@ -184,7 +184,10 @@ const App: React.FC = () => {
           const data = await response.json();
           if (data.success && Array.isArray(data.events) && data.events.length > 0) {
             if (isMounted) {
-              setEvents(data.events);
+              // Merge hardcoded events (Unstoppable Season) with backend data — avoid duplicates by ID
+              const backendIds = new Set(data.events.map((e: any) => e.id));
+              const mergedEvents = [...data.events, ...EVENTS.filter(e => !backendIds.has(e.id))];
+              setEvents(mergedEvents);
               // Cache without bloated base64 flyers (some are 160KB+)
               const cacheEvents = data.events.map((e: any) => ({
                 ...e,
@@ -199,9 +202,9 @@ const App: React.FC = () => {
         console.warn('Event fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
       }
 
-      // If backend failed and no cache, show empty state (never stale hardcoded events)
+      // If backend failed and no cache, fall back to hardcoded events (includes critical Unstoppable Season events)
       if (isMounted) {
-        setEvents(prev => prev.length > 0 ? prev : []);
+        setEvents(prev => prev.length > 0 ? prev : EVENTS);
       }
     };
 
