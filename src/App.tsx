@@ -242,8 +242,8 @@ const App: React.FC = () => {
         const keywordMatch = (e: ClinicEvent) => {
           const titleLower = e.title.toLowerCase();
           if (slugLower === 'unstoppable-move' && titleLower.includes('unstoppable') && (titleLower.includes('walk') || titleLower.includes('run') || titleLower.includes('move'))) return true;
-          if (slugLower === 'unstoppable-heal' && titleLower.includes('unstoppable') && (titleLower.includes('heal') || titleLower.includes('meetup'))) return true;
-          if (slugLower === 'unstoppable-transform' && titleLower.includes('unstoppable') && (titleLower.includes('transform') || titleLower.includes('virtual') || titleLower.includes('experience'))) return true;
+          if (slugLower === 'unstoppable-heal' && titleLower.includes('unstoppable') && titleLower.includes('meetup') && !titleLower.includes('workshop')) return true;
+          if (slugLower === 'unstoppable-transform' && titleLower.includes('unstoppable') && (titleLower.includes('transform') || titleLower.includes('virtual')) && !titleLower.includes('workshop')) return true;
           return false;
         };
         // Prefer upcoming events over past ones
