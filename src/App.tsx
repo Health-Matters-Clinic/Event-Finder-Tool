@@ -221,36 +221,36 @@ const App: React.FC = () => {
       // Helper to create URL-safe slug from any string
       const toSlug = (str: string) => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
-      const foundEvent = events.find(e => {
-        // Match by ID (exact or slugified)
+      // First pass: exact match by ID, title slug, date, or combo slug
+      let foundEvent = events.find(e => {
         const idSlug = toSlug(e.id);
         if (e.id.toLowerCase() === slugLower || idSlug === slugLower) return true;
-
-        // Match by title slug (unique enough for most events)
         const titleSlug = toSlug(e.title);
         if (titleSlug === slugLower) return true;
-
-        // Match by date (YYYY-MM-DD) — e.g. ?event=2026-03-13
         const eventDate = e.date?.includes('T') ? e.date.split('T')[0] : e.date;
         if (eventDate === slugLower) return true;
-
-        // Match by title+date combo slug (e.g. "community-walk-run-2026-03-14")
-        // This handles share URLs that combine title + date for uniqueness
         if (eventDate) {
           const comboSlug = toSlug(`${e.title}-${eventDate}`);
           if (comboSlug === slugLower) return true;
         }
-
-        // Unstoppable Season keyword matching — handles short slugs like
-        // "unstoppable-move", "unstoppable-heal", "unstoppable-transform"
-        // These links have been publicly shared and must keep working.
-        const titleLower = e.title.toLowerCase();
-        if (slugLower === 'unstoppable-move' && titleLower.includes('unstoppable') && (titleLower.includes('walk') || titleLower.includes('run') || titleLower.includes('move'))) return true;
-        if (slugLower === 'unstoppable-heal' && titleLower.includes('unstoppable') && (titleLower.includes('heal') || titleLower.includes('meetup'))) return true;
-        if (slugLower === 'unstoppable-transform' && titleLower.includes('unstoppable') && (titleLower.includes('transform') || titleLower.includes('virtual') || titleLower.includes('experience'))) return true;
-
         return false;
       });
+
+      // Second pass: Unstoppable Season keyword matching — prefer future events
+      // These short slugs have been publicly shared and must keep working.
+      if (!foundEvent) {
+        const keywordMatch = (e: ClinicEvent) => {
+          const titleLower = e.title.toLowerCase();
+          if (slugLower === 'unstoppable-move' && titleLower.includes('unstoppable') && (titleLower.includes('walk') || titleLower.includes('run') || titleLower.includes('move'))) return true;
+          if (slugLower === 'unstoppable-heal' && titleLower.includes('unstoppable') && (titleLower.includes('heal') || titleLower.includes('meetup'))) return true;
+          if (slugLower === 'unstoppable-transform' && titleLower.includes('unstoppable') && (titleLower.includes('transform') || titleLower.includes('virtual') || titleLower.includes('experience'))) return true;
+          return false;
+        };
+        // Prefer upcoming events over past ones
+        const futureMatches = events.filter(e => keywordMatch(e) && !isPast(e.date));
+        const pastMatches = events.filter(e => keywordMatch(e) && isPast(e.date));
+        foundEvent = futureMatches.length > 0 ? futureMatches[0] : pastMatches[pastMatches.length - 1] || null;
+      }
 
       if (foundEvent) {
         // If it's a past event, temporarily enable showPast filter so it appears in the list
