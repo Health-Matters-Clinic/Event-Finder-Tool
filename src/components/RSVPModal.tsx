@@ -62,7 +62,6 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const postJson = async (payload: any): Promise<{ success: boolean; checkinToken?: string }> => {
-    // Get reCAPTCHA token for bot protection
     const recaptchaToken = await getRecaptchaToken();
 
     const params = new URLSearchParams();
@@ -73,23 +72,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     });
     if (recaptchaToken) params.append('recaptchaToken', recaptchaToken);
 
-    // Step 1: Send through portal proxy for reCAPTCHA bot protection + Firestore
-    let portalOk = false;
-    try {
-      const portalResponse = await fetch(`${PORTAL_API_URL}/api/public/rsvp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payload, recaptchaToken }),
-      });
-      if (portalResponse.ok) {
-        const data = await portalResponse.json();
-        if (data.success) portalOk = true;
-      }
-    } catch {
-      // Portal unavailable — continue to Apps Script anyway
-    }
-
-    // Step 2: ALWAYS send to Apps Script — writes to Google Sheet + sends confirmation email
+    // Direct to Google Apps Script — writes to Sheet + sends confirmation email
     try {
       const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
       if (response.ok) {
@@ -98,7 +81,6 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       }
       throw new Error('Server error');
     } catch {
-      // Apps Script failed — image ping as last resort for sheet write
       const img = new Image();
       img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
       await new Promise(resolve => setTimeout(resolve, 2000));
