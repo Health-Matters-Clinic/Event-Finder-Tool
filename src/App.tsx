@@ -170,29 +170,38 @@ const App: React.FC = () => {
           }
         }
       } catch {
-        // Ignore parse errors from corrupt cache
+        // Corrupt cache — clear it so it doesn't crash again
+        localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE);
       }
 
-      // Fetch fresh data from Google Apps Script in the background
+      // Fetch fresh data from Google Apps Script with 12s timeout
       try {
-        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
+        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`, { signal: controller.signal });
+        clearTimeout(timeout);
         if (response.ok) {
           const data = await response.json();
           if (data.success && Array.isArray(data.events) && data.events.length > 0) {
             if (isMounted) {
               setEvents(data.events);
-              localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(data.events));
+              // Cache without bloated base64 flyers (some are 160KB+)
+              const cacheEvents = data.events.map((e: any) => ({
+                ...e,
+                flyerUrl: (e.flyerUrl && e.flyerUrl.startsWith('data:') && e.flyerUrl.length > 5000) ? '' : (e.flyerUrl || ''),
+              }));
+              try { localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(cacheEvents)); } catch { /* quota exceeded — skip cache */ }
             }
             return;
           }
         }
-      } catch (e) {
-        console.warn('Failed to fetch events from backend:', e);
+      } catch (e: any) {
+        console.warn('Event fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
       }
 
-      // Fall back to hardcoded events only if backend failed AND no cache was loaded
+      // If backend failed and no cache, show empty state (never stale hardcoded events)
       if (isMounted) {
-        setEvents(prev => prev.length > 0 ? prev : EVENTS);
+        setEvents(prev => prev.length > 0 ? prev : []);
       }
     };
 
@@ -382,20 +391,24 @@ const App: React.FC = () => {
           ]
       );
 
-    if (!heatLayerRef.current) {
-      heatLayerRef.current = L.heatLayer(points, {
-        radius: 28,
-        blur: 22,
-        maxZoom: 14,
-        minOpacity: 0.25,
-        gradient: {
-          0.2: '#60a5fa',
-          0.5: '#818cf8',
-          0.8: '#f97316',
-        },
-      }).addTo(mapRef.current);
-    } else {
-      heatLayerRef.current.setLatLngs(points);
+    try {
+      if (!heatLayerRef.current) {
+        heatLayerRef.current = L.heatLayer(points, {
+          radius: 28,
+          blur: 22,
+          maxZoom: 14,
+          minOpacity: 0.25,
+          gradient: {
+            0.2: '#60a5fa',
+            0.5: '#818cf8',
+            0.8: '#f97316',
+          },
+        }).addTo(mapRef.current);
+      } else {
+        heatLayerRef.current.setLatLngs(points);
+      }
+    } catch (e) {
+      console.warn('Heatmap render deferred:', e);
     }
   }, [filteredEvents, selectedEvent]);
 
