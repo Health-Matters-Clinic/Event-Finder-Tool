@@ -18,7 +18,7 @@ type SubmitState = 'idle' | 'submitting' | 'preregistered' | 'checking_in' | 'ch
 export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setLang, referralCode }) => {
   const [state, setState] = useState<SubmitState>('idle');
   const [needs, setNeeds] = useState<string[]>([]);
-  const [contactMethod, setContactMethod] = useState<'text' | 'email' | 'none'>('text');
+  const [contactMethods, setContactMethods] = useState<Set<string>>(new Set(['text']));
   const [errorMsg, setErrorMsg] = useState<string>('');
 
   const [checkinToken, setCheckinToken] = useState<string>('');
@@ -143,7 +143,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       name,
       email: email || undefined,
       phone: phone || undefined,
-      contact_method: contactMethod,
+      contact_method: contactMethods.size === 0 ? 'none' : Array.from(contactMethods).join(','),
       sms_consent: smsConsent,
       isMinor,
       minorName: isMinor ? minorName : undefined,
@@ -359,25 +359,34 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                 />
               )}
 
-              {/* Contact preference */}
+              {/* Contact preference — can pick both */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                   {lang === 'es' ? 'Contacto:' : 'Contact:'}
                 </span>
-                {(['text', 'email', 'none'] as const).map((method) => (
-                  <button
-                    key={method}
-                    type="button"
-                    onClick={() => setContactMethod(method)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-                      contactMethod === method
-                        ? 'bg-[#233dff] text-white border-[#233dff]'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-[#233dff]'
-                    }`}
-                  >
-                    {method === 'text' ? (lang === 'es' ? 'SMS' : 'Text') : method === 'none' ? (lang === 'es' ? 'Ninguno' : 'None') : 'Email'}
-                  </button>
-                ))}
+                {(['text', 'email'] as const).map((method) => {
+                  const active = contactMethods.has(method);
+                  return (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => {
+                        setContactMethods(prev => {
+                          const next = new Set(prev);
+                          if (active) { next.delete(method); } else { next.add(method); }
+                          return next;
+                        });
+                      }}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                        active
+                          ? 'bg-[#233dff] text-white border-[#233dff]'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-[#233dff]'
+                      }`}
+                    >
+                      {method === 'text' ? (lang === 'es' ? 'SMS' : 'Text') : 'Email'}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Consent */}
