@@ -184,10 +184,7 @@ const App: React.FC = () => {
           const data = await response.json();
           if (data.success && Array.isArray(data.events) && data.events.length > 0) {
             if (isMounted) {
-              // Merge hardcoded events (Unstoppable Season) with backend data — avoid duplicates by ID
-              const backendIds = new Set(data.events.map((e: any) => e.id));
-              const mergedEvents = [...data.events, ...EVENTS.filter(e => !backendIds.has(e.id))];
-              setEvents(mergedEvents);
+              setEvents(data.events);
               // Cache without bloated base64 flyers (some are 160KB+)
               const cacheEvents = data.events.map((e: any) => ({
                 ...e,
@@ -243,6 +240,14 @@ const App: React.FC = () => {
           const comboSlug = toSlug(`${e.title}-${eventDate}`);
           if (comboSlug === slugLower) return true;
         }
+
+        // Unstoppable Season keyword matching — handles short slugs like
+        // "unstoppable-move", "unstoppable-heal", "unstoppable-transform"
+        // These links have been publicly shared and must keep working.
+        const titleLower = e.title.toLowerCase();
+        if (slugLower === 'unstoppable-move' && titleLower.includes('unstoppable') && (titleLower.includes('walk') || titleLower.includes('run') || titleLower.includes('move'))) return true;
+        if (slugLower === 'unstoppable-heal' && titleLower.includes('unstoppable') && (titleLower.includes('heal') || titleLower.includes('meetup'))) return true;
+        if (slugLower === 'unstoppable-transform' && titleLower.includes('unstoppable') && (titleLower.includes('transform') || titleLower.includes('virtual') || titleLower.includes('experience'))) return true;
 
         return false;
       });
