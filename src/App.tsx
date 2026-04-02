@@ -444,7 +444,7 @@ const App: React.FC = () => {
       const eventDate = selectedEvent.date?.includes('T') ? selectedEvent.date.split('T')[0] : selectedEvent.date;
       eventSlug = slugify(`${selectedEvent.title}-${eventDate || selectedEvent.id}`);
     }
-    const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}&rsvp=true`;
+    const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}&rsvp=true${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
 
     const mailtoUrl = `mailto:?subject=${encodeURIComponent(eventTitle)}&body=${encodeURIComponent(`${shareText}\n\nRSVP here: ${shareUrl}`)}`;
 
@@ -462,31 +462,34 @@ const App: React.FC = () => {
       }
     }
 
-    // 2. If in iframe, try to open mailto via parent window
-    if (inIframe) {
+    // 2. Try clipboard copy (works in most contexts with user gesture)
+    const copyText = shareUrl;
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(copyText);
+      copied = true;
+    } catch {
+      // Clipboard API blocked — use execCommand fallback
       try {
-        window.top!.location.href = mailtoUrl;
-        return;
-      } catch {
-        // Cross-origin — can't access parent, try window.open
-        try {
-          window.open(mailtoUrl, '_blank');
-          return;
-        } catch {
-          // Last resort: copy link to clipboard
-          try {
-            await navigator.clipboard.writeText(`${shareText}\n\nRSVP here: ${shareUrl}`);
-            setShareConfirm(lang === 'es' ? 'Enlace copiado' : 'Link copied!');
-            setTimeout(() => setShareConfirm(''), 2500);
-          } catch {
-            // Nothing else we can do in a locked iframe
-            setShareConfirm(lang === 'es' ? 'Copia este enlace:' : 'Copy this link:');
-            prompt(lang === 'es' ? 'Enlace del evento:' : 'Event link:', shareUrl);
-            setShareConfirm('');
-          }
-          return;
-        }
-      }
+        const ta = document.createElement('textarea');
+        ta.value = copyText;
+        ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch { /* both methods failed */ }
+    }
+    if (copied) {
+      setShareConfirm(lang === 'es' ? 'Enlace copiado!' : 'Link copied!');
+      setTimeout(() => setShareConfirm(''), 2500);
+      return;
+    }
+
+    // 3. If copy failed, try mailto as fallback
+    if (inIframe) {
+      try { window.open(mailtoUrl, '_blank'); return; } catch {}
     }
 
     // 3. Normal (not in iframe) email fallback
