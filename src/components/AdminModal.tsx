@@ -32,7 +32,7 @@ const PROGRAM_COLORS: Record<string, string> = {
   'Volunteer': '#f59e0b',
 };
 
-const SHARE_BASE_URL = 'https://teamhmc.github.io/Event-Finder-Tool/?event=';
+const SHARE_BASE_URL = 'https://www.healthmatters.clinic/resources/eventfinder?event=';
 
 // Get default date (2 weeks from now)
 const getDefaultDate = () => {
@@ -212,14 +212,30 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   // ---- Share link ----
   const getShareLink = (ev: ClinicEvent) =>
-    SHARE_BASE_URL + encodeURIComponent(ev.title.toLowerCase().replace(/\s+/g, '-'));
+    SHARE_BASE_URL + encodeURIComponent(ev.id) + '&rsvp=true';
 
-  const handleCopyShareLink = (ev: ClinicEvent) => {
+  const handleCopyShareLink = async (ev: ClinicEvent) => {
     const link = getShareLink(ev);
-    navigator.clipboard.writeText(link).then(() => {
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(link);
+      copied = true;
+    } catch {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = link;
+        ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch { /* both failed */ }
+    }
+    if (copied) {
       setCopyFeedback(ev.id);
       setTimeout(() => setCopyFeedback(null), 2000);
-    });
+    }
   };
 
   // ---- Auth handlers (unchanged logic) ----
