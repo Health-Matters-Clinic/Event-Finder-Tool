@@ -435,16 +435,8 @@ const App: React.FC = () => {
     const eventTitle = translateEventTitle(selectedEvent.title, lang, selectedEvent);
     const shareText = `${eventTitle} - ${selectedEvent.dateDisplay}${selectedEvent.address ? ` @ ${selectedEvent.address}` : ''}`;
 
-    // Create event-specific share URL
-    const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    let eventSlug: string;
-    if (selectedEvent.id.startsWith('event-')) {
-      eventSlug = selectedEvent.id;
-    } else {
-      const eventDate = selectedEvent.date?.includes('T') ? selectedEvent.date.split('T')[0] : selectedEvent.date;
-      eventSlug = slugify(`${selectedEvent.title}-${eventDate || selectedEvent.id}`);
-    }
-    const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${eventSlug}&rsvp=true${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
+    // Create event-specific share URL — always use event ID for reliable deep linking
+    const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${encodeURIComponent(selectedEvent.id)}&rsvp=true${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
 
     const mailtoUrl = `mailto:?subject=${encodeURIComponent(eventTitle)}&body=${encodeURIComponent(`${shareText}\n\nRSVP here: ${shareUrl}`)}`;
 
