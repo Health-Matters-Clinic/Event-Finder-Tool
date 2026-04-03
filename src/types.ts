@@ -79,6 +79,12 @@ export interface RSVPPayload {
   // Session selections
   sessionIds?: string[];
 
+  // T-shirt size (Unstoppable events only — for early registrant tee pickup)
+  tshirtSize?: string;
+
+  // Flag: registered before May 2 cutoff, eligible for on-site tee pickup
+  earlyRegistrant?: boolean;
+
   // For check-in
   checkinToken?: string;
 }
