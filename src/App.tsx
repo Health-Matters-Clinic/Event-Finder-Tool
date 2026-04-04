@@ -43,6 +43,34 @@ const PROGRAM_COLORS: { [key: string]: string } = {
 
 const DEFAULT_CENTER: [number, number] = [33.9719, -118.2108];
 
+// Sanitize raw event data from Google Sheets or cache before putting it in state.
+// Drops records missing required fields; coerces optional fields to safe types.
+const sanitizeEvent = (e: any): ClinicEvent | null => {
+  if (!e || typeof e !== 'object') return null;
+  if (!e.id || !e.date || typeof e.date !== 'string') return null;
+  return {
+    ...e,
+    id: String(e.id),
+    title: e.title ? String(e.title) : 'Untitled Event',
+    date: String(e.date),
+    dateDisplay: e.dateDisplay ? String(e.dateDisplay) : String(e.date),
+    time: e.time ? String(e.time) : '',
+    location: e.location ? String(e.location) : '',
+    city: e.city ? String(e.city) : '',
+    address: e.address ? String(e.address) : '',
+    program: e.program ? String(e.program) : 'Community Wellness',
+    description: e.description ? String(e.description) : '',
+    lat: typeof e.lat === 'number' ? e.lat : parseFloat(e.lat) || DEFAULT_CENTER[0],
+    lng: typeof e.lng === 'number' ? e.lng : parseFloat(e.lng) || DEFAULT_CENTER[1],
+    flyerUrl: e.flyerUrl ? String(e.flyerUrl) : '',
+    websiteUrl: e.websiteUrl ? String(e.websiteUrl) : '',
+    sessions: Array.isArray(e.sessions) ? e.sessions : [],
+  };
+};
+
+const sanitizeEvents = (raw: any[]): ClinicEvent[] =>
+  raw.map(sanitizeEvent).filter((e): e is ClinicEvent => e !== null);
+
 const isPast = (dateStr: string) => {
   if (!dateStr) return false;
   // Handle both YYYY-MM-DD and ISO date strings (2026-06-05T05:00:00.000Z)
@@ -165,8 +193,8 @@ const App: React.FC = () => {
       try {
         const cached = localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE);
         if (cached) {
-          const cachedEvents = JSON.parse(cached);
-          if (Array.isArray(cachedEvents) && cachedEvents.length > 0 && isMounted) {
+          const cachedEvents = sanitizeEvents(JSON.parse(cached));
+          if (cachedEvents.length > 0 && isMounted) {
             setEvents(cachedEvents);
           }
         }
@@ -184,10 +212,11 @@ const App: React.FC = () => {
         if (response.ok) {
           const data = await response.json();
           if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-            if (isMounted) {
-              setEvents(data.events);
+            const cleanEvents = sanitizeEvents(data.events);
+            if (isMounted && cleanEvents.length > 0) {
+              setEvents(cleanEvents);
               // Cache without bloated base64 flyers (some are 160KB+)
-              const cacheEvents = data.events.map((e: any) => ({
+              const cacheEvents = cleanEvents.map((e) => ({
                 ...e,
                 flyerUrl: (e.flyerUrl && e.flyerUrl.startsWith('data:') && e.flyerUrl.length > 5000) ? '' : (e.flyerUrl || ''),
               }));
