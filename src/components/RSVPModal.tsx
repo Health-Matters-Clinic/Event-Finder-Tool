@@ -243,8 +243,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       `DTSTART:${start}`,
       `DTEND:${end}`,
       `SUMMARY:${displayTitle}`,
-      `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`,
-      `LOCATION:${event.address}`,
+      `DESCRIPTION:${(event.description || '').replace(/\n/g, '\\n')}`,
+      `LOCATION:${event.address || ''}`,
       `UID:${event.id}@healthmatters.clinic`,
       'END:VEVENT',
       'END:VCALENDAR'
@@ -484,7 +484,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
               </div>
 
               {/* Session picker */}
-              {event?.sessions && event.sessions.length > 0 && (
+              {event?.sessions && Array.isArray(event.sessions) && event.sessions.length > 0 && (
                 <div>
                   <span className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
                     {lang === 'es' ? 'Selecciona actividades' : 'Select activities'}
