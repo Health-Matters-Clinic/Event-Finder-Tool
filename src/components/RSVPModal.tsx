@@ -502,10 +502,10 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                 </div>
               )}
 
-              {/* Needs */}
+              {/* Needs — optional, used only to help HMC staff support you */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  {lang === 'es' ? 'Estoy aquí para:' : "I'm here for:"}
+                  {lang === 'es' ? 'Estoy aquí para (opcional):' : "I'm here for (optional):"}
                 </span>
                 {([
                   ['Screening',     'Evaluación'],
@@ -534,6 +534,14 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                   );
                 })}
               </div>
+
+              {needs.length > 0 && (
+                <p className="text-[9px] text-gray-400 -mt-1 leading-relaxed">
+                  {lang === 'es'
+                    ? 'Esta información es confidencial y solo se comparte con el personal de Health Matters Clinic para apoyarte en el evento.'
+                    : 'This information is confidential and shared only with Health Matters Clinic staff to support you at the event.'}
+                </p>
+              )}
 
               {/* Session picker */}
               {event?.sessions && Array.isArray(event.sessions) && event.sessions.length > 0 && (
