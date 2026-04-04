@@ -203,13 +203,14 @@ const App: React.FC = () => {
         localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE);
       }
 
-      // Fetch fresh data from Google Apps Script with 12s timeout
-      try {
+      // Fetch fresh data from Google Apps Script — up to 2 attempts (GAS can cold-start slowly)
+      const fetchEvents = async (): Promise<boolean> => {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
-        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`, { signal: controller.signal });
-        clearTimeout(timeout);
-        if (response.ok) {
+        const timeout = setTimeout(() => controller.abort(), 15000);
+        try {
+          const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`, { signal: controller.signal });
+          clearTimeout(timeout);
+          if (!response.ok) return false;
           const data = await response.json();
           if (data.success && Array.isArray(data.events) && data.events.length > 0) {
             const cleanEvents = sanitizeEvents(data.events);
@@ -222,12 +223,23 @@ const App: React.FC = () => {
               }));
               try { localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(cacheEvents)); } catch { /* quota exceeded — skip cache */ }
             }
-            return;
+            return true;
           }
+          return false;
+        } catch (e: any) {
+          clearTimeout(timeout);
+          console.warn('Events API fetch attempt failed:', e.name === 'AbortError' ? 'timed out' : e.message);
+          return false;
         }
-      } catch (e: any) {
-        console.warn('Event fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
+      };
+
+      const fetched = await fetchEvents();
+      if (!fetched) {
+        // Single retry after 3s — GAS may need warm-up time
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        if (isMounted) await fetchEvents();
       }
+      if (fetched) return;
 
       // If backend failed and no cache, fall back to hardcoded events (includes critical Unstoppable Season events)
       if (isMounted) {
