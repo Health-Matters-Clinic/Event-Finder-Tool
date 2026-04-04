@@ -84,7 +84,34 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     });
     if (recaptchaToken) params.append('recaptchaToken', recaptchaToken);
 
-    // Direct to Google Apps Script — writes to Sheet + sends confirmation email
+    // Fire-and-forget portal dual-write (Firestore + volunteer matching) — does not block submission
+    if (payload.action === 'preregister' || !payload.action) {
+      fetch(`${PORTAL_API_URL}/api/public/rsvp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId: payload.eventId,
+          eventTitle: payload.eventTitle,
+          eventDate: payload.eventDate,
+          name: payload.name,
+          email: payload.email || '',
+          phone: payload.phone || '',
+          needs: Array.isArray(payload.needs) ? payload.needs.join(', ') : (payload.needs || ''),
+          source: payload.source || 'Event Finder',
+          lang: payload.lang,
+          referralCode: payload.referralCode,
+          sessionIds: payload.sessionIds,
+          tshirtSize: payload.tshirtSize,
+          earlyRegistrant: payload.earlyRegistrant,
+          isMinor: payload.isMinor,
+          minorName: payload.minorName,
+          contact_method: payload.contact_method,
+          sms_consent: payload.sms_consent,
+        }),
+      }).catch(() => {}); // never block on portal failure
+    }
+
+    // Primary write: Google Apps Script — writes to Sheet + sends confirmation email
     try {
       const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
       if (response.ok) {
@@ -231,9 +258,25 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const downloadICS = () => {
-    const d = event.date.replace(/-/g, '');
-    const start = `${d}T120000`;
-    const end = `${d}T140000`;
+    const d = (event.date || '').replace(/-/g, '');
+    const parseTime = (timeStr: string): string => {
+      if (!timeStr || timeStr === 'TBD') return '120000';
+      const match = timeStr.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM|am|pm)?/i);
+      if (!match) return '120000';
+      let hours = parseInt(match[1]);
+      const mins = match[2] ? match[2] : '00';
+      const ampm = (match[3] || '').toUpperCase();
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      return `${String(hours).padStart(2, '0')}${mins}00`;
+    };
+    const parts = (event.time || '').split(/[-–]/);
+    const startTime = parseTime(parts[0]?.trim() || '');
+    const endTime = parts[1]
+      ? parseTime(parts[1].trim())
+      : String(Math.min(23, parseInt(startTime.substring(0, 2)) + 2)).padStart(2, '0') + startTime.substring(2);
+    const start = `${d}T${startTime}`;
+    const end = `${d}T${endTime}`;
 
     const icsContent = [
       'BEGIN:VCALENDAR',
