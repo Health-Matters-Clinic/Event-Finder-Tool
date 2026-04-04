@@ -578,7 +578,7 @@ const App: React.FC = () => {
   }, [events]);
 
   return (
-    <div className="flex flex-col h-screen bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white">
+    <div className="flex flex-col bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white" style={{ height: '100dvh' }}>
       <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 z-[200] relative flex items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
         {/* Left: Logo */}
         <div className="flex items-center gap-4">
@@ -594,26 +594,32 @@ const App: React.FC = () => {
         {/* Right: Compact buttons */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Language Toggle */}
-          <div className="flex bg-white border-[1.5px] border-black rounded-full overflow-hidden h-9">
+          <div className="flex bg-white border-[1.5px] border-black rounded-full overflow-hidden" style={{ minHeight: 44 }}>
             <button
               onClick={() => setLang('en')}
-              className={`px-3 py-1.5 text-[10px] font-semibold transition-all border-r border-black flex items-center gap-1.5 ${
+              aria-label="Switch to English"
+              aria-pressed={lang === 'en'}
+              className={`px-4 py-2.5 text-[11px] font-semibold transition-all border-r border-black flex items-center gap-1.5 ${
                 lang === 'en' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${lang === 'en' ? 'bg-white' : 'bg-black'}`}
+                aria-hidden="true"
               />
               EN
             </button>
             <button
               onClick={() => setLang('es')}
-              className={`px-3 py-1.5 text-[10px] font-semibold transition-all flex items-center gap-1.5 ${
+              aria-label="Switch to Spanish"
+              aria-pressed={lang === 'es'}
+              className={`px-4 py-2.5 text-[11px] font-semibold transition-all flex items-center gap-1.5 ${
                 lang === 'es' ? 'bg-[#233dff] text-white' : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${lang === 'es' ? 'bg-white' : 'bg-black'}`}
+                aria-hidden="true"
               />
               ES
             </button>
@@ -634,7 +640,9 @@ const App: React.FC = () => {
         <div className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center gap-3">
           <button
             onClick={() => setMobileView('map')}
-            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wide border-[1.5px] border-solid border-gray-200 transition-all flex items-center justify-center gap-2 ${
+            aria-pressed={mobileView === 'map'}
+            aria-label={lang === 'es' ? 'Ver mapa' : 'Show map view'}
+            className={`flex-1 py-3 rounded-full text-[11px] font-semibold uppercase tracking-wide border-[1.5px] border-solid border-gray-200 transition-all flex items-center justify-center gap-2 min-h-[44px] ${
               mobileView === 'map'
                 ? 'bg-[#233dff] text-white border-solid border-[#233dff] shadow-md'
                 : 'bg-white text-gray-500'
@@ -644,12 +652,15 @@ const App: React.FC = () => {
               className={`w-1.5 h-1.5 rounded-full ${
                 mobileView === 'map' ? 'bg-white' : 'bg-gray-400'
               }`}
+              aria-hidden="true"
             />
             {lang === 'es' ? 'Mapa' : 'Map'}
           </button>
           <button
             onClick={() => setMobileView('list')}
-            className={`flex-1 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wide border-[1.5px] border-solid border-gray-200 transition-all flex items-center justify-center gap-2 ${
+            aria-pressed={mobileView === 'list'}
+            aria-label={lang === 'es' ? 'Ver lista' : 'Show list view'}
+            className={`flex-1 py-3 rounded-full text-[11px] font-semibold uppercase tracking-wide border-[1.5px] border-solid border-gray-200 transition-all flex items-center justify-center gap-2 min-h-[44px] ${
               mobileView === 'list'
                 ? 'bg-[#233dff] text-white border-solid border-[#233dff] shadow-md'
                 : 'bg-white text-gray-500'
@@ -659,6 +670,7 @@ const App: React.FC = () => {
               className={`w-1.5 h-1.5 rounded-full ${
                 mobileView === 'list' ? 'bg-white' : 'bg-gray-400'
               }`}
+              aria-hidden="true"
             />
             {lang === 'es' ? 'Lista' : 'List'}
           </button>

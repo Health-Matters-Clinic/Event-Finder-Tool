@@ -367,37 +367,43 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
             <form onSubmit={handlePreRegister} className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  <label htmlFor="rsvp-name" className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {lang === 'es' ? 'Nombre' : 'Name'} *
                   </label>
                   <input
+                    id="rsvp-name"
                     name="name"
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    autoComplete="name"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all placeholder:text-gray-400 placeholder:font-normal"
                     placeholder={lang === 'es' ? 'Tu nombre completo' : 'Your full name'}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  <label htmlFor="rsvp-email" className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {lang === 'es' ? 'Correo' : 'Email'}
                   </label>
                   <input
+                    id="rsvp-email"
                     name="email"
                     type="email"
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    autoComplete="email"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all placeholder:text-gray-400 placeholder:font-normal"
                     placeholder="email@example.com"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  <label htmlFor="rsvp-phone" className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {lang === 'es' ? 'Telefono' : 'Phone'}
                   </label>
                   <input
+                    id="rsvp-phone"
                     name="phone"
                     type="tel"
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    autoComplete="tel"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all placeholder:text-gray-400 placeholder:font-normal"
                     placeholder="(555) 123-4567"
                   />
                 </div>
@@ -423,7 +429,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
               {isMinor && (
                 <input
                   name="minor_name"
-                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal -mt-1"
+                  aria-label={lang === 'es' ? 'Nombre del menor' : "Minor's name"}
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all placeholder:text-gray-400 placeholder:font-normal -mt-1"
                   placeholder={lang === 'es' ? 'Nombre del menor *' : "Minor's name *"}
                 />
               )}
