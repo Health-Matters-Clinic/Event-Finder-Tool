@@ -44,6 +44,7 @@ const PROGRAM_COLORS: { [key: string]: string } = {
 const DEFAULT_CENTER: [number, number] = [33.9719, -118.2108];
 
 const isPast = (dateStr: string) => {
+  if (!dateStr) return false;
   // Handle both YYYY-MM-DD and ISO date strings (2026-06-05T05:00:00.000Z)
   let dateOnly = dateStr;
   if (dateStr.includes('T')) {
@@ -227,7 +228,7 @@ const App: React.FC = () => {
         if (e.id.toLowerCase() === slugLower || idSlug === slugLower) return true;
         const titleSlug = toSlug(e.title);
         if (titleSlug === slugLower) return true;
-        const eventDate = e.date?.includes('T') ? e.date.split('T')[0] : e.date;
+        const eventDate = e.date && e.date.includes('T') ? e.date.split('T')[0] : (e.date || null);
         if (eventDate === slugLower) return true;
         if (eventDate) {
           const comboSlug = toSlug(`${e.title}-${eventDate}`);
@@ -320,8 +321,8 @@ const App: React.FC = () => {
         if (!a.isSponsored && b.isSponsored) return 1;
 
         // Then sort by date (handle ISO date strings)
-        const dateA = a.date.includes('T') ? a.date.split('T')[0] : a.date;
-        const dateB = b.date.includes('T') ? b.date.split('T')[0] : b.date;
+        const dateA = a.date && a.date.includes('T') ? a.date.split('T')[0] : (a.date || '');
+        const dateB = b.date && b.date.includes('T') ? b.date.split('T')[0] : (b.date || '');
         return new Date(dateA).getTime() - new Date(dateB).getTime();
       });
   }, [events, filters, locationSearch]);
@@ -673,7 +674,7 @@ const App: React.FC = () => {
                     {lang === 'es' ? 'PATROCINADO' : 'SPONSORED'}
                   </span>
                 )}
-                {isPast(selectedEvent.date) && (
+                {selectedEvent.date && isPast(selectedEvent.date) && (
                   <span className="inline-block bg-gray-100 text-gray-600 border border-gray-200 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide">
                     {t.past}
                   </span>
@@ -787,7 +788,7 @@ const App: React.FC = () => {
                     variant="outline"
                     className="justify-center h-11"
                     onClick={() => {
-                      const d = selectedEvent.date.replace(/-/g, '');
+                      const d = (selectedEvent.date || '').replace(/-/g, '');
                       // Parse actual event time (e.g., "8:00 AM", "5:45 PM - 7:30 PM", "10:15 AM - 11:45 AM")
                       const parseTime = (timeStr: string): string => {
                         if (!timeStr || timeStr === 'TBD') return '120000';
