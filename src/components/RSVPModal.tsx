@@ -212,7 +212,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       name,
       email: email || undefined,
       phone: phone || undefined,
-      contact_method: contactMethods.size === 0 ? 'none' : Array.from(contactMethods).join(','),
+      contact_method: (contactMethods.size === 0 ? 'none' : Array.from(contactMethods)[0]) as 'text' | 'email' | 'none',
       sms_consent: smsConsent,
       isMinor,
       minorName: isMinor ? minorName : undefined,
