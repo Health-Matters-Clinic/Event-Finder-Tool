@@ -293,6 +293,7 @@ const App: React.FC = () => {
   const filteredEvents = useMemo(() => {
     return events
       .filter((event) => {
+        if (!event.date) return false;
         // Handle both YYYY-MM-DD and ISO date strings
         const dateOnly = event.date.includes('T') ? event.date.split('T')[0] : event.date;
         const monthMatch = !filters.month || dateOnly.includes(`-${filters.month}-`);
@@ -301,7 +302,7 @@ const App: React.FC = () => {
         const locQuery = locationSearch.toLowerCase();
         const locationMatch =
           !locationSearch ||
-          event.city.toLowerCase().includes(locQuery) ||
+          (event.city && event.city.toLowerCase().includes(locQuery)) ||
           (event.address && event.address.toLowerCase().includes(locQuery));
 
         const eventIsPast = isPast(dateOnly);
@@ -389,8 +390,12 @@ const App: React.FC = () => {
     });
 
     if (filteredEvents.length > 0 && !selectedEvent) {
-      const group = L.featureGroup(Object.values(markersRef.current));
-      mapRef.current.fitBounds(group.getBounds().pad(0.2));
+      try {
+        const group = L.featureGroup(Object.values(markersRef.current));
+        mapRef.current.fitBounds(group.getBounds().pad(0.2));
+      } catch (e) {
+        console.warn('fitBounds deferred:', e);
+      }
     }
   }, [filteredEvents, selectedEvent]);
 
