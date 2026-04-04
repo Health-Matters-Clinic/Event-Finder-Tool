@@ -507,20 +507,29 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                   {lang === 'es' ? 'Estoy aquí para:' : "I'm here for:"}
                 </span>
-                {['Screening', 'Resources', 'Mental Health', 'Insurance', 'Housing', 'Volunteer'].map((n) => {
-                  const active = needs.includes(n);
+                {([
+                  ['Screening',     'Evaluación'],
+                  ['Resources',     'Recursos'],
+                  ['Mental Health', 'Salud Mental'],
+                  ['Insurance',     'Seguro'],
+                  ['Housing',       'Vivienda'],
+                  ['Volunteer',     'Voluntario'],
+                ] as [string, string][]).map(([en, es]) => {
+                  const value = en; // always store English value for backend consistency
+                  const label = lang === 'es' ? es : en;
+                  const active = needs.includes(value);
                   return (
                     <button
                       type="button"
-                      key={n}
-                      onClick={() => toggleNeed(n)}
+                      key={value}
+                      onClick={() => toggleNeed(value)}
                       className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
                         active
                           ? 'bg-[#233dff] text-white border-[#233dff]'
                           : 'bg-white text-gray-600 border-gray-200 hover:border-[#233dff]'
                       }`}
                     >
-                      {n}
+                      {label}
                     </button>
                   );
                 })}
