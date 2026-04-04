@@ -131,7 +131,9 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     if (!event) return;
     // Get name/email/phone from the form if it exists
     const form = document.querySelector('form') as HTMLFormElement | null;
-    const name = form ? String(new FormData(form).get('name') || '').trim() : '';
+    const firstName = form ? String(new FormData(form).get('firstName') || '').trim() : '';
+    const lastName = form ? String(new FormData(form).get('lastName') || '').trim() : '';
+    const name = [firstName, lastName].filter(Boolean).join(' ');
     const email = form ? String(new FormData(form).get('email') || '').trim() : '';
     const phone = form ? String(new FormData(form).get('phone') || '').trim() : '';
 
@@ -171,19 +173,80 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     }
   };
 
+  const phoneRegex = /^\+?[\d\s\-\(\)]{10,15}$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   const handlePreRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMsg('');
     setState('submitting');
 
     const formData = new FormData(e.currentTarget);
-    const name = String(formData.get('name') || '').trim();
+    const firstName = String(formData.get('firstName') || '').trim();
+    const lastName = String(formData.get('lastName') || '').trim();
+    const name = `${firstName} ${lastName}`.trim();
     const email = String(formData.get('email') || '').trim();
     const phone = String(formData.get('phone') || '').trim();
     const minorName = String(formData.get('minor_name') || '').trim();
     const smsConsent = !!formData.get('sms_consent');
 
-    // Require either email or phone
+    const wantsText = contactMethods.has('text');
+    const wantsEmail = contactMethods.has('email');
+
+    // Validate phone format if provided or required
+    if (phone && !phoneRegex.test(phone)) {
+      setState('error');
+      setErrorMsg(
+        lang === 'es'
+          ? 'Por favor ingresa un número de teléfono válido (10 dígitos).'
+          : 'Please enter a valid phone number (10 digits).'
+      );
+      return;
+    }
+
+    // Validate email format if provided or required
+    if (email && !emailRegex.test(email)) {
+      setState('error');
+      setErrorMsg(
+        lang === 'es'
+          ? 'Por favor ingresa un correo electrónico válido.'
+          : 'Please enter a valid email address.'
+      );
+      return;
+    }
+
+    // Text selected → phone required
+    if (wantsText && !phone) {
+      setState('error');
+      setErrorMsg(
+        lang === 'es'
+          ? 'Se requiere número de teléfono para recibir mensajes de texto.'
+          : 'Phone number is required for text reminders.'
+      );
+      return;
+    }
+
+    // Email selected → both email AND phone required
+    if (wantsEmail && !email) {
+      setState('error');
+      setErrorMsg(
+        lang === 'es'
+          ? 'Se requiere correo electrónico para recibir confirmación por email.'
+          : 'Email address is required for email confirmation.'
+      );
+      return;
+    }
+    if (wantsEmail && !phone) {
+      setState('error');
+      setErrorMsg(
+        lang === 'es'
+          ? 'También se requiere número de teléfono cuando seleccionas confirmación por email.'
+          : 'Phone number is also required when email confirmation is selected.'
+      );
+      return;
+    }
+
+    // Fallback: require at least one contact method
     if (!email && !phone) {
       setState('error');
       setErrorMsg(
@@ -366,29 +429,46 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
           {state !== 'preregistered' && state !== 'checked_in' && (
             <form onSubmit={handlePreRegister} className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="sm:col-span-2">
-                  <label htmlFor="rsvp-name" className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                    {lang === 'es' ? 'Nombre' : 'Name'} *
+                <div>
+                  <label htmlFor="rsvp-firstName" className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                    {lang === 'es' ? 'Nombre' : 'First Name'} *
                   </label>
                   <input
-                    id="rsvp-name"
-                    name="name"
+                    id="rsvp-firstName"
+                    name="firstName"
                     required
-                    autoComplete="name"
+                    autoComplete="given-name"
+                    style={{ fontSize: '16px' }}
                     className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all placeholder:text-gray-400 placeholder:font-normal"
-                    placeholder={lang === 'es' ? 'Tu nombre completo' : 'Your full name'}
+                    placeholder={lang === 'es' ? 'Nombre' : 'First'}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="rsvp-lastName" className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                    {lang === 'es' ? 'Apellido' : 'Last Name'} *
+                  </label>
+                  <input
+                    id="rsvp-lastName"
+                    name="lastName"
+                    required
+                    autoComplete="family-name"
+                    style={{ fontSize: '16px' }}
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    placeholder={lang === 'es' ? 'Apellido' : 'Last'}
                   />
                 </div>
 
                 <div>
                   <label htmlFor="rsvp-email" className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {lang === 'es' ? 'Correo' : 'Email'}
+                    {contactMethods.has('email') && <span className="text-red-500 ml-0.5">*</span>}
                   </label>
                   <input
                     id="rsvp-email"
                     name="email"
                     type="email"
                     autoComplete="email"
+                    style={{ fontSize: '16px' }}
                     className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all placeholder:text-gray-400 placeholder:font-normal"
                     placeholder="email@example.com"
                   />
@@ -396,13 +476,15 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
 
                 <div>
                   <label htmlFor="rsvp-phone" className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                    {lang === 'es' ? 'Telefono' : 'Phone'}
+                    {lang === 'es' ? 'Teléfono' : 'Phone'}
+                    {(contactMethods.has('text') || contactMethods.has('email')) && <span className="text-red-500 ml-0.5">*</span>}
                   </label>
                   <input
                     id="rsvp-phone"
                     name="phone"
                     type="tel"
                     autoComplete="tel"
+                    style={{ fontSize: '16px' }}
                     className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all placeholder:text-gray-400 placeholder:font-normal"
                     placeholder="(555) 123-4567"
                   />
@@ -411,7 +493,15 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
 
               <p className="text-[10px] text-gray-500 -mt-1">
                 {lang === 'es'
-                  ? '* Se requiere correo o telefono'
+                  ? contactMethods.has('email')
+                    ? '* Seleccionaste Email: se requieren correo y teléfono'
+                    : contactMethods.has('text')
+                    ? '* Seleccionaste Texto: se requiere teléfono'
+                    : '* Se requiere correo o teléfono'
+                  : contactMethods.has('email')
+                  ? '* Email selected: email and phone both required'
+                  : contactMethods.has('text')
+                  ? '* Text selected: phone required'
                   : '* Email or phone required'}
               </p>
 
@@ -429,7 +519,9 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
               {isMinor && (
                 <input
                   name="minor_name"
+                  required
                   aria-label={lang === 'es' ? 'Nombre del menor' : "Minor's name"}
+                  style={{ fontSize: '16px' }}
                   className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all placeholder:text-gray-400 placeholder:font-normal -mt-1"
                   placeholder={lang === 'es' ? 'Nombre del menor *' : "Minor's name *"}
                 />
