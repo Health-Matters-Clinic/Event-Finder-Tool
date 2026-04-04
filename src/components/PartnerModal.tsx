@@ -120,7 +120,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all"
                   />
                 </div>
                 <div>
@@ -133,7 +133,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all"
                   />
                 </div>
               </div>
@@ -147,7 +147,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                   value={formData.organization}
                   onChange={handleChange}
                   required
-                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all"
                 />
               </div>
 
@@ -160,7 +160,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                   value={formData.eventTitle}
                   onChange={handleChange}
                   required
-                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all"
                 />
               </div>
 
@@ -174,7 +174,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                   onChange={handleChange}
                   required
                   rows={2}
-                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all resize-none"
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all resize-none"
                 />
               </div>
 
@@ -189,7 +189,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                     value={formData.proposedDate}
                     onChange={handleChange}
                     required
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all"
                   />
                 </div>
                 <div>
@@ -203,7 +203,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                     onChange={handleChange}
                     required
                     placeholder={lang === 'es' ? 'ej. 10am - 2pm' : 'e.g. 10am - 2pm'}
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                   />
                 </div>
               </div>
@@ -218,7 +218,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                   onChange={handleChange}
                   required
                   placeholder={lang === 'es' ? 'Direccion completa del evento' : 'Full event address'}
-                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                 />
                 <p className="text-[9px] text-gray-400 mt-1">
                   {lang === 'es' ? 'Incluya calle, ciudad, estado y codigo postal' : 'Include street, city, state, and ZIP code'}
@@ -235,7 +235,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                   value={formData.flyerUrl}
                   onChange={handleChange}
                   placeholder="https://drive.google.com/..."
-                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                 />
                 <p className="text-[9px] text-gray-400 mt-1">
                   {lang === 'es'
