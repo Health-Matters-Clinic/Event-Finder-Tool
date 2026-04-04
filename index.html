@@ -16,11 +16,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Questrial&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://www.google.com/recaptcha/api.js?render=6LfHmlssAAAAAB_K8kuGyUn_GgPf_m8ZsPiBhh0L" async defer></script>
+    <!-- Leaflet must load synchronously BEFORE the React module bundle so `L` is defined at runtime -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
 </head>
 <body>
     <div id="root"></div>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
     <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

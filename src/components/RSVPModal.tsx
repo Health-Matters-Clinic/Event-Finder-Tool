@@ -433,7 +433,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
               {isUnstoppableEvent && (
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                    {lang === 'es' ? '👕 Talla de camiseta (gratis para los primeros registrados)' : '👕 T-Shirt Size (free for early registrants)'}
+                    {lang === 'es' ? 'Talla de camiseta (gratis para los primeros registrados)' : 'T-Shirt Size (free for early registrants)'}
                   </label>
                   <select
                     value={tshirtSize}
@@ -452,8 +452,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                   {isEarlyRegistrant && (
                     <p className="text-[10px] text-[#233dff] font-semibold mt-1">
                       {lang === 'es'
-                        ? '✓ Registrado antes del 2 de mayo — elegible para recoger camiseta en el evento'
-                        : '✓ Registered before May 2 — eligible for on-site tee pickup'}
+                        ? 'Registrado antes del 2 de mayo — elegible para recoger camiseta en el evento'
+                        : 'Registered before May 2 — eligible for on-site tee pickup'}
                     </p>
                   )}
                 </div>
