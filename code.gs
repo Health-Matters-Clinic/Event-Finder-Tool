@@ -171,6 +171,12 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // ===== HEALTH PING (lightweight — for monitoring, no Spreadsheet read) =====
+  if (action === 'ping') {
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, ts: Date.now() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // ===== EVENT ACTIONS (return JSON) =====
   if (action === 'getEvents') {
     return ContentService.createTextOutput(JSON.stringify(getEvents()))
