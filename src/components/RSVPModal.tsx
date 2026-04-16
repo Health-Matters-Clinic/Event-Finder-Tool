@@ -105,8 +105,9 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
           earlyRegistrant: payload.earlyRegistrant,
           isMinor: payload.isMinor,
           minorName: payload.minorName,
-          contact_method: payload.contact_method,
+          contactPreference: payload.contact_method,
           sms_consent: payload.sms_consent,
+          guests: payload.guests,
         }),
       }).catch(() => {}); // never block on portal failure
     }
@@ -115,8 +116,9 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     try {
       const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
       if (response.ok) {
-        const data = await response.json();
-        return { success: true, checkinToken: data.checkinToken };
+        let checkinToken: string | undefined;
+        try { checkinToken = (await response.json()).checkinToken; } catch {}
+        return { success: true, checkinToken };
       }
       throw new Error('Server error');
     } catch {
