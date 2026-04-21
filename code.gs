@@ -352,9 +352,9 @@ function getEvents() {
       return { success: true, events: [] };
     }
 
-    // Read all 18 columns explicitly — getDataRange() can miss trailing empty columns
-    var headers = sheet.getRange(1, 1, 1, 18).getValues()[0];
-    var data = sheet.getRange(1, 1, lastRow, 18).getValues();
+    // Read all 19 columns explicitly — getDataRange() can miss trailing empty columns
+    var headers = sheet.getRange(1, 1, 1, 19).getValues()[0];
+    var data = sheet.getRange(1, 1, lastRow, 19).getValues();
     var events = [];
 
     for (var i = 1; i < data.length; i++) {
@@ -399,6 +399,15 @@ function getEvents() {
         // Convert numbers for lat/lng
         if (header === 'lat' || header === 'lng') {
           value = parseFloat(value) || 0;
+        }
+
+        // Parse sessions JSON back to array
+        if (header === 'sessions') {
+          if (value && typeof value === 'string' && value.trim().startsWith('[')) {
+            try { value = JSON.parse(value); } catch(e) { value = []; }
+          } else {
+            value = [];
+          }
         }
 
         event[header] = value;
@@ -451,14 +460,21 @@ function saveEvent(event) {
       sheet.appendRow([
         'id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
         'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-        'isPromoted', 'isSponsored', 'createdAt'
+        'isPromoted', 'isSponsored', 'createdAt', 'sessions'
       ]);
     }
 
-    // Read all 18 columns explicitly — getDataRange() can miss trailing empty columns
+    // Ensure sessions column header exists (migration for existing sheets)
+    var headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    if (headerRow.indexOf('sessions') === -1) {
+      var nextCol = sheet.getLastColumn() + 1;
+      sheet.getRange(1, nextCol).setValue('sessions');
+    }
+
+    // Read all 19 columns explicitly — getDataRange() can miss trailing empty columns
     var lastRow = sheet.getLastRow();
-    var headers = sheet.getRange(1, 1, 1, 18).getValues()[0];
-    var data = sheet.getRange(1, 1, lastRow, 18).getValues();
+    var headers = sheet.getRange(1, 1, 1, 19).getValues()[0];
+    var data = sheet.getRange(1, 1, lastRow, 19).getValues();
 
     // Normalize incoming event ID for comparison
     var eventIdNorm = normalizeId(event.id);
@@ -495,6 +511,9 @@ function saveEvent(event) {
       var value = event[header];
       if (value === undefined || value === null) {
         rowData.push('');
+      } else if (header === 'sessions') {
+        // Serialize sessions array as JSON string
+        rowData.push(Array.isArray(value) && value.length > 0 ? JSON.stringify(value) : '');
       } else if (typeof value === 'boolean') {
         rowData.push(value ? 'TRUE' : 'FALSE');
       } else {
@@ -573,11 +592,11 @@ function saveAllEvents(events) {
       sheet.appendRow([
         'id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
         'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-        'isPromoted', 'isSponsored', 'createdAt'
+        'isPromoted', 'isSponsored', 'createdAt', 'sessions'
       ]);
     }
 
-    var headers = sheet.getRange(1, 1, 1, 18).getValues()[0];
+    var headers = sheet.getRange(1, 1, 1, 19).getValues()[0];
 
     // Clear existing data (keep headers)
     var lastRow = sheet.getLastRow();
@@ -596,6 +615,8 @@ function saveAllEvents(events) {
           var value = event[header];
           if (value === undefined || value === null) {
             row.push('');
+          } else if (header === 'sessions') {
+            row.push(Array.isArray(value) && value.length > 0 ? JSON.stringify(value) : '');
           } else if (typeof value === 'boolean') {
             row.push(value ? 'TRUE' : 'FALSE');
           } else {

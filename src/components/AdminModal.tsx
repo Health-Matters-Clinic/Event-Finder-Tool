@@ -1319,7 +1319,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               {/* Section: Media */}
               <FormSection title={lang === 'es' ? 'Medios' : 'Media'} defaultOpen={!!(formData.flyerUrl || formData.websiteUrl)}>
                 <div className="space-y-4">
-                  {/* Flyer Upload */}
+                  {/* Flyer Upload or URL */}
                   <div>
                     <label className={labelCls}>
                       {lang === 'es' ? 'Flyer del Evento' : 'Event Flyer'}{' '}
@@ -1339,38 +1339,41 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
-
                             const img = new Image();
                             const reader = new FileReader();
-
-                            reader.onload = (e) => {
-                              img.onload = () => {
+                            reader.onload = (ev) => {
+                              img.onload = async () => {
                                 const canvas = document.createElement('canvas');
-                                const MAX_WIDTH = 600;
-                                const MAX_HEIGHT = 800;
-
+                                const MAX_WIDTH = 800;
+                                const MAX_HEIGHT = 1000;
                                 let width = img.width;
                                 let height = img.height;
-
-                                if (width > MAX_WIDTH) {
-                                  height = (height * MAX_WIDTH) / width;
-                                  width = MAX_WIDTH;
-                                }
-                                if (height > MAX_HEIGHT) {
-                                  width = (width * MAX_HEIGHT) / height;
-                                  height = MAX_HEIGHT;
-                                }
-
+                                if (width > MAX_WIDTH) { height = (height * MAX_WIDTH) / width; width = MAX_WIDTH; }
+                                if (height > MAX_HEIGHT) { width = (width * MAX_HEIGHT) / height; height = MAX_HEIGHT; }
                                 canvas.width = width;
                                 canvas.height = height;
-
                                 const ctx = canvas.getContext('2d');
                                 ctx?.drawImage(img, 0, 0, width, height);
-
-                                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
-                                setFormData((prev) => ({ ...prev, flyerUrl: compressedDataUrl }));
+                                const base64 = canvas.toDataURL('image/jpeg', 0.8);
+                                // Upload to portal — get back a permanent URL instead of storing base64 in sheet
+                                try {
+                                  const res = await fetch(`${PORTAL_API_URL}/api/public/upload-flyer`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ eventId: formData.id || `flyer-${Date.now()}`, imageData: base64, mimeType: 'image/jpeg' }),
+                                  });
+                                  const data = await res.json();
+                                  if (data.success && data.url) {
+                                    setFormData((prev) => ({ ...prev, flyerUrl: data.url }));
+                                  } else {
+                                    // Fallback: store base64 directly if upload fails
+                                    setFormData((prev) => ({ ...prev, flyerUrl: base64 }));
+                                  }
+                                } catch {
+                                  setFormData((prev) => ({ ...prev, flyerUrl: base64 }));
+                                }
                               };
-                              img.src = e.target?.result as string;
+                              img.src = ev.target?.result as string;
                             };
                             reader.readAsDataURL(file);
                           }}
@@ -1387,8 +1390,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       )}
                     </div>
 
+                    {/* Flyer URL paste option */}
+                    <input
+                      type="url"
+                      value={formData.flyerUrl?.startsWith('data:') ? '' : (formData.flyerUrl || '')}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, flyerUrl: e.target.value }))}
+                      placeholder={lang === 'es' ? 'O sube a Google Drive/Canva y pega el enlace...' : 'Or upload to Google Drive, Canva, or Webflow and paste the public link...'}
+                      className={inputCls}
+                    />
+
                     {formData.flyerUrl && (
-                      <div className="relative rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-50">
+                      <div className="relative rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-50 mt-3">
                         <img
                           src={formData.flyerUrl}
                           alt="Flyer preview"
