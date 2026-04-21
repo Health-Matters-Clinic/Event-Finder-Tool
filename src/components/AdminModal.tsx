@@ -457,6 +457,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     });
     const result = await res.json();
     if (!result.success) throw new Error(result.error || 'Save failed');
+    // Bust server-side GAS cache so Event Finder shows updates immediately
+    fetch(`${PORTAL_API_URL}/api/public/bust-events-cache`, { method: 'POST' }).catch(() => {});
   };
 
   const handleImportJSON = async () => {

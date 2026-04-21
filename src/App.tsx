@@ -189,18 +189,25 @@ const App: React.FC = () => {
     let isMounted = true;
 
     const loadEvents = async () => {
-      // Show cached events immediately so users don't see a blank screen
+      // Show cached events immediately — but only if cache is < 5 minutes old
+      const CACHE_TTL_MS = 5 * 60 * 1000;
       try {
         const cached = localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE);
-        if (cached) {
+        const cachedAt = parseInt(localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE + '_ts') || '0', 10);
+        if (cached && Date.now() - cachedAt < CACHE_TTL_MS) {
           const cachedEvents = sanitizeEvents(JSON.parse(cached));
           if (cachedEvents.length > 0 && isMounted) {
             setEvents(cachedEvents);
           }
+        } else if (cached) {
+          // Cache expired — clear it so fresh data loads without flicker
+          localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE);
+          localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE + '_ts');
         }
       } catch {
         // Corrupt cache — clear it so it doesn't crash again
         localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE);
+        localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE + '_ts');
       }
 
       const applyEvents = (events: ClinicEvent[]) => {
@@ -211,7 +218,10 @@ const App: React.FC = () => {
             ...e,
             flyerUrl: (e.flyerUrl && e.flyerUrl.startsWith('data:') && e.flyerUrl.length > 5000) ? '' : (e.flyerUrl || ''),
           }));
-          try { localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(cacheEvents)); } catch { /* quota exceeded */ }
+          try {
+            localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(cacheEvents));
+            localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE + '_ts', String(Date.now()));
+          } catch { /* quota exceeded */ }
           return true;
         }
         return false;
