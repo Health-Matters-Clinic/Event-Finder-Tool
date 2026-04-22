@@ -71,6 +71,18 @@ const sanitizeEvent = (e: any): ClinicEvent | null => {
 const sanitizeEvents = (raw: any[]): ClinicEvent[] =>
   raw.map(sanitizeEvent).filter((e): e is ClinicEvent => e !== null);
 
+const parseTimeToISO = (timeStr: string): string => {
+  if (!timeStr) return '08:00:00';
+  const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!match) return '08:00:00';
+  let h = parseInt(match[1], 10);
+  const m = match[2];
+  const ampm = match[3].toUpperCase();
+  if (ampm === 'PM' && h !== 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${m}:00`;
+};
+
 const isPast = (dateStr: string) => {
   if (!dateStr) return false;
   // Handle both YYYY-MM-DD and ISO date strings (2026-06-05T05:00:00.000Z)
@@ -573,27 +585,39 @@ const App: React.FC = () => {
   // SEO: Inject JSON-LD structured data for Google rich results
   useEffect(() => {
     const upcoming = events.filter(e => !isPast(e.date));
-    const jsonLd = upcoming.map(e => ({
-      '@context': 'https://schema.org',
-      '@type': 'Event',
-      name: e.title,
-      startDate: e.date,
-      endDate: e.date,
-      eventAttendanceMode: e.address ? 'https://schema.org/OfflineEventAttendanceMode' : 'https://schema.org/OnlineEventAttendanceMode',
-      eventStatus: 'https://schema.org/EventScheduled',
-      location: e.address ? {
-        '@type': 'Place',
-        name: e.location || e.city,
-        address: { '@type': 'PostalAddress', streetAddress: e.address, addressLocality: e.city, addressRegion: 'CA', addressCountry: 'US' },
-        ...(e.lat && e.lng ? { geo: { '@type': 'GeoCoordinates', latitude: e.lat, longitude: e.lng } } : {}),
-      } : { '@type': 'VirtualLocation', url: 'https://www.healthmatters.clinic/resources/eventfinder' },
-      description: e.description || `${e.title} — free community health event by Health Matters Clinic`,
-      organizer: { '@type': 'Organization', name: 'Health Matters Clinic', url: 'https://www.healthmatters.clinic' },
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: `https://www.healthmatters.clinic/resources/eventfinder?event=${e.id}&rsvp=true` },
-      image: e.flyerUrl || 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
-    }));
+    const jsonLd = upcoming.map(e => {
+      const eventUrl = `https://eventfinder.healthmatters.clinic/?event=${e.id}`;
+      const isVirtual = !e.address || e.address.toLowerCase().includes('virtual') || e.address.toLowerCase().includes('zoom');
+      const entry: any = {
+        '@context': 'https://schema.org',
+        '@type': 'Event',
+        name: e.title,
+        startDate: e.time ? `${e.date}T${parseTimeToISO(e.time)}` : e.date,
+        endDate: e.date,
+        eventAttendanceMode: isVirtual ? 'https://schema.org/OnlineEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
+        eventStatus: 'https://schema.org/EventScheduled',
+        isAccessibleForFree: true,
+        url: eventUrl,
+        location: isVirtual
+          ? { '@type': 'VirtualLocation', url: eventUrl }
+          : {
+              '@type': 'Place',
+              name: e.location || e.city,
+              address: { '@type': 'PostalAddress', streetAddress: e.address, addressLocality: e.city || 'Los Angeles', addressRegion: 'CA', addressCountry: 'US' },
+              ...(e.lat && e.lng ? { geo: { '@type': 'GeoCoordinates', latitude: e.lat, longitude: e.lng } } : {}),
+            },
+        description: e.description || `${e.title} — free community health event by Health Matters Clinic in Los Angeles County.`,
+        organizer: { '@type': 'Organization', name: 'Health Matters Clinic', url: 'https://www.healthmatters.clinic' },
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: eventUrl },
+        image: e.flyerUrl || 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
+      };
+      // Add performer for known speakers
+      if (e.title.toLowerCase().includes('unstoppable') && e.title.toLowerCase().includes('walk')) {
+        entry.performer = { '@type': 'Person', 'name': 'Issa Rae' };
+      }
+      return entry;
+    });
 
-    // Remove old script tags
     document.querySelectorAll('script[data-event-jsonld]').forEach(el => el.remove());
 
     if (jsonLd.length > 0) {
@@ -608,6 +632,21 @@ const App: React.FC = () => {
       document.querySelectorAll('script[data-event-jsonld]').forEach(el => el.remove());
     };
   }, [events]);
+
+  // SEO: Update URL and document title when an event is selected
+  useEffect(() => {
+    if (selectedEvent) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('event', selectedEvent.id);
+      window.history.pushState({}, '', url.toString());
+      document.title = `${selectedEvent.title} — Free Event in ${selectedEvent.city || 'Los Angeles'} | Health Matters Clinic`;
+    } else {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('event');
+      window.history.replaceState({}, '', url.toString());
+      document.title = 'Free Health & Wellness Events in Los Angeles | Health Matters Clinic Event Finder';
+    }
+  }, [selectedEvent]);
 
   return (
     <div className="flex flex-col bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white" style={{ height: '100%' }}>
@@ -626,7 +665,7 @@ const App: React.FC = () => {
         {/* Right: Compact buttons */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Language Toggle */}
-          <div className="flex bg-white border-[1.5px] border-black rounded-full overflow-hidden h-9">
+          <div className="flex bg-white border border-black rounded-full overflow-hidden h-9">
             <button
               onClick={() => setLang('en')}
               aria-label="Switch to English"
@@ -1042,9 +1081,9 @@ const App: React.FC = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setFilters((f) => ({ ...f, showPast: false }))}
-                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-[1.5px] border-solid flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border border-solid flex items-center justify-center gap-2 ${
                       !filters.showPast
-                        ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                        ? 'bg-[#233dff] text-white border-black shadow-md'
                         : 'bg-white text-gray-700 border-black hover:bg-gray-50'
                     }`}
                   >
@@ -1055,9 +1094,9 @@ const App: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setFilters((f) => ({ ...f, showPast: true }))}
-                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-[1.5px] border-solid flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border border-solid flex items-center justify-center gap-2 ${
                       filters.showPast
-                        ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                        ? 'bg-[#233dff] text-white border-black shadow-md'
                         : 'bg-white text-gray-700 border-black hover:bg-gray-50'
                     }`}
                   >
