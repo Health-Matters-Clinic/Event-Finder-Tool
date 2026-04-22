@@ -626,7 +626,7 @@ const App: React.FC = () => {
         {/* Right: Compact buttons */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Language Toggle */}
-          <div className="flex bg-white border-[1.5px] border-black rounded-full overflow-hidden" style={{ minHeight: 44 }}>
+          <div className="flex bg-white border-[1.5px] border-black rounded-full overflow-hidden h-9">
             <button
               onClick={() => setLang('en')}
               aria-label="Switch to English"
@@ -1042,10 +1042,10 @@ const App: React.FC = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setFilters((f) => ({ ...f, showPast: false }))}
-                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-[1.5px] border-solid border-gray-200 flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-[1.5px] border-solid flex items-center justify-center gap-2 ${
                       !filters.showPast
-                        ? 'bg-[#233dff] text-white border-solid border-[#233dff] shadow-md'
-                        : 'bg-white text-gray-500 hover:bg-gray-50'
+                        ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                        : 'bg-white text-gray-700 border-black hover:bg-gray-50'
                     }`}
                   >
                     <span
@@ -1055,10 +1055,10 @@ const App: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setFilters((f) => ({ ...f, showPast: true }))}
-                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-[1.5px] border-solid border-gray-200 flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border-[1.5px] border-solid flex items-center justify-center gap-2 ${
                       filters.showPast
-                        ? 'bg-[#233dff] text-white border-solid border-[#233dff] shadow-md'
-                        : 'bg-white text-gray-500 hover:bg-gray-50'
+                        ? 'bg-[#233dff] text-white border-[#233dff] shadow-md'
+                        : 'bg-white text-gray-700 border-black hover:bg-gray-50'
                     }`}
                   >
                     <span
