@@ -115,16 +115,11 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     // Primary write: Google Apps Script — writes to Sheet + sends confirmation email
     try {
       const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
-      if (response.ok) {
-        let checkinToken: string | undefined;
-        try { checkinToken = (await response.json()).checkinToken; } catch {}
-        return { success: true, checkinToken };
-      }
-      throw new Error('Server error');
+      let checkinToken: string | undefined;
+      try { checkinToken = (await response.json()).checkinToken; } catch {}
+      return { success: true, checkinToken };
     } catch {
-      const img = new Image();
-      img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // GAS unreachable — portal already wrote to Firestore above, so treat as success
       return { success: true };
     }
   };
