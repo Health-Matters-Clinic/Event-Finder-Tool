@@ -54,7 +54,10 @@ export interface RSVPPayload {
   eventId: string;
   eventTitle: string;
   eventDate: string; // display date is fine for UI; backend uses eventId to look up actual date
+  eventDateISO?: string; // YYYY-MM-DD for ICS generation
   eventTime?: string; // event time for confirmation emails
+  eventAddress?: string; // venue address for confirmation email
+  eventCity?: string; // city/state/zip for confirmation email
   name: string;
 
   // Either email OR phone is required. For minors, minorName may be used to allow multiple under one guardian contact.
@@ -84,6 +87,12 @@ export interface RSVPPayload {
 
   // Flag: registered before May 2 cutoff, eligible for on-site tee pickup
   earlyRegistrant?: boolean;
+
+  // Group RSVP: number of additional guests (0 = just the registrant)
+  guests?: number;
+
+  // Accessibility needs — routed to kayla@healthmatters.clinic
+  accessibilityNeeds?: string;
 
   // For check-in
   checkinToken?: string;

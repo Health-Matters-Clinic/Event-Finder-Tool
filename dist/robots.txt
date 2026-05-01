@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://eventfinder.healthmatters.clinic/sitemap.xml
+Sitemap: https://volunteer.healthmatters.clinic/sitemap.xml
