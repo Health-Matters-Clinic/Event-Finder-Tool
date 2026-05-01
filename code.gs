@@ -188,13 +188,16 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  // ===== RSVP (image ping) =====
+  // ===== RSVP =====
   if (action === 'preregister') {
     var payload = {
       eventId: p.eventId || '',
       eventTitle: p.eventTitle || '',
       eventDate: p.eventDate || '',
+      eventDateISO: p.eventDateISO || '',
       eventTime: p.eventTime || '',
+      eventAddress: p.eventAddress || '',
+      eventCity: p.eventCity || '',
       name: p.name || '',
       email: p.email || '',
       phone: p.phone || '',
@@ -204,10 +207,15 @@ function doGet(e) {
       minorName: p.minorName || '',
       needs: p.needs || '',
       lang: p.lang || 'en',
-      source: p.source || ''
+      source: p.source || '',
+      tshirtSize: p.tshirtSize || '',
+      earlyRegistrant: p.earlyRegistrant === 'true',
+      guests: p.guests ? parseInt(p.guests) || 0 : 0,
+      accessibilityNeeds: p.accessibilityNeeds || ''
     };
-    handleRSVP(payload);
-    return HtmlService.createHtmlOutput('OK');
+    var rsvpResult = handleRSVP(payload);
+    return ContentService.createTextOutput(JSON.stringify(rsvpResult))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 
   // ===== PARTNER REQUEST (image ping) =====
@@ -304,8 +312,7 @@ function doPost(e) {
         result = saveAllEvents(params.events);
         break;
       case 'preregister':
-        handleRSVP(params);
-        result = { success: true };
+        result = handleRSVP(params);
         break;
       case 'partner_request':
         handlePartnerRequest(params);
@@ -654,12 +661,46 @@ function handleRSVP(payload) {
       'Timestamp', 'Event ID', 'Event Title', 'Event Date', 'Name',
       'Email', 'Phone', 'Contact Method', 'SMS Consent', 'Is Minor',
       'Minor Name', 'Needs', 'Language', 'Source', 'Checkin Token',
-      'Status', 'Checked In At'
+      'Status', 'Checked In At', 'T-Shirt Size', 'Guests', 'Accessibility Needs'
     ]);
+  }
+
+  // Idempotency: prevent duplicate RSVPs for the same person + event
+  var data = sheet.getDataRange().getValues();
+  var normalizedEmail = (payload.email || '').toLowerCase().trim();
+  var normalizedPhone = (payload.phone || '').replace(/\D/g, '');
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]) !== payload.eventId) continue;
+
+    var rowEmail = String(data[i][5]).toLowerCase().trim();
+    var rowPhone = String(data[i][6]).replace(/\D/g, '');
+    var rowIsMinor = String(data[i][9]);
+    var rowMinorName = String(data[i][10]).toLowerCase().trim();
+
+    var emailMatch = normalizedEmail && rowEmail === normalizedEmail;
+    var phoneMatch = normalizedPhone.length >= 10 && rowPhone === normalizedPhone;
+
+    // For minors: allow same guardian contact if different minor name
+    if (payload.isMinor) {
+      var minorNameMatch = rowIsMinor === 'Yes' && rowMinorName === (payload.minorName || '').toLowerCase().trim();
+      if ((emailMatch || phoneMatch) && minorNameMatch) {
+        // Duplicate minor — resend confirmation with existing token
+        if (payload.email) sendRSVPConfirmationEmail(payload, data[i][14]);
+        return { success: true, duplicate: true, checkinToken: data[i][14] };
+      }
+    } else {
+      if (emailMatch || phoneMatch) {
+        // Duplicate non-minor — resend confirmation with existing token
+        if (payload.email) sendRSVPConfirmationEmail(payload, data[i][14]);
+        return { success: true, duplicate: true, checkinToken: data[i][14] };
+      }
+    }
   }
 
   var checkinToken = Utilities.getUuid();
   var timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
+  var needsStr = Array.isArray(payload.needs) ? payload.needs.join(', ') : (payload.needs || '');
 
   sheet.appendRow([
     timestamp,
@@ -667,23 +708,33 @@ function handleRSVP(payload) {
     payload.eventTitle,
     payload.eventDate,
     payload.name,
-    payload.email,
-    payload.phone,
-    payload.contact_method,
+    payload.email || '',
+    payload.phone || '',
+    payload.contact_method || 'none',
     payload.sms_consent ? 'Yes' : 'No',
     payload.isMinor ? 'Yes' : 'No',
-    payload.minorName,
-    payload.needs,
-    payload.lang,
-    payload.source,
+    payload.minorName || '',
+    needsStr,
+    payload.lang || 'en',
+    payload.source || '',
     checkinToken,
     'pre-registered',
-    ''
+    '',
+    payload.tshirtSize || '',
+    payload.guests ? String(payload.guests) : '',
+    payload.accessibilityNeeds || ''
   ]);
 
   if (payload.email) {
     sendRSVPConfirmationEmail(payload, checkinToken);
   }
+
+  // Route accessibility needs to event coordinator
+  if (payload.accessibilityNeeds && payload.accessibilityNeeds.trim()) {
+    sendAccessibilityAlert(payload);
+  }
+
+  return { success: true, checkinToken: checkinToken };
 }
 
 // ========================================
@@ -789,65 +840,175 @@ function handleCheckinByToken(token) {
 // ========================================
 // EMAIL FUNCTIONS
 // ========================================
+
+function buildICSContent(payload) {
+  var dateISO = payload.eventDateISO || '';
+
+  // Fallback: known Unstoppable event dates
+  if (!dateISO) {
+    var knownDates = {
+      'event-1772063101013': '2026-05-09',
+      'event-1772064063990': '2026-05-20',
+      'event-1773943614235': '2026-05-27'
+    };
+    dateISO = knownDates[payload.eventId] || '';
+  }
+
+  if (!dateISO) return null;
+
+  var d = dateISO.replace(/-/g, '');
+
+  var parseTime = function(timeStr) {
+    if (!timeStr || timeStr === 'TBD') return '120000';
+    var match = timeStr.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM|am|pm)?/i);
+    if (!match) return '120000';
+    var hours = parseInt(match[1]);
+    var mins = match[2] || '00';
+    var ampm = (match[3] || '').toUpperCase();
+    if (ampm === 'PM' && hours < 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+    return (hours < 10 ? '0' + hours : String(hours)) + mins + '00';
+  };
+
+  var timeParts = (payload.eventTime || '').split(/\s*[-–]\s*/);
+  var startTime = parseTime(timeParts[0] ? timeParts[0].trim() : '');
+  var endTime = timeParts[1]
+    ? parseTime(timeParts[1].trim())
+    : (function() {
+        var h = Math.min(23, parseInt(startTime.substring(0, 2)) + 2);
+        return (h < 10 ? '0' + h : String(h)) + startTime.substring(2);
+      })();
+
+  var location = payload.eventAddress
+    ? (payload.eventAddress + (payload.eventCity ? ', ' + payload.eventCity : ''))
+    : (payload.eventCity || 'Los Angeles, CA');
+
+  var descLine = (payload.eventDate || '') +
+    (payload.eventTime ? ' at ' + payload.eventTime : '') +
+    (payload.eventAddress ? '\\n' + payload.eventAddress : '') +
+    '\\nFree. Register: healthmatters.clinic/takeactionla';
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Health Matters Clinic//Event Finder//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    'DTSTART;TZID=America/Los_Angeles:' + d + 'T' + startTime,
+    'DTEND;TZID=America/Los_Angeles:' + d + 'T' + endTime,
+    'SUMMARY:' + (payload.eventTitle || 'Health Matters Clinic Event'),
+    'DESCRIPTION:' + descLine,
+    'LOCATION:' + location,
+    'URL:https://www.healthmatters.clinic/takeactionla',
+    'ORGANIZER;CN=Health Matters Clinic:mailto:events@healthmatters.clinic',
+    'STATUS:CONFIRMED',
+    'UID:hmc-' + payload.eventId + '-' + Utilities.getUuid() + '@healthmatters.clinic',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+}
+
+function sendAccessibilityAlert(payload) {
+  try {
+    var subject = 'Accessibility Request: ' + payload.eventTitle + ' — ' + payload.name;
+    var body = 'Attendee: ' + payload.name + '\n' +
+      'Email: ' + (payload.email || 'N/A') + '\n' +
+      'Phone: ' + (payload.phone || 'N/A') + '\n' +
+      'Event: ' + payload.eventTitle + ' (' + payload.eventDate + ')\n\n' +
+      'Accessibility needs:\n' + payload.accessibilityNeeds;
+    MailApp.sendEmail({
+      to: 'kayla@healthmatters.clinic',
+      subject: subject,
+      body: body,
+      name: 'Health Matters Clinic Event Finder'
+    });
+  } catch (err) {
+    Logger.log('Accessibility alert error: ' + err);
+  }
+}
+
 function sendRSVPConfirmationEmail(payload, checkinToken) {
-  var subject = payload.lang === 'es'
+  var es = payload.lang === 'es';
+  var subject = es
     ? 'Registro Confirmado | Health Matters Clinic Events'
     : 'Registration Confirmed | Health Matters Clinic Events';
 
   var checkinUrl = CONFIG.SCRIPT_URL + '?token=' + checkinToken;
+  var cancelUrl = CONFIG.SCRIPT_URL + '?action=cancelRSVP&token=' + checkinToken +
+    '&eventId=' + encodeURIComponent(payload.eventId) +
+    '&email=' + encodeURIComponent(payload.email || '') +
+    '&phone=' + encodeURIComponent(payload.phone || '');
 
-  var greeting = payload.lang === 'es' ? 'Hola ' : 'Hi ';
-  var confirmMsg = payload.lang === 'es'
-    ? 'Tu registro ha sido confirmado para:'
-    : 'Your registration has been confirmed for:';
-  var dateLabel = payload.lang === 'es' ? 'Fecha: ' : 'Date: ';
-  var timeLabel = payload.lang === 'es' ? 'Hora: ' : 'Time: ';
-  var checkinLabel = payload.lang === 'es' ? 'Check-in el Día del Evento' : 'Check-in on Event Day';
-  var checkinNote = payload.lang === 'es'
+  var greeting = es ? 'Hola ' : 'Hi ';
+  var confirmMsg = es ? 'Tu registro ha sido confirmado para:' : 'Your registration has been confirmed for:';
+  var dateLabel = es ? 'Fecha: ' : 'Date: ';
+  var timeLabel = es ? 'Hora: ' : 'Time: ';
+  var venueLabel = es ? 'Lugar: ' : 'Venue: ';
+  var checkinLabel = es ? 'Check-in el Día del Evento' : 'Check-in on Event Day';
+  var checkinNote = es
     ? 'Usa el botón de arriba para hacer check-in cuando llegues al evento.'
     : 'Use the button above to check in when you arrive at the event.';
-  var questionLabel = payload.lang === 'es' ? '¿Preguntas?' : 'Questions?';
+  var cancelLabel = es ? 'Cancelar mi registro' : 'Cancel my registration';
+  var questionLabel = es ? '¿Preguntas?' : 'Questions?';
 
-  // Build time line if eventTime is provided
-  var timeLine = '';
-  if (payload.eventTime) {
-    timeLine = '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + timeLabel + '</strong>' + payload.eventTime + '</p>';
+  var timeLine = payload.eventTime
+    ? '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + timeLabel + '</strong>' + payload.eventTime + '</p>'
+    : '';
+
+  var venueLine = '';
+  if (payload.eventAddress) {
+    venueLine = '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + venueLabel + '</strong>' + payload.eventAddress + '</p>';
+    if (payload.eventCity) {
+      venueLine += '<p style="margin:2px 0 5px 0;color:#555;font-size:14px;padding-left:42px;">' + payload.eventCity + '</p>';
+    }
+  }
+
+  var teeLine = '';
+  if (payload.tshirtSize && payload.earlyRegistrant) {
+    var teeLabel = es ? 'Talla de camiseta (recoger en el evento): ' : 'T-shirt size (pick up on-site): ';
+    teeLine = '<p style="margin:8px 0 0;color:#233dff;font-size:13px;font-weight:600;">' + teeLabel + payload.tshirtSize + '</p>';
   }
 
   var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
     '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
     '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid #e5e5e5;">' +
-    // Header with logo
     '<div style="background:#233dff;color:white;padding:24px;text-align:center;">' +
     '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;">' +
     '<h1 style="margin:0;font-size:22px;font-weight:700;">Health Matters Clinic</h1>' +
-    '<p style="margin:8px 0 0;opacity:0.9;font-size:14px;">' + (payload.lang === 'es' ? 'Registro Confirmado' : 'Registration Confirmed') + '</p></div>' +
-    // Body content
+    '<p style="margin:8px 0 0;opacity:0.9;font-size:14px;">' + (es ? 'Registro Confirmado' : 'Registration Confirmed') + '</p></div>' +
     '<div style="padding:32px;">' +
     '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 8px;">' + greeting + payload.name + '!</p>' +
     '<p style="color:#666;margin:0 0 24px;font-size:15px;">' + confirmMsg + '</p>' +
-    // Event details box
     '<div style="background:#f0f4ff;padding:20px;border-radius:12px;margin:0 0 28px;border:1.5px solid rgba(35,61,255,0.2);">' +
     '<h2 style="color:#233dff;margin:0 0 12px 0;font-size:18px;font-weight:700;">' + payload.eventTitle + '</h2>' +
     '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + dateLabel + '</strong>' + payload.eventDate + '</p>' +
-    timeLine + '</div>' +
-    // Check-in button
-    '<div style="text-align:center;margin:0 0 20px;">' +
-    '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:white;padding:16px 48px;border-radius:30px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(35,61,255,0.3);">' + checkinLabel + '</a></div>' +
-    '<p style="color:#999;font-size:12px;text-align:center;margin:0;">' + checkinNote + '</p>' +
+    timeLine + venueLine + teeLine +
     '</div>' +
-    // Footer
+    '<div style="text-align:center;margin:0 0 12px;">' +
+    '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:white;padding:16px 48px;border-radius:30px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(35,61,255,0.3);">' + checkinLabel + '</a></div>' +
+    '<p style="color:#999;font-size:12px;text-align:center;margin:0 0 20px;">' + checkinNote + '</p>' +
+    '<p style="text-align:center;margin:0;">' +
+    '<a href="' + cancelUrl + '" style="color:#999;font-size:12px;text-decoration:underline;">' + cancelLabel + '</a>' +
+    '</p>' +
+    '</div>' +
     '<div style="background:#f5f3ef;padding:20px;border-top:1px solid #e5e5e5;text-align:center;">' +
     '<p style="color:#666;font-size:13px;margin:0;">' + questionLabel + ' <a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
     '</div></div></body></html>';
 
+  var icsContent = buildICSContent(payload);
+  var mailOptions = {
+    to: payload.email,
+    subject: subject,
+    htmlBody: htmlBody,
+    name: 'Health Matters Clinic Events'
+  };
+  if (icsContent) {
+    mailOptions.attachments = [Utilities.newBlob(icsContent, 'text/calendar', 'event.ics')];
+  }
+
   try {
-    MailApp.sendEmail({
-      to: payload.email,
-      subject: subject,
-      htmlBody: htmlBody,
-      name: 'Health Matters Clinic Events'
-    });
+    MailApp.sendEmail(mailOptions);
   } catch (err) {
     Logger.log('RSVP email error: ' + err);
   }

@@ -20,6 +20,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   const [needs, setNeeds] = useState<string[]>([]);
   const [contactMethods, setContactMethods] = useState<Set<string>>(new Set(['text']));
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [accessibilityNeeds, setAccessibilityNeeds] = useState<string>('');
+  const [guestCount, setGuestCount] = useState<number>(0);
 
   const [checkinToken, setCheckinToken] = useState<string>('');
   const [tshirtSize, setTshirtSize] = useState<string>('');
@@ -54,6 +56,15 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   if (!event) return null;
 
   const displayTitle = translateEventTitle(event.title, lang, event);
+
+  // Analytics: RSVP modal opened
+  React.useEffect(() => {
+    try {
+      const gtag = (window as any).gtag;
+      if (gtag) gtag('event', 'rsvp_modal_open', { event_id: event.id, event_title: event.title });
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleNeed = (val: string) => {
     setNeeds((prev) => (prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]));
@@ -268,7 +279,10 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       eventId: event.id,
       eventTitle: event.title,
       eventDate: event.dateDisplay,
+      eventDateISO: event.date,
       eventTime: event.time,
+      eventAddress: event.address || undefined,
+      eventCity: event.city ? `${event.city}, CA` : undefined,
       name,
       email: email || undefined,
       phone: phone || undefined,
@@ -283,12 +297,25 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       sessionIds: selectedSessions.length > 0 ? selectedSessions : undefined,
       tshirtSize: isUnstoppableEvent && tshirtSize ? tshirtSize : undefined,
       earlyRegistrant: isUnstoppableEvent && isEarlyRegistrant ? true : undefined,
+      guests: guestCount > 0 ? guestCount : undefined,
+      accessibilityNeeds: accessibilityNeeds.trim() || undefined,
     };
+
+    // Analytics: RSVP form submitted
+    try {
+      const gtag = (window as any).gtag;
+      if (gtag) gtag('event', 'rsvp_submit', { event_id: event.id, event_title: event.title });
+    } catch {}
 
     try {
       const data = await postJson(payload);
 
-      // Portal already called in postJson() for reCAPTCHA + Firestore
+      // Analytics: RSVP confirmed
+      try {
+        const gtag = (window as any).gtag;
+        if (gtag) gtag('event', 'rsvp_confirmed', { event_id: event.id, event_title: event.title });
+      } catch {}
+
       setCheckinToken(String(data.checkinToken || ''));
       setState('preregistered');
     } catch (err: any) {
@@ -407,18 +434,23 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
 
           {state === 'preregistered' && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-              <div className="text-3xl mb-1">✓</div>
+              <div className="text-2xl mb-1">✓</div>
               <div className="text-base font-bold text-green-900">
                 {lang === 'es' ? '¡Registro confirmado!' : "You're registered!"}
               </div>
               <p className="text-xs text-green-700 mt-1">
                 {lang === 'es'
-                  ? 'Revisa tu correo para los detalles.'
-                  : 'Check your email for details.'}
+                  ? 'Revisa tu correo — te enviamos la confirmación con el .ics adjunto.'
+                  : 'Check your email — we sent confirmation with a calendar file attached.'}
               </p>
-              <Button variant="outline" className="h-8 mt-3" onClick={onClose}>
-                {lang === 'es' ? 'Cerrar' : 'Close'}
-              </Button>
+              <div className="flex gap-2 mt-3 justify-center">
+                <Button variant="outline" className="h-8" onClick={downloadICS}>
+                  {lang === 'es' ? 'Guardar en Calendario' : 'Save to Calendar'}
+                </Button>
+                <Button variant="outline" className="h-8" onClick={onClose}>
+                  {lang === 'es' ? 'Cerrar' : 'Close'}
+                </Button>
+              </div>
             </div>
           )}
 
@@ -638,6 +670,44 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                     : 'This information is confidential and shared only with Health Matters Clinic staff to support you at the event.'}
                 </p>
               )}
+
+              {/* Guests */}
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 shrink-0">
+                  {lang === 'es' ? 'Personas adicionales:' : 'Bringing guests:'}
+                </span>
+                <select
+                  value={guestCount}
+                  onChange={(e) => setGuestCount(Number(e.target.value))}
+                  className="bg-white border-2 border-gray-200 px-2 py-1 rounded-lg text-sm font-semibold focus:border-[#233dff] outline-none transition-all text-gray-700"
+                >
+                  {[0,1,2,3,4,5,6,7,8,9].map(n => (
+                    <option key={n} value={n}>{n === 0 ? (lang === 'es' ? 'Solo yo' : 'Just me') : `+${n}`}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Accessibility needs */}
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  {lang === 'es' ? 'Necesidades de accesibilidad (opcional):' : 'Accessibility needs (optional):'}
+                </label>
+                <input
+                  type="text"
+                  value={accessibilityNeeds}
+                  onChange={(e) => setAccessibilityNeeds(e.target.value)}
+                  placeholder={lang === 'es' ? 'p. ej. silla de ruedas, intérprete de ASL...' : 'e.g. wheelchair access, ASL interpreter...'}
+                  style={{ fontSize: '16px' }}
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all placeholder:text-gray-400 placeholder:text-sm"
+                />
+                {accessibilityNeeds.trim() && (
+                  <p className="text-[9px] text-[#233dff] font-semibold mt-1">
+                    {lang === 'es'
+                      ? 'Tu solicitud se enviará al coordinador del evento.'
+                      : 'Your request will be sent to the event coordinator.'}
+                  </p>
+                )}
+              </div>
 
               {/* Session picker */}
               {event?.sessions && Array.isArray(event.sessions) && event.sessions.length > 0 && (

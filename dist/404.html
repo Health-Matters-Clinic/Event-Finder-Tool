@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Health Matters Clinic Event Finder</title>
+  <script>
+    // GitHub Pages SPA redirect — converts path-based event URLs to query params
+    var path = window.location.pathname;
+    var eventMatch = path.match(/^\/event\/(.+)$/);
+    if (eventMatch) {
+      window.location.replace('/?event=' + eventMatch[1]);
+    } else {
+      window.location.replace('/');
+    }
+  </script>
+</head>
+<body>
+  <p>Redirecting...</p>
+</body>
+</html>
