@@ -98,7 +98,18 @@ const isPast = (dateStr: string) => {
 
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>('en');
-  const [events, setEvents] = useState<ClinicEvent[]>([]);
+  const [events, setEvents] = useState<ClinicEvent[]>(() => {
+    // Hydrate from cache synchronously so the list is never blank on mount
+    try {
+      const cached = localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE);
+      if (cached) {
+        const parsed = sanitizeEvents(JSON.parse(cached));
+        if (parsed.length > 0) return parsed;
+      }
+    } catch { /* ignore */ }
+    return [];
+  });
+  const [eventsLoading, setEventsLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<ClinicEvent | null>(null);
   const [isRSVPOpen, setIsRSVPOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -201,26 +212,8 @@ const App: React.FC = () => {
     let isMounted = true;
 
     const loadEvents = async () => {
-      // Show cached events immediately — but only if cache is < 5 minutes old
-      const CACHE_TTL_MS = 5 * 60 * 1000;
-      try {
-        const cached = localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE);
-        const cachedAt = parseInt(localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE + '_ts') || '0', 10);
-        if (cached && Date.now() - cachedAt < CACHE_TTL_MS) {
-          const cachedEvents = sanitizeEvents(JSON.parse(cached));
-          if (cachedEvents.length > 0 && isMounted) {
-            setEvents(cachedEvents);
-          }
-        } else if (cached) {
-          // Cache expired — clear it so fresh data loads without flicker
-          localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE);
-          localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE + '_ts');
-        }
-      } catch {
-        // Corrupt cache — clear it so it doesn't crash again
-        localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE);
-        localStorage.removeItem(STORAGE_KEYS.EVENTS_CACHE + '_ts');
-      }
+      // Stale-while-revalidate: cache was already applied synchronously in useState.
+      // Just fetch fresh data and replace — never delete stale cache before fresh data arrives.
 
       const applyEvents = (events: ClinicEvent[]) => {
         const cleanEvents = sanitizeEvents(events);
@@ -276,10 +269,11 @@ const App: React.FC = () => {
       // If backend failed and no cache, fall back to hardcoded events (includes critical Unstoppable Season events)
       if (isMounted) {
         setEvents(prev => prev.length > 0 ? prev : EVENTS);
+        setEventsLoading(false);
       }
     };
 
-    loadEvents();
+    loadEvents().finally(() => { if (isMounted) setEventsLoading(false); });
 
     return () => {
       isMounted = false;
@@ -1128,7 +1122,17 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-4 space-y-3 bg-white">
-            {filteredEvents.length > 0 ? (
+            {eventsLoading && filteredEvents.length === 0 ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="p-4 rounded-xl border border-gray-200 animate-pulse">
+                    <div className="h-3 bg-gray-200 rounded w-1/3 mb-3" />
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredEvents.length > 0 ? (
               filteredEvents.map((event) => (
                 <div
                   key={event.id}
