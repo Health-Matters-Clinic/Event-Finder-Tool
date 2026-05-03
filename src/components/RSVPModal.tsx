@@ -18,7 +18,7 @@ type SubmitState = 'idle' | 'submitting' | 'preregistered' | 'checking_in' | 'ch
 export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setLang, referralCode }) => {
   const [state, setState] = useState<SubmitState>('idle');
   const [needs, setNeeds] = useState<string[]>([]);
-  const [contactMethods, setContactMethods] = useState<Set<string>>(new Set(['text']));
+  const [contactMethods, setContactMethods] = useState<Set<string>>(new Set([]));
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [accessibilityNeeds, setAccessibilityNeeds] = useState<string>('');
   const [guestCount, setGuestCount] = useState<number>(0);
