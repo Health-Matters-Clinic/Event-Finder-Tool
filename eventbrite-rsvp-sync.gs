@@ -54,16 +54,28 @@ function doGet(e) {
 function processEventbriteEmails() {
   var label = getOrCreateLabel(EB_CONFIG.PROCESSED_LABEL);
 
-  // Search for unread Eventbrite order notifications not yet processed
-  var query = 'from:noreply@order.eventbrite.com subject:"Order Notification" is:unread -label:' + EB_CONFIG.PROCESSED_LABEL;
-  var threads = GmailApp.search(query, 0, 50);
+  // Retry once on transient INTERNAL storage errors (Google-side infrastructure blips)
+  var threads;
+  for (var attempt = 0; attempt < 2; attempt++) {
+    try {
+      var query = 'from:noreply@order.eventbrite.com subject:"Order Notification" is:unread -label:' + EB_CONFIG.PROCESSED_LABEL;
+      threads = GmailApp.search(query, 0, 50);
+      break;
+    } catch (searchErr) {
+      if (attempt === 0 && String(searchErr).indexOf('INTERNAL') !== -1) {
+        Logger.log('Transient INTERNAL error on Gmail search — retrying in 5s');
+        Utilities.sleep(5000);
+      } else {
+        throw searchErr;
+      }
+    }
+  }
 
   Logger.log('Found ' + threads.length + ' unprocessed Eventbrite notification(s)');
 
   threads.forEach(function(thread) {
     try {
       var messages = thread.getMessages();
-      // The first message is the order notification
       var msg = messages[0];
       var body = msg.getPlainBody();
       var subject = msg.getSubject();
@@ -71,23 +83,18 @@ function processEventbriteEmails() {
       var attendee = parseEventbriteEmail(body, subject);
       if (!attendee) {
         Logger.log('Could not parse: ' + subject);
-        thread.addLabel(label); // still label it so we don't retry forever
+        thread.addLabel(label);
         return;
       }
 
       Logger.log('Parsed RSVP: ' + attendee.name + ' <' + attendee.email + '> for ' + attendee.eventTitle);
 
-      // Generate a check-in token (same UUID approach as direct RSVPs)
       var checkinToken = Utilities.getUuid();
-
-      // Write to RSVPs sheet immediately (always)
       writeToRSVPSheet(attendee, checkinToken);
 
-      // Send welcome email (email is fine any hour — recipients check on their own schedule)
       var checkinUrl = EB_CONFIG.SCRIPT_URL + '?token=' + checkinToken;
       sendEventbriteWelcomeEmail(attendee, checkinUrl);
 
-      // Mark thread as processed + read
       thread.addLabel(label);
       thread.markRead();
 
@@ -211,16 +218,32 @@ function writeToRSVPSheet(attendee, checkinToken) {
     ]);
   }
 
-  // Dedup — skip if this order number already in sheet
-  if (sheet.getLastRow() > 1) {
-    var existing = sheet.getDataRange().getValues();
-    var srcCol = existing[0].indexOf('Source');
-    for (var i = 1; i < existing.length; i++) {
-      if (String(existing[i][srcCol]).indexOf(attendee.orderNum) !== -1) {
-        Logger.log('Skipping duplicate order #' + attendee.orderNum + ' already in sheet');
+  // Dedup — check PropertiesService cache first (fast, no sheet read)
+  // Falls back to a one-time sheet scan to seed the cache on first run
+  if (attendee.orderNum) {
+    var props = PropertiesService.getScriptProperties();
+    var cacheKey = 'eb_order_' + attendee.orderNum;
+    if (props.getProperty(cacheKey)) {
+      Logger.log('Skipping duplicate order #' + attendee.orderNum + ' (cached)');
+      return;
+    }
+    // Cold-cache fallback: scan sheet once to check (seeds cache for future runs)
+    if (sheet.getLastRow() > 1) {
+      var srcData = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+      var headers2 = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      var srcCol2  = headers2.indexOf('Source');
+      for (var j = 0; j < srcData.length; j++) {
+        var src2 = String(srcData[j][srcCol2] || '');
+        var m = src2.match(/Eventbrite #(\d+)/);
+        if (m) props.setProperty('eb_order_' + m[1], '1');
+      }
+      if (props.getProperty(cacheKey)) {
+        Logger.log('Skipping duplicate order #' + attendee.orderNum + ' (sheet scan)');
         return;
       }
     }
+    // Mark as processed in cache immediately so concurrent runs don't double-write
+    props.setProperty(cacheKey, '1');
   }
 
   // Try to match to an existing Event ID in the Events sheet
