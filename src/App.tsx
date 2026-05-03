@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { EVENTS, I18N } from './constants';
-import { GOOGLE_APPS_SCRIPT_URL, STORAGE_KEYS } from './config';
+import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, STORAGE_KEYS } from './config';
 import { ClinicEvent, Language } from './types';
 import { Button } from './components/Button';
 import { translateEventTitle, translateProgram } from './utils/translation';
@@ -149,10 +149,10 @@ const App: React.FC = () => {
           if (parentEvent) return parentEvent;
         }
       } catch {
-        // Cross-origin parent — can't access directly, fall through
+        // Cross-origin parent, can't access directly, fall through
       }
 
-      // 4. Check document.referrer (cross-origin iframe — parent URL with query params)
+      // 4. Check document.referrer (cross-origin iframe, parent URL with query params)
       if (document.referrer) {
         try {
           const referrerUrl = new URL(document.referrer);
@@ -213,7 +213,7 @@ const App: React.FC = () => {
 
     const loadEvents = async () => {
       // Stale-while-revalidate: cache was already applied synchronously in useState.
-      // Just fetch fresh data and replace — never delete stale cache before fresh data arrives.
+      // Just fetch fresh data and replace, never delete stale cache before fresh data arrives.
 
       const applyEvents = (events: ClinicEvent[]) => {
         const cleanEvents = sanitizeEvents(events);
@@ -232,7 +232,7 @@ const App: React.FC = () => {
         return false;
       };
 
-      // Primary: portal API (Cloud Run + Firestore — always warm, no cold-start)
+      // Primary: portal API (Cloud Run + Firestore, always warm, no cold-start)
       // Returns a plain array; merges Firestore events + cached GAS events server-side
       try {
         const controller = new AbortController();
@@ -304,7 +304,7 @@ const App: React.FC = () => {
         return false;
       });
 
-      // Second pass: Unstoppable Season keyword matching — prefer future events
+      // Second pass: Unstoppable Season keyword matching, prefer future events
       // These short slugs have been publicly shared and must keep working.
       if (!foundEvent) {
         const keywordMatch = (e: ClinicEvent) => {
@@ -335,7 +335,7 @@ const App: React.FC = () => {
           setFilters(f => ({ ...f, showPast: true }));
         }
         setSelectedEvent(foundEvent);
-        // Check if URL also has rsvp=true parameter — check both own URL and parent/referrer
+        // Check if URL also has rsvp=true parameter, check both own URL and parent/referrer
         const urlParams = new URLSearchParams(window.location.search);
         let hasRsvp = urlParams.get('rsvp') === 'true';
         if (!hasRsvp) {
@@ -354,7 +354,7 @@ const App: React.FC = () => {
         }
         setPendingEventSlug(null);
       }
-      // Don't clear pendingEventSlug if event not found — fresh data may still be loading
+      // Don't clear pendingEventSlug if event not found, fresh data may still be loading
     }
   }, [pendingEventSlug, events]);
 
@@ -423,7 +423,7 @@ const App: React.FC = () => {
     markersRef.current = {};
 
     filteredEvents.forEach((event) => {
-      // Skip virtual events (no address) — they have no map pin
+      // Skip virtual events (no address), they have no map pin
       if (!event.address) return;
       const isSelected = selectedEvent?.id === event.id;
       const color = PROGRAM_COLORS[event.program] || PROGRAM_COLORS.default;
@@ -517,7 +517,7 @@ const App: React.FC = () => {
     const eventTitle = translateEventTitle(selectedEvent.title, lang, selectedEvent);
     const shareText = `${eventTitle} - ${selectedEvent.dateDisplay}${selectedEvent.address ? ` @ ${selectedEvent.address}` : ''}`;
 
-    // Create event-specific share URL — always use event ID for reliable deep linking
+    // Create event-specific share URL, always use event ID for reliable deep linking
     const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${encodeURIComponent(selectedEvent.id)}&rsvp=true${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
 
     const mailtoUrl = `mailto:?subject=${encodeURIComponent(eventTitle)}&body=${encodeURIComponent(`${shareText}\n\nRSVP here: ${shareUrl}`)}`;
@@ -525,7 +525,7 @@ const App: React.FC = () => {
     // Detect if we're in an iframe (cross-origin blocks navigator.share and location.href)
     const inIframe = window.self !== window.top;
 
-    // 1. Try native share (Safari share sheet, Android share) — only works outside iframes
+    // 1. Try native share (Safari share sheet, Android share), only works outside iframes
     if (navigator.share && !inIframe) {
       try {
         await navigator.share({ title: eventTitle, text: shareText, url: shareUrl });
@@ -543,7 +543,7 @@ const App: React.FC = () => {
       await navigator.clipboard.writeText(copyText);
       copied = true;
     } catch {
-      // Clipboard API blocked — use execCommand fallback
+      // Clipboard API blocked, use execCommand fallback
       try {
         const ta = document.createElement('textarea');
         ta.value = copyText;
@@ -600,7 +600,7 @@ const App: React.FC = () => {
               address: { '@type': 'PostalAddress', streetAddress: e.address, addressLocality: e.city || 'Los Angeles', addressRegion: 'CA', addressCountry: 'US' },
               ...(e.lat && e.lng ? { geo: { '@type': 'GeoCoordinates', latitude: e.lat, longitude: e.lng } } : {}),
             },
-        description: e.description || `${e.title} — free community health event by Health Matters Clinic in Los Angeles County.`,
+        description: e.description || `${e.title}, free community health event by Health Matters Clinic in Los Angeles County.`,
         organizer: { '@type': 'Organization', name: 'Health Matters Clinic', url: 'https://www.healthmatters.clinic' },
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: eventUrl },
         image: e.flyerUrl || 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
@@ -633,7 +633,7 @@ const App: React.FC = () => {
       const url = new URL(window.location.href);
       url.searchParams.set('event', selectedEvent.id);
       window.history.pushState({}, '', url.toString());
-      document.title = `${selectedEvent.title} — Free Event in ${selectedEvent.city || 'Los Angeles'} | Health Matters Clinic`;
+      document.title = `${selectedEvent.title}, Free Event in ${selectedEvent.city || 'Los Angeles'} | Health Matters Clinic`;
     } else {
       const url = new URL(window.location.href);
       url.searchParams.delete('event');
