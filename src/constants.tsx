@@ -12,8 +12,8 @@ export const EVENTS: ClinicEvent[] = [
         city: 'Inglewood',
         address: '123 W. Manchester Blvd, Inglewood, CA 90301',
         program: 'Community Wellness',
-        lat: 33.9719,
-        lng: -118.2108,
+        lat: 33.9614,
+        lng: -118.3528,
         description: 'Join us for an evening of connection, resources, and community support.'
     },
     {
@@ -55,8 +55,8 @@ export const EVENTS: ClinicEvent[] = [
         city: 'Inglewood',
         address: '123 W. Manchester Blvd, Inglewood, CA 90301',
         program: 'Community Walk & Run',
-        lat: 33.9719,
-        lng: -118.2108,
+        lat: 33.9614,
+        lng: -118.3528,
         description: 'Join our monthly community walk and run. Community building through movement.'
     },
     {
@@ -69,8 +69,8 @@ export const EVENTS: ClinicEvent[] = [
         city: 'Inglewood',
         address: '123 W. Manchester Blvd, Inglewood, CA 90301',
         program: 'Unstoppable Wellness Meetup',
-        lat: 33.9719,
-        lng: -118.2108,
+        lat: 33.9614,
+        lng: -118.3528,
         description: 'Safe space for authentic healing conversations. Set-up at 5:30 PM.'
     },
     {
@@ -97,8 +97,8 @@ export const EVENTS: ClinicEvent[] = [
         city: 'Inglewood',
         address: '123 W. Manchester Blvd, Inglewood, CA 90301',
         program: 'Community Walk & Run',
-        lat: 33.9719,
-        lng: -118.2108,
+        lat: 33.9614,
+        lng: -118.3528,
         description: 'Join our monthly community walk and run.'
     },
     {
@@ -111,8 +111,8 @@ export const EVENTS: ClinicEvent[] = [
         city: 'Inglewood',
         address: '123 W. Manchester Blvd, Inglewood, CA 90301',
         program: 'Unstoppable Wellness Meetup',
-        lat: 33.9719,
-        lng: -118.2108,
+        lat: 33.9614,
+        lng: -118.3528,
         description: 'Safe space for authentic healing conversations.'
     },
     {
@@ -139,8 +139,8 @@ export const EVENTS: ClinicEvent[] = [
         city: 'Inglewood',
         address: '123 W. Manchester Blvd, Inglewood, CA 90301',
         program: 'Community Walk & Run',
-        lat: 33.9719,
-        lng: -118.2108,
+        lat: 33.9614,
+        lng: -118.3528,
         description: 'Join our monthly community walk and run.'
     },
     {
@@ -153,8 +153,8 @@ export const EVENTS: ClinicEvent[] = [
         city: 'Inglewood',
         address: '123 W. Manchester Blvd, Inglewood, CA 90301',
         program: 'Unstoppable Wellness Meetup',
-        lat: 33.9719,
-        lng: -118.2108,
+        lat: 33.9614,
+        lng: -118.3528,
         description: 'Safe space for authentic healing conversations.'
     },
     {
