@@ -335,7 +335,7 @@ export const I18N = {
         no_events: 'No events found for this filter.',
         upcoming: 'Upcoming Events',
         past: 'Past Events',
-        success_rsvp: ‘You\’re all set. Check your email for confirmation.’,
+        success_rsvp: "You’re all set. Check your email for confirmation.",
         error_rsvp: 'Could not submit. Please try again.',
         clear_filters: 'Clear Filters',
         copyright: 'Health Matters Clinic. All rights reserved.',
