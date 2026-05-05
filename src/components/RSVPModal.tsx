@@ -605,8 +605,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                 </span>
               </label>
 
-              {/* T-shirt size — Unstoppable events only */}
-              {isUnstoppableEvent && (
+              {/* T-shirt size — Unstoppable events, early registrants only (before May 2) */}
+              {isUnstoppableEvent && isEarlyRegistrant && (
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {lang === 'es' ? 'Talla de camiseta (gratis para los primeros registrados)' : 'T-Shirt Size (free for early registrants)'}
