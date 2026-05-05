@@ -120,6 +120,13 @@ const App: React.FC = () => {
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [pendingEventSlug, setPendingEventSlug] = useState<string | null>(null);
   const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [pendingCheckinToken, setPendingCheckinToken] = useState<string | null>(null);
+  const [checkinResult, setCheckinResult] = useState<{
+    state: 'pending' | 'success' | 'already' | 'error';
+    name?: string;
+    eventTitle?: string;
+    message?: string;
+  } | null>(null);
 
   const mapRef = useRef<any | null>(null);
   const markersRef = useRef<Record<string, any>>({});
@@ -196,6 +203,9 @@ const App: React.FC = () => {
 
     const refParam = getRefParam();
     if (refParam) setReferralCode(refParam);
+
+    const checkinParam = new URLSearchParams(window.location.search).get('checkin');
+    if (checkinParam) setPendingCheckinToken(checkinParam);
 
     // Listen for postMessage from parent (Webflow can send event param)
     const onMessage = (e: MessageEvent) => {
@@ -357,6 +367,24 @@ const App: React.FC = () => {
       // Don't clear pendingEventSlug if event not found, fresh data may still be loading
     }
   }, [pendingEventSlug, events]);
+
+  // Handle check-in deep link (?checkin=TOKEN from confirmation email)
+  useEffect(() => {
+    if (!pendingCheckinToken) return;
+    setCheckinResult({ state: 'pending' });
+    fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=checkin&checkinToken=${encodeURIComponent(pendingCheckinToken)}`)
+      .then(r => r.json())
+      .then((data: any) => {
+        if (data.success && data.alreadyCheckedIn) {
+          setCheckinResult({ state: 'already', name: data.name, eventTitle: data.eventTitle });
+        } else if (data.success) {
+          setCheckinResult({ state: 'success', name: data.name, eventTitle: data.eventTitle });
+        } else {
+          setCheckinResult({ state: 'error', message: data.error || 'Registration not found.' });
+        }
+      })
+      .catch(() => setCheckinResult({ state: 'error', message: 'Could not connect. Please try again.' }));
+  }, [pendingCheckinToken]);
 
   const filteredEvents = useMemo(() => {
     return events
@@ -1261,6 +1289,51 @@ const App: React.FC = () => {
             lang={lang}
             onClose={() => setIsPartnerOpen(false)}
           />
+        )}
+
+        {checkinResult && (
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center">
+              <img
+                src={HMC_LOGO_URL}
+                alt="Health Matters Clinic"
+                className="w-14 h-14 rounded-xl mx-auto mb-4"
+              />
+              {checkinResult.state === 'pending' && (
+                <>
+                  <div className="text-lg font-bold text-gray-900 mb-4">Verifying check-in...</div>
+                  <div className="w-8 h-8 border-4 border-[#233dff]/20 border-t-[#233dff] rounded-full animate-spin mx-auto" />
+                </>
+              )}
+              {checkinResult.state === 'success' && (
+                <>
+                  <div className="text-3xl font-black text-green-600 mb-2">Checked In</div>
+                  {checkinResult.name && <p className="text-gray-800 font-semibold text-lg">{checkinResult.name}</p>}
+                  {checkinResult.eventTitle && <p className="text-gray-500 text-sm mt-1">{checkinResult.eventTitle}</p>}
+                  <button onClick={() => setCheckinResult(null)} className="mt-6 bg-[#233dff] text-white font-bold px-8 py-3 rounded-full hover:bg-[#1a2fd0] transition-colors">Close</button>
+                </>
+              )}
+              {checkinResult.state === 'already' && (
+                <>
+                  <div className="text-3xl font-black text-[#233dff] mb-2">Already Checked In</div>
+                  {checkinResult.name && <p className="text-gray-800 font-semibold text-lg">{checkinResult.name}</p>}
+                  {checkinResult.eventTitle && <p className="text-gray-500 text-sm mt-1">{checkinResult.eventTitle}</p>}
+                  <button onClick={() => setCheckinResult(null)} className="mt-6 bg-[#233dff] text-white font-bold px-8 py-3 rounded-full hover:bg-[#1a2fd0] transition-colors">Close</button>
+                </>
+              )}
+              {checkinResult.state === 'error' && (
+                <>
+                  <div className="text-xl font-bold text-gray-800 mb-2">Something's Off</div>
+                  <p className="text-gray-500 text-sm">{checkinResult.message}</p>
+                  <div className="flex gap-3 mt-6 justify-center">
+                    <a href="https://www.healthmatters.clinic" className="bg-[#233dff] text-white font-bold px-6 py-3 rounded-full text-sm hover:bg-[#1a2fd0] transition-colors">Visit Website</a>
+                    <button onClick={() => setCheckinResult(null)} className="border border-gray-300 text-gray-600 font-bold px-6 py-3 rounded-full text-sm hover:bg-gray-50 transition-colors">Close</button>
+                  </div>
+                </>
+              )}
+              <p className="text-xs text-gray-400 mt-6 uppercase tracking-wider">Health Matters Clinic</p>
+            </div>
+          </div>
         )}
       </Suspense>
 
