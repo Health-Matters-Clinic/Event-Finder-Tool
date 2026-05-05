@@ -305,19 +305,19 @@ const App: React.FC = () => {
       });
 
       // Second pass: Unstoppable Season keyword matching, prefer future events
-      // These short slugs have been publicly shared and must keep working.
+      // These short slugs AND original Eventbrite IDs have been publicly shared and must keep working.
       if (!foundEvent) {
         const keywordMatch = (e: ClinicEvent) => {
           const titleLower = e.title.toLowerCase();
-          if (slugLower === 'unstoppable-move') {
+          if (slugLower === 'unstoppable-move' || slugLower === 'event-1772063101013') {
             if (e.id === 'event-1772063101013') return true;
-            if (titleLower.includes('unstoppable') && (titleLower.includes('walk') || titleLower.includes('run') || titleLower.includes('move')) && !titleLower.includes('workshop')) return true;
+            if (titleLower.includes('unstoppable') && (titleLower.includes('walk') || titleLower.includes('run') || titleLower.includes('move') || titleLower.includes('live')) && !titleLower.includes('workshop')) return true;
           }
-          if (slugLower === 'unstoppable-heal') {
+          if (slugLower === 'unstoppable-heal' || slugLower === 'event-1772064063990') {
             if (e.id === 'event-1772064063990') return true;
-            if (titleLower.includes('unstoppable') && titleLower.includes('meetup') && !titleLower.includes('workshop')) return true;
+            if (titleLower.includes('unstoppable') && (titleLower.includes('meetup') || titleLower.includes('wellness')) && !titleLower.includes('workshop')) return true;
           }
-          if (slugLower === 'unstoppable-transform') {
+          if (slugLower === 'unstoppable-transform' || slugLower === 'event-1773943614235') {
             if (e.id === 'event-1773943614235') return true;
             if (titleLower.includes('unstoppable') && (titleLower.includes('transform') || titleLower.includes('virtual') || titleLower.includes('experience')) && !titleLower.includes('workshop') && !titleLower.includes('meetup') && !titleLower.includes('walk') && !titleLower.includes('run')) return true;
           }
