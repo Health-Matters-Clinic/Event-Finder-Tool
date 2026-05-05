@@ -91,8 +91,6 @@ function processEventbriteEmails() {
       var checkinToken = Utilities.getUuid();
       var eventMatch = lookupEvent(attendee.eventTitle);
       var eventId = eventMatch ? eventMatch.id : ('eventbrite-' + attendee.orderNum);
-      // Use canonical title from Events sheet so check-in confirmation shows the correct name
-      if (eventMatch) attendee.eventTitle = eventMatch.title;
       writeToRSVPSheet(attendee, checkinToken);
 
       var checkinUrl = EB_CONFIG.EVENT_FINDER_URL + '?event=' + encodeURIComponent(eventId) + '&checkin=' + checkinToken;
