@@ -25,24 +25,23 @@
 
 // ---- shared config (matches code.gs) -----------------------
 var EB_CONFIG = {
-  SPREADSHEET_ID: '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM',
-  SCRIPT_URL:     'https://volunteer.healthmatters.clinic/checkin',
-  TIMEZONE:       'America/Los_Angeles',
-  BRAND_COLOR:    '#233dff',
-  LOGO_URL:       'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
+  SPREADSHEET_ID:  '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM',
+  EVENT_FINDER_URL: 'https://www.healthmatters.clinic/resources/eventfinder',
+  TIMEZONE:        'America/Los_Angeles',
+  BRAND_COLOR:     '#233dff',
+  LOGO_URL:        'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
   PROCESSED_LABEL: 'eventbrite-processed',
-  // Sender name for outgoing welcome emails
-  SENDER_NAME:    'Health Matters Clinic Events',
-  REPLY_TO:       'contact@healthmatters.clinic',
+  SENDER_NAME:     'Health Matters Clinic Events',
+  REPLY_TO:        'rsvp@healthmatters.clinic',
 };
 
 // ============================================================
-// WEB APP ENTRY POINT — handles check-in button clicks from emails
+// WEB APP ENTRY POINT — redirect legacy ?token= links to Event Finder
 // ============================================================
 function doGet(e) {
   var token = e && e.parameter && e.parameter.token;
-  var dest = 'https://volunteer.healthmatters.clinic/checkin';
-  if (token) dest += '?token=' + encodeURIComponent(token);
+  var dest = EB_CONFIG.EVENT_FINDER_URL;
+  if (token) dest += '?checkin=' + encodeURIComponent(token);
   return HtmlService.createHtmlOutput(
     '<script>window.location.replace("' + dest + '")</script>'
   );
@@ -90,9 +89,10 @@ function processEventbriteEmails() {
       Logger.log('Parsed RSVP: ' + attendee.name + ' <' + attendee.email + '> for ' + attendee.eventTitle);
 
       var checkinToken = Utilities.getUuid();
+      var eventId = lookupEventId(attendee.eventTitle) || ('eventbrite-' + attendee.orderNum);
       writeToRSVPSheet(attendee, checkinToken);
 
-      var checkinUrl = EB_CONFIG.SCRIPT_URL + '?token=' + checkinToken;
+      var checkinUrl = EB_CONFIG.EVENT_FINDER_URL + '?event=' + encodeURIComponent(eventId) + '&checkin=' + checkinToken;
       sendEventbriteWelcomeEmail(attendee, checkinUrl);
 
       thread.addLabel(label);
