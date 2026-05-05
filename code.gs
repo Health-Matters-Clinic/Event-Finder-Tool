@@ -258,7 +258,13 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  // ===== CHECK-IN BY TOKEN (returns HTML page) =====
+  // ===== CHECK-IN BY TOKEN (JSON response — for Event Finder deep link) =====
+  if (action === 'checkin' && p.checkinToken) {
+    return ContentService.createTextOutput(JSON.stringify(handleCheckinByTokenJSON(p.checkinToken)))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ===== CHECK-IN BY TOKEN (legacy HTML page — keep for any existing links) =====
   if (p.token) {
     return handleCheckinByToken(p.token);
   }
@@ -837,6 +843,54 @@ function handleCheckinByToken(token) {
   return HtmlService.createHtmlOutput(buildErrorPage('Registration not found.'));
 }
 
+function handleCheckinByTokenJSON(token) {
+  if (!token) return { success: false, error: 'Registration not found.' };
+
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('RSVPs');
+  if (!sheet) return { success: false, error: 'Registration not found.' };
+
+  var data = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][14] === token) {
+      var name = data[i][4];
+      var eventTitle = data[i][2];
+      var currentStatus = data[i][15];
+      var eventDateStr = data[i][3];
+
+      if (currentStatus === 'checked-in') {
+        return { success: true, alreadyCheckedIn: true, name: name, eventTitle: eventTitle };
+      }
+
+      var now = new Date();
+      var todayStr = Utilities.formatDate(now, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+      var tomorrowDate = new Date(now.getTime() + 86400000);
+      var tomorrowStr = Utilities.formatDate(tomorrowDate, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+
+      var eventDateNorm = eventDateStr;
+      if (eventDateStr instanceof Date) {
+        eventDateNorm = Utilities.formatDate(eventDateStr, 'UTC', 'yyyy-MM-dd');
+      }
+
+      if (eventDateNorm < todayStr) {
+        return { success: false, error: 'This event has already passed.' };
+      }
+      if (eventDateNorm > tomorrowStr) {
+        return { success: false, error: 'Check-in opens the day before the event. See you soon!' };
+      }
+
+      sheet.getRange(i + 1, 16).setValue('checked-in');
+      var checkinTime = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'h:mm a') + ' PST';
+      sheet.getRange(i + 1, 17).setValue(checkinTime);
+
+      return { success: true, name: name, eventTitle: eventTitle, checkinTime: checkinTime };
+    }
+  }
+
+  return { success: false, error: 'Registration not found.' };
+}
+
 // ========================================
 // EMAIL FUNCTIONS
 // ========================================
@@ -934,7 +988,7 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     ? 'Registro Confirmado | Health Matters Clinic Events'
     : 'Registration Confirmed | Health Matters Clinic Events';
 
-  var checkinUrl = CONFIG.SCRIPT_URL + '?token=' + checkinToken;
+  var checkinUrl = 'https://www.healthmatters.clinic/resources/eventfinder?event=' + encodeURIComponent(payload.eventId || '') + '&checkin=' + checkinToken;
   var cancelUrl = CONFIG.SCRIPT_URL + '?action=cancelRSVP&token=' + checkinToken +
     '&eventId=' + encodeURIComponent(payload.eventId) +
     '&email=' + encodeURIComponent(payload.email || '') +
