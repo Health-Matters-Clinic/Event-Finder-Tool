@@ -89,7 +89,10 @@ function processEventbriteEmails() {
       Logger.log('Parsed RSVP: ' + attendee.name + ' <' + attendee.email + '> for ' + attendee.eventTitle);
 
       var checkinToken = Utilities.getUuid();
-      var eventId = lookupEventId(attendee.eventTitle) || ('eventbrite-' + attendee.orderNum);
+      var eventMatch = lookupEvent(attendee.eventTitle);
+      var eventId = eventMatch ? eventMatch.id : ('eventbrite-' + attendee.orderNum);
+      // Use canonical title from Events sheet so check-in confirmation shows the correct name
+      if (eventMatch) attendee.eventTitle = eventMatch.title;
       writeToRSVPSheet(attendee, checkinToken);
 
       var checkinUrl = EB_CONFIG.EVENT_FINDER_URL + '?event=' + encodeURIComponent(eventId) + '&checkin=' + checkinToken;
@@ -276,7 +279,10 @@ function writeToRSVPSheet(attendee, checkinToken) {
 // ============================================================
 // EVENT ID LOOKUP — fuzzy match on title in Events sheet
 // ============================================================
-function lookupEventId(title) {
+// Returns { id, title } using the canonical title from the Events sheet,
+// or null if no match. Using the sheet title avoids storing raw Eventbrite
+// subject-line casing (e.g. "UNSTOPPABLE: WELLNESS MEETUP") in the RSVPs sheet.
+function lookupEvent(title) {
   try {
     var ss = SpreadsheetApp.openById(EB_CONFIG.SPREADSHEET_ID);
     var sheet = ss.getSheetByName('Events');
@@ -284,25 +290,31 @@ function lookupEventId(title) {
 
     var data = sheet.getDataRange().getValues();
     var headers = data[0];
-    var idCol   = headers.indexOf('id');
+    var idCol    = headers.indexOf('id');
     var titleCol = headers.indexOf('title');
     if (idCol === -1 || titleCol === -1) return null;
 
     var titleNorm = title.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
 
     for (var i = 1; i < data.length; i++) {
-      var sheetTitle = String(data[i][titleCol]).toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
-      if (sheetTitle && (sheetTitle.indexOf(titleNorm) !== -1 || titleNorm.indexOf(sheetTitle) !== -1)) {
+      var canonicalTitle = String(data[i][titleCol]);
+      var sheetNorm = canonicalTitle.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+      if (sheetNorm && (sheetNorm.indexOf(titleNorm) !== -1 || titleNorm.indexOf(sheetNorm) !== -1)) {
         var id = String(data[i][idCol]);
-        // Only return if it looks like a real event ID — reject dates or empty values
-        if (id && /^event-\d+$/.test(id)) return id;
+        if (id && /^event-\d+$/.test(id)) return { id: id, title: canonicalTitle };
       }
     }
     return null;
   } catch (err) {
-    Logger.log('Event ID lookup error: ' + err);
+    Logger.log('Event lookup error: ' + err);
     return null;
   }
+}
+
+// Legacy wrapper — callers that only need the ID
+function lookupEventId(title) {
+  var match = lookupEvent(title);
+  return match ? match.id : null;
 }
 
 // ============================================================
