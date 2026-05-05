@@ -53,7 +53,9 @@ const sanitizeEvent = (e: any): ClinicEvent | null => {
     id: String(e.id),
     title: e.title ? String(e.title) : 'Untitled Event',
     date: String(e.date),
-    dateDisplay: e.dateDisplay ? String(e.dateDisplay) : String(e.date),
+    dateDisplay: e.dateDisplay ? String(e.dateDisplay) : (() => {
+      try { return new Date(String(e.date) + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase(); } catch { return String(e.date); }
+    })(),
     time: e.time ? String(e.time) : '',
     location: e.location ? String(e.location) : '',
     city: e.city ? String(e.city) : '',
@@ -643,7 +645,7 @@ const App: React.FC = () => {
   }, [selectedEvent]);
 
   return (
-    <div className="flex flex-col bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white" style={{ height: '100%' }}>
+    <div className="flex flex-col bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white" style={{ minHeight: '100vh' }}>
       <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 z-[200] relative flex items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
         {/* Left: Logo */}
         <div className="flex items-center gap-4">
@@ -865,7 +867,7 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-3">
-                {!selectedEvent.saveTheDate && !isPast(selectedEvent.date) ? (
+                {!isPast(selectedEvent.date) && (!selectedEvent.saveTheDate || (selectedEvent.time && selectedEvent.time !== 'TBD' && selectedEvent.address && selectedEvent.address.length > 15)) ? (
                   selectedEvent.websiteUrl ? (
                   <a
                     href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
