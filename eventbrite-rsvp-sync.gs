@@ -91,6 +91,7 @@ function processEventbriteEmails() {
       var checkinToken = Utilities.getUuid();
       var eventMatch = lookupEvent(attendee.eventTitle);
       var eventId = eventMatch ? eventMatch.id : ('eventbrite-' + attendee.orderNum);
+      if (eventMatch) attendee.eventTitle = eventMatch.title;
       writeToRSVPSheet(attendee, checkinToken);
 
       var checkinUrl = EB_CONFIG.EVENT_FINDER_URL + '?event=' + encodeURIComponent(eventId) + '&checkin=' + checkinToken;
