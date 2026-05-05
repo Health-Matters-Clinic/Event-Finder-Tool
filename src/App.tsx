@@ -865,7 +865,7 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-3">
-                {!selectedEvent.saveTheDate && !isPast(selectedEvent.date) ? (
+                {!isPast(selectedEvent.date) && (!selectedEvent.saveTheDate || (selectedEvent.time && selectedEvent.time !== 'TBD' && selectedEvent.address && selectedEvent.address.length > 15)) ? (
                   selectedEvent.websiteUrl ? (
                   <a
                     href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
