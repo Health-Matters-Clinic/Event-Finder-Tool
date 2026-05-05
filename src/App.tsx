@@ -78,8 +78,31 @@ const sanitizeEvent = (e: any): ClinicEvent | null => {
   };
 };
 
-const sanitizeEvents = (raw: any[]): ClinicEvent[] =>
-  raw.map(sanitizeEvent).filter((e): e is ClinicEvent => e !== null);
+const sanitizeEvents = (raw: any[]): ClinicEvent[] => {
+  const events = raw.map(sanitizeEvent).filter((e): e is ClinicEvent => e !== null);
+  // Deduplicate by title+date — prefer Eventbrite IDs (event-XXXXXX) over others
+  const isEbId = (id: string) => /^event-\d+$/.test(id || '');
+  const seen = new Map<string, number>();
+  const deduped: ClinicEvent[] = [];
+  for (const e of events) {
+    const key = `${e.title.trim().toLowerCase()}|${e.date}`;
+    if (!seen.has(key)) {
+      seen.set(key, deduped.length);
+      deduped.push(e);
+    } else {
+      const idx = seen.get(key)!;
+      const existing = deduped[idx];
+      if (isEbId(e.id) && !isEbId(existing.id)) {
+        deduped[idx] = { ...e, ...existing, id: e.id } as ClinicEvent;
+      } else if (!isEbId(e.id) && isEbId(existing.id)) {
+        deduped[idx] = { ...existing, ...e, id: existing.id } as ClinicEvent;
+      } else {
+        deduped[idx] = e; // keep latest
+      }
+    }
+  }
+  return deduped;
+};
 
 const parseTimeToISO = (timeStr: string): string => {
   if (!timeStr) return '08:00:00';
