@@ -425,7 +425,7 @@ function sendTestWelcomeEmail() {
     eventTime:  '8:00 AM PT',
     location:   '123 W Manchester Blvd, Inglewood, CA 90301',
   };
-  var fakeCheckinUrl = EB_CONFIG.SCRIPT_URL + '?token=test-preview-token';
+  var fakeCheckinUrl = EB_CONFIG.EVENT_FINDER_URL + '?checkin=test-preview-token';
   sendEventbriteWelcomeEmail(testAttendee, fakeCheckinUrl);
   Logger.log('Test email sent!');
 }
