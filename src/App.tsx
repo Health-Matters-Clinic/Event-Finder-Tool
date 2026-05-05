@@ -53,7 +53,17 @@ const sanitizeEvent = (e: any): ClinicEvent | null => {
     id: String(e.id),
     title: e.title ? String(e.title) : 'Untitled Event',
     date: String(e.date),
-    dateDisplay: e.dateDisplay ? String(e.dateDisplay) : String(e.date),
+    dateDisplay: e.dateDisplay ? String(e.dateDisplay) : (() => {
+      const raw = String(e.date);
+      // Format bare ISO dates (e.g. "2026-05-12") into readable display strings
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        try {
+          const d = new Date(raw + 'T12:00:00Z');
+          return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).toUpperCase();
+        } catch { return raw; }
+      }
+      return raw;
+    })(),
     time: e.time ? String(e.time) : '',
     location: e.location ? String(e.location) : '',
     city: e.city ? String(e.city) : '',
@@ -1199,7 +1209,7 @@ const App: React.FC = () => {
                         {lang === 'es' ? 'PATROCINADO' : 'SPONSORED'}
                       </span>
                     )}
-                    {event.saveTheDate && !event.isPromoted && (
+                    {event.saveTheDate && !event.isPromoted && !(event.time && event.time !== 'TBD' && event.address && event.address.length > 15) && (
                       <span className="bg-[#fff3cd] text-[#856404] border border-[#ffe69c] px-2 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-wider">
                         {lang === 'es' ? 'POR CONFIRMAR' : 'DETAILS TBD'}
                       </span>
