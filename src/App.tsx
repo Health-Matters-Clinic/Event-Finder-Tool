@@ -381,7 +381,15 @@ const App: React.FC = () => {
         return monthMatch && programMatch && locationMatch && archivalMatch;
       })
       .sort((a, b) => {
-        // Sort by date only — strict chronological order
+        // Promoted events always come first
+        if (a.isPromoted && !b.isPromoted) return -1;
+        if (!a.isPromoted && b.isPromoted) return 1;
+
+        // Then sponsored events
+        if (a.isSponsored && !b.isSponsored) return -1;
+        if (!a.isSponsored && b.isSponsored) return 1;
+
+        // Then sort by date (handle ISO date strings)
         const dateA = a.date && a.date.includes('T') ? a.date.split('T')[0] : (a.date || '');
         const dateB = b.date && b.date.includes('T') ? b.date.split('T')[0] : (b.date || '');
         return new Date(dateA).getTime() - new Date(dateB).getTime();
@@ -637,7 +645,7 @@ const App: React.FC = () => {
   }, [selectedEvent]);
 
   return (
-    <div className="flex flex-col bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white" style={{ height: '100%' }}>
+    <div className="flex flex-col bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white" style={{ minHeight: '100vh' }}>
       <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 z-[200] relative flex items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
         {/* Left: Logo */}
         <div className="flex items-center gap-4">
