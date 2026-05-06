@@ -813,11 +813,16 @@ function handleCheckinByToken(token) {
       var tomorrowDate = new Date(now.getTime() + 86400000);
       var tomorrowStr = Utilities.formatDate(tomorrowDate, CONFIG.TIMEZONE, 'yyyy-MM-dd');
 
-      // Parse event date as UTC to avoid timezone shift
-      // (dates stored as "2026-02-14" would shift back a day if parsed as local)
-      var eventDateNorm = eventDateStr;
+      // Normalize eventDateStr to ISO yyyy-MM-dd for comparison.
+      // Sheet values may be a JS Date object or a string like "5/9/2026".
+      var eventDateNorm;
       if (eventDateStr instanceof Date) {
         eventDateNorm = Utilities.formatDate(eventDateStr, 'UTC', 'yyyy-MM-dd');
+      } else {
+        // Parse "M/d/yyyy" string by constructing a Date at noon UTC to avoid day-shift
+        var parts = String(eventDateStr).split('/');
+        var parsedDate = new Date(Date.UTC(parseInt(parts[2], 10), parseInt(parts[0], 10) - 1, parseInt(parts[1], 10), 12, 0, 0));
+        eventDateNorm = Utilities.formatDate(parsedDate, 'UTC', 'yyyy-MM-dd');
       }
 
       if (eventDateNorm < todayStr) {
@@ -868,9 +873,16 @@ function handleCheckinByTokenJSON(token) {
       var tomorrowDate = new Date(now.getTime() + 86400000);
       var tomorrowStr = Utilities.formatDate(tomorrowDate, CONFIG.TIMEZONE, 'yyyy-MM-dd');
 
-      var eventDateNorm = eventDateStr;
+      // Normalize eventDateStr to ISO yyyy-MM-dd for comparison.
+      // Sheet values may be a JS Date object or a string like "5/9/2026".
+      var eventDateNorm;
       if (eventDateStr instanceof Date) {
         eventDateNorm = Utilities.formatDate(eventDateStr, 'UTC', 'yyyy-MM-dd');
+      } else {
+        // Parse "M/d/yyyy" string by constructing a Date at noon UTC to avoid day-shift
+        var parts = String(eventDateStr).split('/');
+        var parsedDate = new Date(Date.UTC(parseInt(parts[2], 10), parseInt(parts[0], 10) - 1, parseInt(parts[1], 10), 12, 0, 0));
+        eventDateNorm = Utilities.formatDate(parsedDate, 'UTC', 'yyyy-MM-dd');
       }
 
       if (eventDateNorm < todayStr) {
@@ -988,7 +1000,7 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     ? 'Registro Confirmado | Health Matters Clinic Events'
     : 'Registration Confirmed | Health Matters Clinic Events';
 
-  var checkinUrl = 'https://www.healthmatters.clinic/resources/eventfinder?event=' + encodeURIComponent(payload.eventId || '') + '&checkin=' + checkinToken;
+  var checkinUrl = 'https://eventfinder.healthmatters.clinic?event=' + encodeURIComponent(payload.eventId || '') + '&checkin=' + checkinToken;
   var cancelUrl = CONFIG.SCRIPT_URL + '?action=cancelRSVP&token=' + checkinToken +
     '&eventId=' + encodeURIComponent(payload.eventId) +
     '&email=' + encodeURIComponent(payload.email || '') +
