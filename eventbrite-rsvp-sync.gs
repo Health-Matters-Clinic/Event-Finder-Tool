@@ -26,7 +26,7 @@
 // ---- shared config (matches code.gs) -----------------------
 var EB_CONFIG = {
   SPREADSHEET_ID:  '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM',
-  EVENT_FINDER_URL: 'https://www.healthmatters.clinic/resources/eventfinder',
+  EVENT_FINDER_URL: 'https://eventfinder.healthmatters.clinic',
   TIMEZONE:        'America/Los_Angeles',
   BRAND_COLOR:     '#233dff',
   LOGO_URL:        'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
