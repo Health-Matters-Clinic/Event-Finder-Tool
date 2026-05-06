@@ -509,14 +509,37 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setIsRefreshing(true);
     setSaveError('');
     try {
-      const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`);
-      const data = await res.json();
-      if (data.events && Array.isArray(data.events)) {
-        onEventsUpdate(data.events);
-        localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(data.events));
-      } else {
-        throw new Error('Invalid response');
+      // Bust cache first so portal returns fresh data
+      await fetch(`${PORTAL_API_URL}/api/public/bust-events-cache`, { method: 'POST' }).catch(() => {});
+
+      // Prefer portal API (already deduplicates); fall back to GAS
+      let raw: ClinicEvent[] | null = null;
+      try {
+        const portalRes = await fetch(`${PORTAL_API_URL}/api/public/events`);
+        if (portalRes.ok) {
+          const arr = await portalRes.json();
+          if (Array.isArray(arr) && arr.length > 0) raw = arr;
+        }
+      } catch { /* fall through */ }
+
+      if (!raw) {
+        const gasRes = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`);
+        const data = await gasRes.json();
+        if (data.events && Array.isArray(data.events)) raw = data.events;
       }
+
+      if (!raw) throw new Error('Invalid response');
+
+      // Deduplicate by title + date (same logic as App.tsx sanitizeEvents)
+      const seen = new Map<string, ClinicEvent>();
+      for (const e of raw) {
+        const key = `${String(e.title || '').trim().toLowerCase()}|${String(e.date || '').split('T')[0]}`;
+        if (!seen.has(key)) seen.set(key, e);
+      }
+      const deduped = Array.from(seen.values());
+
+      onEventsUpdate(deduped);
+      localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(deduped));
     } catch {
       setSaveError(lang === 'es' ? 'Error al actualizar' : 'Failed to refresh');
     } finally {
