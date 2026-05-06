@@ -85,7 +85,7 @@ const sanitizeEvents = (raw: any[]): ClinicEvent[] => {
   const seen = new Map<string, number>();
   const deduped: ClinicEvent[] = [];
   for (const e of events) {
-    const key = `${e.title.trim().toLowerCase()}|${e.date}`;
+    const key = `${e.title.trim().toLowerCase()}|${e.date.split('T')[0]}`;
     if (!seen.has(key)) {
       seen.set(key, deduped.length);
       deduped.push(e);
