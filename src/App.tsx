@@ -155,7 +155,7 @@ const App: React.FC = () => {
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [pendingCheckinToken, setPendingCheckinToken] = useState<string | null>(null);
   const [checkinResult, setCheckinResult] = useState<{
-    state: 'pending' | 'success' | 'already' | 'error' | 'notyet';
+    state: 'pending' | 'success' | 'already' | 'error';
     name?: string;
     eventTitle?: string;
     message?: string;
@@ -412,8 +412,6 @@ const App: React.FC = () => {
           setCheckinResult({ state: 'already', name: data.name, eventTitle: data.eventTitle });
         } else if (data.success) {
           setCheckinResult({ state: 'success', name: data.name, eventTitle: data.eventTitle });
-        } else if (data.error && (data.error.includes('day before') || data.error.includes('opens'))) {
-          setCheckinResult({ state: 'notyet', eventTitle: data.eventTitle, message: data.error });
         } else {
           setCheckinResult({ state: 'error', message: data.error || 'Registration not found.' });
         }
@@ -1354,14 +1352,6 @@ const App: React.FC = () => {
                   {checkinResult.name && <p className="text-gray-800 font-semibold text-lg">{checkinResult.name}</p>}
                   {checkinResult.eventTitle && <p className="text-gray-500 text-sm mt-1">{checkinResult.eventTitle}</p>}
                   <button onClick={() => setCheckinResult(null)} className="mt-6 bg-[#233dff] text-white font-bold px-8 py-3 rounded-full hover:bg-[#1a2fd0] transition-colors">Close</button>
-                </>
-              )}
-              {checkinResult.state === 'notyet' && (
-                <>
-                  <div className="text-3xl font-black text-[#233dff] mb-2">Not Yet!</div>
-                  <p className="text-gray-600 text-sm mt-1">Check-in opens the day before your event. Your spot is confirmed — we'll see you there!</p>
-                  {checkinResult.eventTitle && <p className="text-gray-400 text-xs mt-2">{checkinResult.eventTitle}</p>}
-                  <button onClick={() => setCheckinResult(null)} className="mt-6 bg-[#233dff] text-white font-bold px-8 py-3 rounded-full hover:bg-[#1a2fd0] transition-colors">Got it</button>
                 </>
               )}
               {checkinResult.state === 'error' && (
