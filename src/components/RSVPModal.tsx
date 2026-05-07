@@ -24,6 +24,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   const [guestCount, setGuestCount] = useState<number>(0);
 
   const [checkinToken, setCheckinToken] = useState<string>('');
+  const [submittedEmail, setSubmittedEmail] = useState<string>('');
   const [tshirtSize, setTshirtSize] = useState<string>('');
 
   // Minor exception (allows same guardian email/phone to preregister multiple minors)
@@ -254,6 +255,17 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       return;
     }
 
+    // SMS consent required when text contact selected
+    if (wantsText && !smsConsent) {
+      setState('error');
+      setErrorMsg(
+        lang === 'es'
+          ? 'Por favor marca la casilla de consentimiento SMS para recibir recordatorios de texto.'
+          : 'Please check the SMS consent box to receive text reminders.'
+      );
+      return;
+    }
+
     // Fallback: require at least one contact method
     if (!email && !phone) {
       setState('error');
@@ -317,6 +329,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       } catch {}
 
       setCheckinToken(String(data.checkinToken || ''));
+      setSubmittedEmail(email);
       setState('preregistered');
     } catch (err: any) {
       setState('error');
@@ -345,25 +358,43 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   };
 
   const downloadICS = () => {
-    const d = (event.date || '').replace(/-/g, '');
-    const parseTime = (timeStr: string): string => {
-      if (!timeStr || timeStr === 'TBD') return '120000';
+    const dateStr = event.date || ''; // YYYY-MM-DD
+    const parseTimeMinutes = (timeStr: string): number => {
+      // Returns total minutes from midnight (local PT time)
+      if (!timeStr || timeStr === 'TBD') return 12 * 60;
       const match = timeStr.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM|am|pm)?/i);
-      if (!match) return '120000';
+      if (!match) return 12 * 60;
       let hours = parseInt(match[1]);
-      const mins = match[2] ? match[2] : '00';
+      const mins = match[2] ? parseInt(match[2]) : 0;
       const ampm = (match[3] || '').toUpperCase();
       if (ampm === 'PM' && hours < 12) hours += 12;
       if (ampm === 'AM' && hours === 12) hours = 0;
-      return `${String(hours).padStart(2, '0')}${mins}00`;
+      return hours * 60 + mins;
     };
+
+    const toUtcICS = (localDateStr: string, localMinutes: number): string => {
+      // PDT = UTC-7; convert local PT minutes to UTC by adding 7 hours (420 minutes)
+      const PDT_OFFSET_MINUTES = 7 * 60;
+      const utcMinutes = localMinutes + PDT_OFFSET_MINUTES;
+      const [year, month, day] = localDateStr.split('-').map(Number);
+      // Build a date to handle day rollover
+      const base = new Date(Date.UTC(year, month - 1, day, 0, utcMinutes));
+      const y = base.getUTCFullYear();
+      const mo = String(base.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(base.getUTCDate()).padStart(2, '0');
+      const h = String(base.getUTCHours()).padStart(2, '0');
+      const mi = String(base.getUTCMinutes()).padStart(2, '0');
+      return `${y}${mo}${d}T${h}${mi}00Z`;
+    };
+
     const parts = (event.time || '').split(/[-–]/);
-    const startTime = parseTime(parts[0]?.trim() || '');
-    const endTime = parts[1]
-      ? parseTime(parts[1].trim())
-      : String(Math.min(23, parseInt(startTime.substring(0, 2)) + 2)).padStart(2, '0') + startTime.substring(2);
-    const start = `${d}T${startTime}`;
-    const end = `${d}T${endTime}`;
+    const startMins = parseTimeMinutes(parts[0]?.trim() || '');
+    const endMins = parts[1]
+      ? parseTimeMinutes(parts[1].trim())
+      : startMins + 120;
+
+    const start = toUtcICS(dateStr, startMins);
+    const end = toUtcICS(dateStr, endMins);
 
     const icsContent = [
       'BEGIN:VCALENDAR',
@@ -445,8 +476,12 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
               </div>
               <p className="text-xs text-green-700 mt-1">
                 {lang === 'es'
-                  ? 'Revisa tu correo — te enviamos la confirmación con el .ics adjunto.'
-                  : 'Check your email — we sent confirmation with a calendar file attached.'}
+                  ? submittedEmail
+                    ? 'Revisa tu correo — te enviamos tu confirmación con una invitación de calendario adjunta.'
+                    : 'Todo listo. Te contactaremos por texto con los detalles del evento.'
+                  : submittedEmail
+                  ? 'Check your email — we sent your confirmation with a calendar invite attached.'
+                  : "You're all set! We'll reach out by text with event details."}
               </p>
               <div className="flex gap-2 mt-3 justify-center">
                 <Button variant="outline" className="h-8" onClick={downloadICS}>
