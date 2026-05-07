@@ -367,11 +367,8 @@ function sendEventbriteWelcomeEmail(attendee, checkinUrl) {
     "<table role='presentation' cellspacing='0' cellpadding='0'>" + eventDetails + "</table>" +
     "</td></tr>" +
 
-    // Check-in button
-    "<tr><td style='padding:24px 0 8px;text-align:center;'>" +
-    "<a href='" + escAttr(checkinUrl) + "' style='display:inline-block;background:#233dff;color:#ffffff;padding:16px 48px;border-radius:30px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(35,61,255,0.3);'>Check In on Event Day</a>" +
-    "</td></tr>" +
-    "<tr><td style='padding:0 0 24px;text-align:center;'><p style='font-size:12px;color:#9ca3af;margin:8px 0 0;'>Use the button above to check in when you arrive at the event.</p></td></tr>" +
+    // Check-in note
+    "<tr><td style='padding:24px 0 24px;text-align:center;'><p style='font-size:12px;color:#9ca3af;margin:8px 0 0;'>We will send you check-in instructions before the event.</p></td></tr>" +
 
     // About HMC
     "<tr><td style='background:#fafafa;padding:20px;border-radius:12px;border:1px solid #f0f0f0;display:block;'>" +
@@ -398,7 +395,7 @@ function sendEventbriteWelcomeEmail(attendee, checkinUrl) {
     (attendee.eventDate ? 'Date: '     + attendee.eventDate + '\n' : '') +
     (attendee.eventTime ? 'Time: '     + attendee.eventTime + '\n' : '') +
     (attendee.location  ? 'Location: ' + attendee.location  + '\n' : '') +
-    '\nCheck in on event day: ' + checkinUrl + '\n\n' +
+    '\nCheck-in instructions will be sent before the event.\n\n' +
     'Health Matters Clinic connects communities in LA to free health, mental health, housing, and social services.\nhealthmatters.clinic\n\n' +
     'Questions? contact@healthmatters.clinic';
 
