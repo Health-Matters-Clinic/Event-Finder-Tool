@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Waiver Print — MOVE May 9</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #f5f3ef; color: #1a1a1a; }
+
+  /* Screen UI */
+  .screen { padding: 24px; max-width: 600px; margin: 0 auto; }
+  .screen h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .screen p  { font-size: 14px; color: #555; margin-bottom: 20px; }
+  .login-box { background: white; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+  .login-box label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .login-box input { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 16px; }
+  .btn { display: block; width: 100%; padding: 14px; background: #233dff; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .btn:hover { background: #1a2fd4; }
+  .btn.secondary { background: white; color: #233dff; border: 1.5px solid #233dff; margin-top: 10px; }
+  .error { color: #dc2626; font-size: 13px; margin-top: 8px; }
+  .stats { background: white; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; display: flex; gap: 24px; box-shadow: 0 1px 6px rgba(0,0,0,.06); }
+  .stat { text-align: center; }
+  .stat-num { font-size: 28px; font-weight: 800; color: #233dff; }
+  .stat-label { font-size: 12px; color: #888; }
+  #loading { text-align: center; padding: 40px; color: #888; }
+
+  /* Print pages — hidden on screen, shown on print */
+  .print-pages { display: none; }
+
+  @media print {
+    body { background: white; }
+    .screen { display: none; }
+    .print-pages { display: block; }
+
+    /* Each .waiver-page becomes one printed page */
+    .waiver-page {
+      width: 8.5in;
+      min-height: 11in;
+      page-break-after: always;
+      padding: 0.5in;
+      font-family: Arial, sans-serif;
+      font-size: 10pt;
+      color: black;
+    }
+    .waiver-page:last-child { page-break-after: avoid; }
+
+    .county-header { margin-bottom: 14pt; }
+    .county-header .agency { font-size: 11pt; font-weight: bold; }
+    .county-header .facility { font-size: 10pt; }
+    .county-header .attachment { font-size: 9pt; margin-top: 4pt; }
+
+    .form-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; margin-bottom: 10pt; }
+    .form-meta-item { font-size: 9pt; }
+    .form-meta-item span { font-weight: bold; }
+
+    .waiver-text { font-size: 8pt; line-height: 1.5; margin-bottom: 12pt; border: 1px solid #ccc; padding: 8pt; }
+    .waiver-text p { margin-bottom: 4pt; }
+
+    /* Sign-in table — 5 rows */
+    .signin-table { width: 100%; border-collapse: collapse; }
+    .signin-table th { background: #e8e8e8; font-size: 8pt; font-weight: bold; padding: 5pt 6pt; border: 1px solid #999; text-align: left; }
+    .signin-table td { border: 1px solid #ccc; padding: 5pt 6pt; vertical-align: top; }
+    .signin-table .name-cell { font-size: 9pt; }
+    .signin-table .sig-cell { text-align: center; }
+    .signin-table .sig-cell img { max-width: 140pt; max-height: 36pt; }
+    .signin-table .date-cell { font-size: 8pt; white-space: nowrap; }
+    .signin-table .empty-row td { height: 44pt; }
+
+    .page-num { text-align: right; font-size: 8pt; margin-top: 8pt; }
+
+    /* Minor waiver pages */
+    .minor-waiver-page { /* same as waiver-page */ }
+    .minor-fields { margin-bottom: 10pt; }
+    .minor-fields .field-row { display: flex; gap: 16pt; margin-bottom: 6pt; }
+    .minor-fields .field-item { flex: 1; border-bottom: 1px solid #999; padding-bottom: 2pt; font-size: 9pt; }
+    .minor-fields .field-label { font-size: 7.5pt; color: #555; }
+    .minor-sig-block { display: flex; gap: 16pt; margin-top: 10pt; }
+    .minor-sig-block .sig-area { flex: 2; border-bottom: 1px solid #999; text-align: center; min-height: 40pt; }
+    .minor-sig-block .sig-area img { max-height: 36pt; }
+    .minor-sig-block .date-area { flex: 1; border-bottom: 1px solid #999; font-size: 9pt; }
+    .minor-sig-block .field-label { font-size: 7.5pt; color: #555; display: block; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SCREEN: Login -->
+<div class="screen" id="loginView">
+  <h1>Waiver Print Admin</h1>
+  <p>MOVE — Live Unstoppable Walk/Run · May 9, 2026</p>
+  <div class="login-box">
+    <label>Admin Passcode</label>
+    <input type="password" id="passcode" placeholder="Enter admin passcode" autocomplete="current-password">
+    <button class="btn" onclick="loadWaivers()">Load Waivers</button>
+    <div class="error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- SCREEN: Print Controls -->
+<div class="screen" id="controlsView" style="display:none">
+  <h1>Waiver Print Admin</h1>
+  <p>MOVE — Live Unstoppable Walk/Run · May 9, 2026</p>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num" id="adultCount">0</div>
+      <div class="stat-label">Adult Waivers</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="minorCount">0</div>
+      <div class="stat-label">Minor Waivers</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="pageCount">0</div>
+      <div class="stat-label">Print Pages</div>
+    </div>
+  </div>
+  <p style="font-size:13px;color:#666;margin-bottom:16px;">Adult waivers print 5 per page in LA County format. Minor waivers print 1 per page. Pages are ready to print and submit to the Curtis Tucker Center.</p>
+  <button class="btn" onclick="window.print()">Print All Waivers (Submit to County)</button>
+  <button class="btn secondary" onclick="downloadCSV()">Download CSV (Backup)</button>
+  <div id="loading" style="display:none">Building print pages...</div>
+</div>
+
+<!-- PRINT OUTPUT — generated dynamically -->
+<div class="print-pages" id="printPages"></div>
+
+<script>
+var GAS_URL = 'https://script.google.com/macros/s/AKfycby-KmIXY2Qu8zooU4f-hjbdpb59WKonTPJOwcktDV0SjxW5CJPMbtAV1rO0SdJx_0tK8Q/exec';
+var allWaivers = [];
+var passcodeHash = '';
+
+function sha256(msg) {
+  // Simple SHA-256 using SubtleCrypto
+  var enc = new TextEncoder();
+  return crypto.subtle.digest('SHA-256', enc.encode(msg)).then(function(buf) {
+    return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2,'0'); }).join('');
+  });
+}
+
+async function loadWaivers() {
+  var pc = document.getElementById('passcode').value.trim();
+  if (!pc) { document.getElementById('loginError').textContent = 'Please enter your passcode.'; return; }
+
+  passcodeHash = await sha256(pc);
+  document.getElementById('loginError').textContent = '';
+
+  var url = GAS_URL + '?action=getWaivers&hash=' + encodeURIComponent(passcodeHash);
+  try {
+    var res = await fetch(url);
+    var data = await res.json();
+    if (!data.success) {
+      document.getElementById('loginError').textContent = 'Incorrect passcode or no access.';
+      return;
+    }
+    allWaivers = data.waivers || [];
+    buildPrintPages();
+    document.getElementById('loginView').style.display = 'none';
+    document.getElementById('controlsView').style.display = 'block';
+  } catch(e) {
+    document.getElementById('loginError').textContent = 'Error connecting. Check network and try again.';
+  }
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function buildPrintPages() {
+  var adults = allWaivers.filter(function(w) { return w.type !== 'minor'; });
+  var minors = allWaivers.filter(function(w) { return w.type === 'minor'; });
+
+  // Calculate pages: adults batch in 5, minors 1 each
+  var adultPages = Math.ceil(adults.length / 5) || 0;
+  var totalPages = adultPages + minors.length;
+
+  document.getElementById('adultCount').textContent = adults.length;
+  document.getElementById('minorCount').textContent = minors.length;
+  document.getElementById('pageCount').textContent = totalPages;
+
+  var html = '';
+  var pageNum = 0;
+
+  // ---- ADULT PAGES (5 per page) ----
+  for (var i = 0; i < adults.length; i += 5) {
+    pageNum++;
+    var batch = adults.slice(i, i + 5);
+    html += buildAdultPage(batch, pageNum, adultPages);
+  }
+
+  // ---- MINOR PAGES (1 per page) ----
+  for (var j = 0; j < minors.length; j++) {
+    pageNum++;
+    html += buildMinorPage(minors[j], pageNum, totalPages);
+  }
+
+  document.getElementById('printPages').innerHTML = html;
+}
+
+function buildAdultPage(batch, pageNum, totalAdultPages) {
+  // Fill to 5 rows
+  while (batch.length < 5) batch.push(null);
+
+  var rows = batch.map(function(w) {
+    if (!w) {
+      return '<tr class="empty-row"><td class="name-cell"></td><td class="name-cell"></td><td class="sig-cell"></td><td class="date-cell"></td></tr>';
+    }
+    var nameParts = (w.signerName || '').split(' ');
+    var firstName = nameParts[0] || '';
+    var lastName  = nameParts.slice(1).join(' ') || '';
+    var date      = (w.submittedAt || w.timestamp || '').split(' ')[0];
+    return '<tr>' +
+      '<td class="name-cell">' + esc(firstName) + '</td>' +
+      '<td class="name-cell">' + esc(lastName)  + '</td>' +
+      '<td class="sig-cell"><!-- sig --></td>' +
+      '<td class="date-cell">' + esc(date) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  return '<div class="waiver-page">' +
+    '<div class="county-header">' +
+      '<div class="agency">Los Angeles County Department of Public Health</div>' +
+      '<div class="facility">Curtis Tucker Center for Community Wellness &mdash; 123 W. Manchester Blvd., Inglewood, CA 90301</div>' +
+      '<div class="attachment">ATTACHMENT II &mdash; SIGN-IN FORM AND WAIVER</div>' +
+    '</div>' +
+    '<div class="form-meta">' +
+      '<div class="form-meta-item"><span>NAME OF EVENT/ACTIVITY:</span> MOVE &mdash; Live Unstoppable Walk/Run</div>' +
+      '<div class="form-meta-item"><span>DATE AND TIME:</span> May 9, 2026 | 8:00 AM &ndash; 10:00 AM</div>' +
+      '<div class="form-meta-item"><span>COORDINATOR:</span> Health Matters Clinic</div>' +
+    '</div>' +
+    '<div class="waiver-text">' +
+      '<p><em>(Please read before signing in)</em></p>' +
+      '<p>By completing and signing this form, I hereby agree to the following:</p>' +
+      '<p>1. I am voluntarily participating in an event/activity held at the Los Angeles County Department of Public Health Curtis Tucker Center for Community Wellness. I understand that my participation in this event/activity may involve risk of injury.</p>' +
+      '<p>2. I understand that it is my responsibility to consult with a physician before participating in any physical exercise.</p>' +
+      '<p>3. I assume full responsibility for any risks, injuries or damages, that may happen as a result of my voluntary participation in this event/activity. Additionally, I hereby release Los Angeles County, its employees and agents from any claim for such injuries, damages or death resulting from my participation in this event/activity.</p>' +
+      '<p>I have read the above release and waiver of liability and fully understand its contents. I am 18 years of age or older and voluntarily agree to the terms and conditions stated above.</p>' +
+    '</div>' +
+    '<table class="signin-table">' +
+      '<thead><tr>' +
+        '<th>First Name</th><th>Last Name</th><th>SIGNATURE</th><th>DATE</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table>' +
+    '<div class="page-num">Page ' + pageNum + ' of ___</div>' +
+  '</div>';
+}
+
+function buildMinorPage(w, pageNum, totalPages) {
+  var nameParts   = (w.signerName || '').split(' ');
+  var guardFirst  = nameParts[0] || '';
+  var guardLast   = nameParts.slice(1).join(' ') || '';
+  var childName   = w.minorName || '';
+  var childAge    = w.minorAge  || '';
+  var relationship = w.relationship || '';
+  var date        = (w.submittedAt || w.timestamp || '').split(' ')[0];
+
+  return '<div class="waiver-page">' +
+    '<div class="county-header">' +
+      '<div class="agency">Los Angeles County Department of Public Health</div>' +
+      '<div class="facility">Curtis Tucker Center for Community Wellness &mdash; 123 W. Manchester Blvd., Inglewood, CA 90301</div>' +
+      '<div class="attachment">MINOR PARTICIPATION WAIVER OF LIABILITY</div>' +
+    '</div>' +
+    '<div class="form-meta">' +
+      '<div class="form-meta-item"><span>NAME OF EVENT/ACTIVITY:</span> MOVE &mdash; Live Unstoppable Walk/Run</div>' +
+      '<div class="form-meta-item"><span>DATE AND TIME:</span> May 9, 2026 | 8:00 AM &ndash; 10:00 AM</div>' +
+      '<div class="form-meta-item"><span>COORDINATOR:</span> Health Matters Clinic</div>' +
+    '</div>' +
+    '<div class="minor-fields">' +
+      '<div class="field-row">' +
+        '<div class="field-item"><div class="field-label">Child\'s First Name</div>' + esc(childName.split(' ')[0] || '') + '</div>' +
+        '<div class="field-item"><div class="field-label">Child\'s Last Name</div>' + esc(childName.split(' ').slice(1).join(' ') || '') + '</div>' +
+        '<div class="field-item"><div class="field-label">Age</div>' + esc(childAge) + '</div>' +
+        '<div class="field-item"><div class="field-label">Relationship</div>' + esc(relationship) + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="waiver-text">' +
+      '<p><em>(A parent or legal guardian must read and sign this form before the minor can participate)</em></p>' +
+      '<p>By completing and signing this form, I hereby agree to the following:</p>' +
+      '<p>1. I am voluntarily authorizing the participation of <strong>' + esc(childName) + '</strong>, who is <strong>' + esc(childAge) + '</strong> years old and related to me as <strong>' + esc(relationship) + '</strong>, in an event/activity held at the Los Angeles County Department of Public Health Curtis Tucker Center for Community Wellness. I understand that their participation in this event/activity may involve risk of injury.</p>' +
+      '<p>2. I understand that it is my responsibility to consult with a physician before authorizing my child\'s participation in any physical exercise.</p>' +
+      '<p>3. I assume full responsibility for any risks, injuries or damages, that may happen as a result of my child\'s participation in this event/activity. Additionally, I hereby release Los Angeles County, its employees and agents from any claim for such injuries, damages or death resulting from my child\'s participation in this event/activity.</p>' +
+      '<p>I have read and completed the above release and waiver of liability and fully understand its contents. I am 18 years of age or older and voluntarily agree to the terms and conditions stated above.</p>' +
+    '</div>' +
+    '<div class="minor-sig-block">' +
+      '<div class="sig-area">' +
+        '<span class="field-label">PARENT OR LEGAL GUARDIAN SIGNATURE</span>' +
+        '<!-- sig -->' +
+      '</div>' +
+      '<div class="date-area"><span class="field-label">DATE</span>' + esc(date) + '</div>' +
+    '</div>' +
+    '<div class="minor-fields" style="margin-top:12pt;">' +
+      '<div class="field-row">' +
+        '<div class="field-item"><div class="field-label">First Name (Print)</div>' + esc(guardFirst) + '</div>' +
+        '<div class="field-item"><div class="field-label">Last Name (Print)</div>' + esc(guardLast) + '</div>' +
+        '<div class="field-item"><div class="field-label">Phone</div>' + esc(w.phone || '') + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="page-num">Page ' + pageNum + ' of ___</div>' +
+  '</div>';
+}
+
+function downloadCSV() {
+  var rows = [['Type','Signer Name','Email','Phone','Minor Name','Minor Age','Relationship','Submitted At']];
+  allWaivers.forEach(function(w) {
+    rows.push([w.type, w.signerName, w.email, w.phone, w.minorName, w.minorAge, w.relationship, w.submittedAt]);
+  });
+  var csv = rows.map(function(r) {
+    return r.map(function(c) { return '"' + String(c||'').replace(/"/g,'""') + '"'; }).join(',');
+  }).join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'MOVE-Waivers-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+// Allow Enter key on passcode field
+document.getElementById('passcode').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') loadWaivers();
+});
+</script>
+</body>
+</html>
