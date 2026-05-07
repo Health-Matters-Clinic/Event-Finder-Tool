@@ -264,6 +264,108 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // ===== WAIVER SUBMISSION =====
+  if (action === 'submitWaiver') {
+    try {
+      var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      var wSheet = ss.getSheetByName('Waivers');
+      if (!wSheet) {
+        wSheet = ss.insertSheet('Waivers');
+        wSheet.appendRow(['Timestamp', 'Type', 'Event', 'Event Date', 'Signer Name', 'Email', 'Phone', 'Minor Name', 'Minor Age', 'Relationship', 'Submitted At']);
+      }
+      var signerName = (p.signerFirstName || '') + ' ' + (p.signerLastName || '');
+      var minorName = p.minorFirstName ? ((p.minorFirstName || '') + ' ' + (p.minorLastName || '')) : '';
+      var ts = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
+      wSheet.appendRow([
+        ts, p.type || 'adult', p.eventName || 'MOVE — Live Unstoppable Walk/Run',
+        p.eventDate || 'May 9, 2026', signerName.trim(), p.email || '', p.phone || '',
+        minorName.trim(), p.minorAge || '', p.relationship || '', p.submittedAt || ts
+      ]);
+
+      // Inline HTML escaping (escW) — esc() lives in eventbrite-rsvp-sync.gs
+      function escW(s) {
+        return String(s || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      var firstName = p.signerFirstName || 'Signer';
+      var waiverType = p.type === 'minor' ? 'Minor Participation' : 'Adult';
+      var emailHtml = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">' +
+        '<p style="font-size:12px;color:#999;text-transform:uppercase;letter-spacing:.1em;margin:0 0 4px;">Health Matters Clinic</p>' +
+        '<h2 style="margin:0 0 16px;color:#111;">Signed Waiver — ' + waiverType + '</h2>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px;">' +
+        '<tr><td style="padding:6px 0;color:#555;width:140px;">Event:</td><td>' + escW(p.eventName || 'MOVE') + '</td></tr>' +
+        '<tr><td style="padding:6px 0;color:#555;">Date:</td><td>' + escW(p.eventDate || 'May 9, 2026') + '</td></tr>' +
+        '<tr><td style="padding:6px 0;color:#555;">Signer:</td><td>' + escW(signerName.trim()) + '</td></tr>' +
+        '<tr><td style="padding:6px 0;color:#555;">Email:</td><td>' + escW(p.email || '') + '</td></tr>' +
+        (p.phone ? '<tr><td style="padding:6px 0;color:#555;">Phone:</td><td>' + escW(p.phone) + '</td></tr>' : '') +
+        (minorName ? '<tr><td style="padding:6px 0;color:#555;">Minor:</td><td>' + escW(minorName.trim()) + ', age ' + escW(p.minorAge || '') + '</td></tr>' : '') +
+        (p.relationship ? '<tr><td style="padding:6px 0;color:#555;">Relationship:</td><td>' + escW(p.relationship) + '</td></tr>' : '') +
+        '<tr><td style="padding:6px 0;color:#555;">Submitted:</td><td>' + escW(p.submittedAt || ts) + '</td></tr>' +
+        '</table>' +
+        (p.signature ? '<p style="font-size:13px;color:#555;margin:0 0 8px;">Signature:</p><img src="' + p.signature + '" style="border:1px solid #ddd;border-radius:4px;max-width:300px;" alt="Signature"/>' : '') +
+        '<hr style="margin:20px 0;border:none;border-top:1px solid #eee;">' +
+        '<p style="font-size:11px;color:#999;">This waiver was electronically signed and submitted via the HMC Event Finder waiver page.</p>' +
+        '</div>';
+
+      GmailApp.sendEmail('events@healthmatters.clinic',
+        waiverType + ' Waiver — ' + signerName.trim() + ' — MOVE May 9',
+        'Waiver submitted by ' + signerName.trim() + ' (' + (p.email || 'no email') + ') on ' + ts,
+        { htmlBody: emailHtml, name: 'HMC Event Waivers', replyTo: 'events@healthmatters.clinic' }
+      );
+
+      return ContentService.createTextOutput(JSON.stringify({ success: true }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch(wErr) {
+      Logger.log('Waiver error: ' + wErr);
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(wErr) }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ===== GET WAIVERS (admin print view) =====
+  if (action === 'getWaivers') {
+    // Basic auth: require passcode hash matching stored passcode
+    var ph = p.hash || '';
+    var stored = getConfigValue('passcode_hash');
+    if (!stored || !stored.value || stored.value !== ph) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Unauthorized' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    try {
+      var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      var wSheet = ss.getSheetByName('Waivers');
+      if (!wSheet || wSheet.getLastRow() < 2) {
+        return ContentService.createTextOutput(JSON.stringify({ success: true, waivers: [] }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var wData = wSheet.getRange(2, 1, wSheet.getLastRow() - 1, 11).getValues();
+      var waivers = wData.map(function(row) {
+        return {
+          timestamp: String(row[0] || ''),
+          type:       String(row[1] || 'adult'),
+          eventName:  String(row[2] || ''),
+          eventDate:  String(row[3] || ''),
+          signerName: String(row[4] || ''),
+          email:      String(row[5] || ''),
+          phone:      String(row[6] || ''),
+          minorName:  String(row[7] || ''),
+          minorAge:   String(row[8] || ''),
+          relationship: String(row[9] || ''),
+          submittedAt: String(row[10] || '')
+        };
+      }).filter(function(w) { return w.signerName; });
+      return ContentService.createTextOutput(JSON.stringify({ success: true, waivers: waivers }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch(gErr) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(gErr) }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // ===== CANCEL RSVP BY TOKEN =====
   if (action === 'cancelRSVP' && p.token) {
     var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
