@@ -448,7 +448,7 @@ var TAKE_ACTION_EVENTS = [
     dateStr:   'Saturday, May 9, 2026',
     time:      '8:00 AM',
     eventDate: new Date('May 9, 2026'),
-    link:      'https://www.healthmatters.clinic/resources/eventfinder?event=event-1772063101013',
+    link:      'https://eventfinder.healthmatters.clinic?event=event-1772063101013',
   },
   {
     title:     'Unstoppable Wellness Meetup',
@@ -456,7 +456,7 @@ var TAKE_ACTION_EVENTS = [
     time:      '6:00 PM',
     location:  '123 W Manchester Blvd, Inglewood, CA 90301',
     eventDate: new Date('May 20, 2026'),
-    link:      'https://www.healthmatters.clinic/resources/eventfinder?event=event-1772064063990',
+    link:      'https://eventfinder.healthmatters.clinic?event=event-1772064063990',
   },
   {
     title:     'UNSTOPPABLE Experience',
@@ -464,7 +464,7 @@ var TAKE_ACTION_EVENTS = [
     time:      '6:00 PM',
     location:  'Virtual — Online',
     eventDate: new Date('May 27, 2026'),
-    link:      'https://www.healthmatters.clinic/resources/eventfinder?event=event-1773943614235',
+    link:      'https://eventfinder.healthmatters.clinic?event=event-1773943614235',
   },
 ];
 

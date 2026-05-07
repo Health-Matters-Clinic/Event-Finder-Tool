@@ -264,6 +264,37 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // ===== CANCEL RSVP BY TOKEN =====
+  if (action === 'cancelRSVP' && p.token) {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('RSVPs');
+    if (!sheet) return HtmlService.createHtmlOutput(buildErrorPage('Registration not found.'));
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][14]).trim() === String(p.token).trim()) {
+        sheet.getRange(i + 1, 16).setValue('cancelled');
+        var name = String(data[i][4] || '').split(' ')[0] || 'there';
+        return HtmlService.createHtmlOutput(
+          '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+          '<body style="font-family:Inter,Arial,sans-serif;text-align:center;padding:48px 24px;background:#f5f3ef;">' +
+          '<div style="max-width:480px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 20px rgba(0,0,0,.08);">' +
+          '<h2 style="color:#1a1a1a;margin:0 0 12px;">Registration Cancelled</h2>' +
+          '<p style="color:#666;font-size:15px;margin:0 0 24px;">Hi ' + name + ', your registration has been removed. We hope to see you at a future event.</p>' +
+          '<a href="https://www.healthmatters.clinic" style="color:#233dff;font-weight:600;text-decoration:none;">Visit healthmatters.clinic</a>' +
+          '</div></body></html>'
+        );
+      }
+    }
+    return HtmlService.createHtmlOutput(
+      '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+      '<body style="font-family:Inter,Arial,sans-serif;text-align:center;padding:48px 24px;background:#f5f3ef;">' +
+      '<div style="max-width:480px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 20px rgba(0,0,0,.08);">' +
+      '<h2 style="color:#1a1a1a;margin:0 0 12px;">Not Found</h2>' +
+      '<p style="color:#666;font-size:15px;margin:0 0 24px;">We could not find your registration. Please contact <a href="mailto:events@healthmatters.clinic" style="color:#233dff;">events@healthmatters.clinic</a>.</p>' +
+      '</div></body></html>'
+    );
+  }
+
   // ===== CHECK-IN BY TOKEN (legacy HTML page — keep for any existing links) =====
   if (p.token) {
     return handleCheckinByToken(p.token);
@@ -1051,9 +1082,8 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + dateLabel + '</strong>' + payload.eventDate + '</p>' +
     timeLine + venueLine + teeLine +
     '</div>' +
-    '<div style="text-align:center;margin:0 0 12px;">' +
-    '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:white;padding:16px 48px;border-radius:30px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(35,61,255,0.3);">' + checkinLabel + '</a></div>' +
-    '<p style="color:#999;font-size:12px;text-align:center;margin:0 0 20px;">' + checkinNote + '</p>' +
+    // Check-in button hidden — links broken for existing RSVPs; will restore once check-in flow is fixed
+    '<p style="color:#555;font-size:14px;text-align:center;margin:0 0 20px;">' + (es ? 'Te enviaremos instrucciones de check-in antes del evento.' : 'We will send you check-in instructions before the event.') + '</p>' +
     '<p style="text-align:center;margin:0;">' +
     '<a href="' + cancelUrl + '" style="color:#999;font-size:12px;text-decoration:underline;">' + cancelLabel + '</a>' +
     '</p>' +
