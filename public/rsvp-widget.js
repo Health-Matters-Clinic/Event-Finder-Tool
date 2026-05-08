@@ -17,7 +17,7 @@
 
   // Configuration
   const CONFIG = {
-    GOOGLE_APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzJAvUOPoD55fqwcG0REUojOgraAZaham-8x7wojNxuwwC1srf0F1hZ-9adXKezcCHHsg/exec',
+    GOOGLE_APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwAGaUHatSNN73LJt3FlewowCDDZWHJKWWTsx3nbBY6jY-lNkDmMeid6yuJ0V9h3-ttuQ/exec',
     PRIMARY_COLOR: '#233dff',
     FONT_FAMILY: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif"
   };
