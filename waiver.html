@@ -432,22 +432,91 @@
     .print-btn { display: none !important; }
     .confirm-footer { display: none; }
   }
+
+  /* ---- Gate page ---- */
+  .gate-body {
+    padding: 40px 24px 48px;
+    text-align: center;
+  }
+  .gate-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .gate-icon.not-yet { background: var(--blue-light); }
+  .gate-icon.closed  { background: #f0f0f0; }
+  .gate-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  .gate-pill.not-yet { background: var(--blue-light); color: var(--blue); }
+  .gate-pill.closed  { background: #f0f0f0; color: #888; }
+  .gate-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.2;
+  }
+  .gate-subtitle {
+    font-size: 15px;
+    color: var(--muted);
+    line-height: 1.65;
+    max-width: 340px;
+    margin: 0 auto 20px;
+  }
+  .gate-clock {
+    font-size: 13px;
+    color: #bbb;
+    font-variant-numeric: tabular-nums;
+  }
 </style>
 </head>
 <body>
 
 <div class="card">
 
+  <!-- ========== GATE PAGE ========== -->
+  <div id="gatePage">
+    <div class="header">
+      <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="Health Matters Clinic">
+      <div class="header-eyebrow">Health Matters Clinic Presents</div>
+      <h1>MOVE — Live Unstoppable Walk/Run</h1>
+      <div class="header-meta">Curtis Tucker Center for Community Wellness<br>Inglewood, CA &nbsp;|&nbsp; May 9, 2026 &nbsp;|&nbsp; 8:00 AM</div>
+    </div>
+    <div class="gate-body">
+      <div class="gate-icon not-yet" id="gateIcon">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <circle cx="14" cy="14" r="10" stroke="#233dff" stroke-width="2"/>
+          <path d="M14 9v5l3 3" stroke="#233dff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="gate-pill not-yet" id="gatePill">Not Yet Open</div>
+      <div class="gate-title" id="gateTitle">Check-in opens at 7:15 AM</div>
+      <div class="gate-subtitle" id="gateSubtitle">Come back when you arrive at the event. This page activates at 7:15 AM on May 9.</div>
+      <div class="gate-clock" id="gateClock"></div>
+    </div>
+  </div>
+
   <!-- ========== FORM PAGE ========== -->
-  <div id="formPage">
+  <div id="formPage" style="display:none;">
     <div class="header">
       <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="Health Matters Clinic">
       <div class="header-eyebrow">Health Matters Clinic Presents</div>
       <h1>MOVE — Live Unstoppable Walk/Run</h1>
       <div class="header-meta">
         Curtis Tucker Center for Community Wellness<br>
-        123 W. Manchester Blvd, Inglewood, CA 90301<br>
-        May 9, 2026 &nbsp;|&nbsp; 8:00 AM – 10:00 AM<br>
+        Inglewood, CA &nbsp;|&nbsp; May 9, 2026 &nbsp;|&nbsp; 8:00 AM – 10:00 AM<br>
         Coordinator: Health Matters Clinic
       </div>
     </div>
@@ -631,6 +700,64 @@
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbwAGaUHatSNN73LJt3FlewowCDDZWHJKWWTsx3nbBY6jY-lNkDmMeid6yuJ0V9h3-ttuQ/exec';
 var EVENT_NAME = 'MOVE — Live Unstoppable Walk/Run';
 var EVENT_DATE = 'May 9, 2026';
+
+// =============================================
+// URL PARAMS & TIME GATE
+// =============================================
+var _urlParams     = new URLSearchParams(window.location.search);
+var CHECKIN_TOKEN  = _urlParams.get('checkin') || '';
+var EVENT_ID       = _urlParams.get('event')   || '';
+
+// Check-in window: May 9, 2026  7:15 AM PDT (14:15 UTC) – 11:00 AM PDT (18:00 UTC)
+var GATE_OPEN  = new Date('2026-05-09T14:15:00Z');
+var GATE_CLOSE = new Date('2026-05-09T18:00:00Z');
+
+function updateGate() {
+  var now      = new Date();
+  var formPage = document.getElementById('formPage');
+  var gatePage = document.getElementById('gatePage');
+
+  if (now >= GATE_OPEN && now <= GATE_CLOSE) {
+    gatePage.style.display = 'none';
+    formPage.style.display = '';
+    return;
+  }
+
+  gatePage.style.display = '';
+  formPage.style.display = 'none';
+
+  var ptTime = now.toLocaleTimeString('en-US', {
+    hour: 'numeric', minute: '2-digit',
+    timeZone: 'America/Los_Angeles', hour12: true
+  }) + ' PT';
+
+  var icon     = document.getElementById('gateIcon');
+  var pill     = document.getElementById('gatePill');
+  var title    = document.getElementById('gateTitle');
+  var subtitle = document.getElementById('gateSubtitle');
+  var clock    = document.getElementById('gateClock');
+
+  if (now < GATE_OPEN) {
+    icon.className = 'gate-icon not-yet';
+    icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="10" stroke="#233dff" stroke-width="2"/><path d="M14 9v5l3 3" stroke="#233dff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    pill.className   = 'gate-pill not-yet';
+    pill.textContent = 'Not Yet Open';
+    title.textContent    = 'Check-in opens at 7:15 AM';
+    subtitle.textContent = 'Come back when you arrive at the event. This page activates at 7:15 AM on May 9.';
+  } else {
+    icon.className = 'gate-icon closed';
+    icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M8 8l12 12M20 8L8 20" stroke="#888" stroke-width="2" stroke-linecap="round"/></svg>';
+    pill.className   = 'gate-pill closed';
+    pill.textContent = 'Check-In Closed';
+    title.textContent    = 'Check-in is now closed';
+    subtitle.textContent = 'Thank you for being part of the Unstoppable Season 2026. See you at HEAL on May 20.';
+  }
+
+  if (clock) clock.textContent = 'Current time: ' + ptTime;
+}
+
+updateGate();
+setInterval(updateGate, 30000);
 
 // =============================================
 // TYPE TOGGLE
@@ -853,7 +980,7 @@ function showConfirmation(payload, sigData) {
   var rows = [];
   rows.push(['Event', EVENT_NAME]);
   rows.push(['Date', EVENT_DATE]);
-  rows.push(['Location', '123 W. Manchester Blvd, Inglewood, CA 90301']);
+  rows.push(['Location', 'Curtis Tucker Center for Community Wellness, Inglewood, CA']);
   rows.push(['Submitted', payload.submittedAt]);
   rows.push(['Signer', payload.signerFirstName + ' ' + payload.signerLastName]);
   rows.push(['Email', payload.email]);
@@ -894,6 +1021,13 @@ function showConfirmation(payload, sigData) {
   document.getElementById('formPage').style.display = 'none';
   document.getElementById('confirmPage').style.display = 'block';
   window.scrollTo(0, 0);
+
+  // Mark checked-in at GAS (fire-and-forget)
+  if (CHECKIN_TOKEN) {
+    var checkinParams = 'action=checkin&checkinToken=' + encodeURIComponent(CHECKIN_TOKEN);
+    if (EVENT_ID) checkinParams += '&eventId=' + encodeURIComponent(EVENT_ID);
+    fetch(GAS_URL + '?' + checkinParams).catch(function() {});
+  }
 }
 
 function esc(str) {
