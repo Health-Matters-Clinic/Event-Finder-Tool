@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Rate Your Experience — MOVE May 9</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f3ef;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 0 48px;
+    }
+
+    .header {
+      width: 100%;
+      background: #233dff;
+      padding: 20px 24px;
+      text-align: center;
+    }
+    .header-logo {
+      font-size: 13px;
+      font-weight: 700;
+      color: white;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 36px 28px 32px;
+      margin: 28px 16px 0;
+      max-width: 480px;
+      width: calc(100% - 32px);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    .event-tag {
+      display: inline-block;
+      background: #eef0ff;
+      color: #233dff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: #0f0f0f;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: #555;
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+
+    /* Star rating */
+    .stars-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 14px;
+    }
+
+    .star-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    .star-btn {
+      background: none;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      width: 56px;
+      height: 56px;
+      font-size: 28px;
+      cursor: pointer;
+      color: #ccc;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .star-btn.selected,
+    .star-btn.filled {
+      color: #f59e0b;
+      border-color: #f59e0b;
+      background: #fffbeb;
+    }
+
+    .star-hint {
+      font-size: 13px;
+      color: #999;
+      text-align: center;
+      min-height: 18px;
+      margin-bottom: 28px;
+    }
+
+    /* Fields */
+    .field-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    label span.opt {
+      font-weight: 400;
+      color: #999;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 12px;
+    }
+
+    input[type="text"],
+    textarea {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: inherit;
+      color: #111;
+      outline: none;
+      transition: border-color 0.15s;
+      resize: none;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus {
+      border-color: #233dff;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background: #233dff;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      margin-top: 8px;
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .submit-btn:not(:disabled):active {
+      opacity: 0.85;
+    }
+
+    /* Thank you state */
+    #thankyou {
+      display: none;
+      text-align: center;
+    }
+
+    .check-circle {
+      width: 72px;
+      height: 72px;
+      background: #eef0ff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+
+    .check-circle svg {
+      width: 36px;
+      height: 36px;
+    }
+
+    #thankyou h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #0f0f0f;
+      margin-bottom: 10px;
+    }
+
+    #thankyou p {
+      font-size: 15px;
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .survey-btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      background: #233dff;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      text-decoration: none;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .survey-skip {
+      font-size: 13px;
+      color: #999;
+      text-align: center;
+    }
+
+    .survey-skip a {
+      color: #999;
+      text-decoration: underline;
+    }
+
+    .error-msg {
+      color: #dc2626;
+      font-size: 13px;
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-logo">Health Matters Clinic</div>
+  </div>
+
+  <div class="card">
+    <div id="form-view">
+      <div class="event-tag">MOVE — May 9, 2026</div>
+      <h1>How was your experience?</h1>
+      <p class="subtitle">Your feedback helps us make every event better. Takes 30 seconds.</p>
+
+      <div class="stars-label">Rate your experience</div>
+      <div class="star-row" id="starRow">
+        <button class="star-btn" data-val="1" onclick="setRating(1)" aria-label="1 star">&#9733;</button>
+        <button class="star-btn" data-val="2" onclick="setRating(2)" aria-label="2 stars">&#9733;</button>
+        <button class="star-btn" data-val="3" onclick="setRating(3)" aria-label="3 stars">&#9733;</button>
+        <button class="star-btn" data-val="4" onclick="setRating(4)" aria-label="4 stars">&#9733;</button>
+        <button class="star-btn" data-val="5" onclick="setRating(5)" aria-label="5 stars">&#9733;</button>
+      </div>
+      <div class="star-hint" id="starHint">Tap a star to rate</div>
+
+      <div class="field-group">
+        <label for="nameField">Your name <span class="opt">(optional)</span></label>
+        <input type="text" id="nameField" placeholder="First name" autocomplete="given-name" />
+      </div>
+
+      <div class="field-group">
+        <label for="commentsField">Any comments? <span class="opt">(optional)</span></label>
+        <textarea id="commentsField" rows="3" placeholder="What did you love? What could be better?"></textarea>
+      </div>
+
+      <button class="submit-btn" id="submitBtn" onclick="submitFeedback()" disabled>Submit Feedback</button>
+      <div class="error-msg" id="errMsg"></div>
+    </div>
+
+    <div id="thankyou">
+      <div class="check-circle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#233dff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <h2>Thank you!</h2>
+      <p>We appreciate you sharing your experience. One more step — please complete the community wellness survey below. It takes about 2 minutes and helps us keep this program funded.</p>
+      <a class="survey-btn" id="surveyLink" href="#" target="_blank" rel="noopener noreferrer">Complete the Wellness Survey</a>
+      <div class="survey-skip">
+        <a href="https://www.healthmatters.clinic">Skip — return to healthmatters.clinic</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var GAS_URL = 'https://script.google.com/macros/s/AKfycbwAGaUHatSNN73LJt3FlewowCDDZWHJKWWTsx3nbBY6jY-lNkDmMeid6yuJ0V9h3-ttuQ/exec';
+    var SURVEY_URL = 'https://calmhsa.my.site.com/SAMHSAdatacollection/apex/b3f__formcomplete?id=a1kJw000008HL1qIAG&LA-PEI-TA-26=KLT';
+
+    var HINTS = ['', 'Poor — needs major improvement', 'Fair — some issues', 'Good — solid experience', 'Great — really enjoyed it', 'Outstanding — loved everything'];
+    var selectedRating = 0;
+
+    function setRating(val) {
+      selectedRating = val;
+      var btns = document.querySelectorAll('.star-btn');
+      btns.forEach(function(btn) {
+        var bval = parseInt(btn.getAttribute('data-val'));
+        if (bval <= val) {
+          btn.classList.add('filled');
+        } else {
+          btn.classList.remove('filled');
+        }
+      });
+      document.getElementById('starHint').textContent = HINTS[val] || '';
+      document.getElementById('submitBtn').disabled = false;
+    }
+
+    function submitFeedback() {
+      if (!selectedRating) return;
+      var btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+      document.getElementById('errMsg').textContent = '';
+
+      var name     = document.getElementById('nameField').value.trim();
+      var comments = document.getElementById('commentsField').value.trim();
+
+      var params = new URLSearchParams({
+        action:   'submitFeedback',
+        rating:   String(selectedRating),
+        name:     name || 'Anonymous',
+        comments: comments,
+        event:    'MOVE — May 9, 2026'
+      });
+
+      fetch(GAS_URL + '?' + params.toString())
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.success) {
+            showThankYou();
+          } else {
+            throw new Error(data.error || 'Submission failed');
+          }
+        })
+        .catch(function(err) {
+          document.getElementById('errMsg').textContent = 'Something went wrong. Please try again.';
+          btn.disabled = false;
+          btn.textContent = 'Submit Feedback';
+        });
+    }
+
+    function showThankYou() {
+      document.getElementById('form-view').style.display = 'none';
+      var ty = document.getElementById('thankyou');
+      ty.style.display = 'block';
+      document.getElementById('surveyLink').href = SURVEY_URL;
+      // Auto-open survey after 2 seconds so it's hard to miss
+      setTimeout(function() {
+        window.open(SURVEY_URL, '_blank', 'noopener,noreferrer');
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

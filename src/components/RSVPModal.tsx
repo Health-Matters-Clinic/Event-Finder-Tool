@@ -266,13 +266,13 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       return;
     }
 
-    // Fallback: require at least one contact method
-    if (!email && !phone) {
+    // Email required — it's the only way to deliver the check-in link
+    if (!email) {
       setState('error');
       setErrorMsg(
         lang === 'es'
-          ? 'Por favor incluye un correo electronico o numero de telefono.'
-          : 'Please include an email or phone number.'
+          ? 'Se requiere correo electrónico para enviarte tu enlace de check-in.'
+          : 'Email is required so we can send your check-in link.'
       );
       return;
     }
