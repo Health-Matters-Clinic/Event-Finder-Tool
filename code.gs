@@ -1227,7 +1227,7 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     ? 'Registro Confirmado | Health Matters Clinic Events'
     : 'Registration Confirmed | Health Matters Clinic Events';
 
-  var checkinUrl = 'https://eventfinder.healthmatters.clinic?event=' + encodeURIComponent(payload.eventId || '') + '&checkin=' + checkinToken;
+  var checkinUrl = 'https://eventfinder.healthmatters.clinic/waiver.html?checkin=' + encodeURIComponent(checkinToken) + (payload.eventId ? '&event=' + encodeURIComponent(payload.eventId) : '');
   var cancelUrl = CONFIG.SCRIPT_URL + '?action=cancelRSVP&token=' + checkinToken +
     '&eventId=' + encodeURIComponent(payload.eventId) +
     '&email=' + encodeURIComponent(payload.email || '') +
@@ -1278,8 +1278,10 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + dateLabel + '</strong>' + payload.eventDate + '</p>' +
     timeLine + venueLine + teeLine +
     '</div>' +
-    // Check-in button hidden — links broken for existing RSVPs; will restore once check-in flow is fixed
-    '<p style="color:#555;font-size:14px;text-align:center;margin:0 0 20px;">' + (es ? 'Te enviaremos instrucciones de check-in antes del evento.' : 'We will send you check-in instructions before the event.') + '</p>' +
+    '<div style="text-align:center;margin:0 0 8px;">' +
+    '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' + checkinLabel + '</a>' +
+    '</div>' +
+    '<p style="text-align:center;font-size:12px;color:#999;margin:0 0 28px;">' + (es ? 'Abre a las 7:15 AM el día del evento' : 'Opens at 7:15 AM on event day') + '</p>' +
     '<p style="text-align:center;margin:0;">' +
     '<a href="' + cancelUrl + '" style="color:#999;font-size:12px;text-decoration:underline;">' + cancelLabel + '</a>' +
     '</p>' +
