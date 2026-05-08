@@ -125,7 +125,7 @@
 <div class="print-pages" id="printPages"></div>
 
 <script>
-var GAS_URL = 'https://script.google.com/macros/s/AKfycby-KmIXY2Qu8zooU4f-hjbdpb59WKonTPJOwcktDV0SjxW5CJPMbtAV1rO0SdJx_0tK8Q/exec';
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbwAGaUHatSNN73LJt3FlewowCDDZWHJKWWTsx3nbBY6jY-lNkDmMeid6yuJ0V9h3-ttuQ/exec';
 var allWaivers = [];
 var passcodeHash = '';
 
@@ -208,10 +208,11 @@ function buildAdultPage(batch, pageNum, totalAdultPages) {
     var firstName = nameParts[0] || '';
     var lastName  = nameParts.slice(1).join(' ') || '';
     var date      = (w.submittedAt || w.timestamp || '').split(' ')[0];
+    var sigHtml   = w.driveUrl ? '<img src="' + w.driveUrl + '" style="max-width:140pt;max-height:36pt;display:block;" />' : '';
     return '<tr>' +
       '<td class="name-cell">' + esc(firstName) + '</td>' +
       '<td class="name-cell">' + esc(lastName)  + '</td>' +
-      '<td class="sig-cell"><!-- sig --></td>' +
+      '<td class="sig-cell">' + sigHtml + '</td>' +
       '<td class="date-cell">' + esc(date) + '</td>' +
     '</tr>';
   }).join('');
@@ -284,7 +285,7 @@ function buildMinorPage(w, pageNum, totalPages) {
     '<div class="minor-sig-block">' +
       '<div class="sig-area">' +
         '<span class="field-label">PARENT OR LEGAL GUARDIAN SIGNATURE</span>' +
-        '<!-- sig -->' +
+        (w.driveUrl ? '<img src="' + w.driveUrl + '" style="max-width:200pt;max-height:48pt;display:block;margin-top:6pt;" />' : '') +
       '</div>' +
       '<div class="date-area"><span class="field-label">DATE</span>' + esc(date) + '</div>' +
     '</div>' +
