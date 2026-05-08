@@ -3,7 +3,7 @@
 // ========================================
 const CONFIG = {
   SPREADSHEET_ID: '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM',
-  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycby-KmIXY2Qu8zooU4f-hjbdpb59WKonTPJOwcktDV0SjxW5CJPMbtAV1rO0SdJx_0tK8Q/exec',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwAGaUHatSNN73LJt3FlewowCDDZWHJKWWTsx3nbBY6jY-lNkDmMeid6yuJ0V9h3-ttuQ/exec',
   ADMIN_EMAIL: 'admin@healthmatters.clinic',
   CC_EMAILS: 'events@healthmatters.clinic',
   LOGO_URL: 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
@@ -271,29 +271,56 @@ function doGet(e) {
       var wSheet = ss.getSheetByName('Waivers');
       if (!wSheet) {
         wSheet = ss.insertSheet('Waivers');
-        wSheet.appendRow(['Timestamp', 'Type', 'Event', 'Event Date', 'Signer Name', 'Email', 'Phone', 'Minor Name', 'Minor Age', 'Relationship', 'Submitted At']);
+        wSheet.appendRow(['Timestamp', 'Type', 'Event', 'Event Date', 'Signer Name', 'Email', 'Phone', 'Minor Name', 'Minor Age', 'Relationship', 'Submitted At', 'Signature Drive URL']);
       }
       var signerName = (p.signerFirstName || '') + ' ' + (p.signerLastName || '');
       var minorName = p.minorFirstName ? ((p.minorFirstName || '') + ' ' + (p.minorLastName || '')) : '';
       var ts = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
+
+      // Save signature PNG to Google Drive
+      var driveUrl = '';
+      if (p.signature && p.signature.indexOf('data:image/') === 0) {
+        try {
+          var base64Data = p.signature.split(',')[1];
+          var mimeType = p.signature.split(';')[0].split(':')[1] || 'image/jpeg';
+          var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType,
+            'waiver_' + signerName.trim().replace(/\s+/g,'_') + '_' + new Date().getTime() + '.jpg');
+          var folder;
+          var folders = DriveApp.getFoldersByName('HMC Waivers — MOVE May 9 2026');
+          if (folders.hasNext()) {
+            folder = folders.next();
+          } else {
+            folder = DriveApp.createFolder('HMC Waivers — MOVE May 9 2026');
+          }
+          var file = folder.createFile(blob);
+          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          driveUrl = file.getUrl();
+        } catch(driveErr) {
+          Logger.log('Drive save error: ' + driveErr);
+        }
+      }
+
       wSheet.appendRow([
         ts, p.type || 'adult', p.eventName || 'MOVE — Live Unstoppable Walk/Run',
         p.eventDate || 'May 9, 2026', signerName.trim(), p.email || '', p.phone || '',
-        minorName.trim(), p.minorAge || '', p.relationship || '', p.submittedAt || ts
+        minorName.trim(), p.minorAge || '', p.relationship || '', p.submittedAt || ts, driveUrl
       ]);
 
-      // Inline HTML escaping (escW) — esc() lives in eventbrite-rsvp-sync.gs
       function escW(s) {
         return String(s || '')
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;');
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       }
 
-      var firstName = p.signerFirstName || 'Signer';
       var waiverType = p.type === 'minor' ? 'Minor Participation' : 'Adult';
-      var emailHtml = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">' +
+      var sigImgHtml = p.signature
+        ? '<p style="font-size:13px;color:#555;margin:0 0 8px;">Signature:</p><img src="' + p.signature + '" style="border:1px solid #ddd;border-radius:4px;max-width:300px;" alt="Signature"/>'
+        : '';
+      var driveLinkHtml = driveUrl
+        ? '<p style="margin:12px 0 0;font-size:13px;"><a href="' + driveUrl + '" style="color:#233dff;">View signature in Google Drive</a></p>'
+        : '';
+
+      var emailHtml =
+        '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">' +
         '<p style="font-size:12px;color:#999;text-transform:uppercase;letter-spacing:.1em;margin:0 0 4px;">Health Matters Clinic</p>' +
         '<h2 style="margin:0 0 16px;color:#111;">Signed Waiver — ' + waiverType + '</h2>' +
         '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px;">' +
@@ -306,9 +333,9 @@ function doGet(e) {
         (p.relationship ? '<tr><td style="padding:6px 0;color:#555;">Relationship:</td><td>' + escW(p.relationship) + '</td></tr>' : '') +
         '<tr><td style="padding:6px 0;color:#555;">Submitted:</td><td>' + escW(p.submittedAt || ts) + '</td></tr>' +
         '</table>' +
-        (p.signature ? '<p style="font-size:13px;color:#555;margin:0 0 8px;">Signature:</p><img src="' + p.signature + '" style="border:1px solid #ddd;border-radius:4px;max-width:300px;" alt="Signature"/>' : '') +
+        sigImgHtml + driveLinkHtml +
         '<hr style="margin:20px 0;border:none;border-top:1px solid #eee;">' +
-        '<p style="font-size:11px;color:#999;">This waiver was electronically signed and submitted via the HMC Event Finder waiver page.</p>' +
+        '<p style="font-size:11px;color:#999;">Electronically signed via HMC Event Finder waiver page.</p>' +
         '</div>';
 
       GmailApp.sendEmail('events@healthmatters.clinic',
@@ -317,7 +344,7 @@ function doGet(e) {
         { htmlBody: emailHtml, name: 'HMC Event Waivers', replyTo: 'events@healthmatters.clinic' }
       );
 
-      return ContentService.createTextOutput(JSON.stringify({ success: true }))
+      return ContentService.createTextOutput(JSON.stringify({ success: true, driveUrl: driveUrl }))
         .setMimeType(ContentService.MimeType.JSON);
     } catch(wErr) {
       Logger.log('Waiver error: ' + wErr);
@@ -342,7 +369,7 @@ function doGet(e) {
         return ContentService.createTextOutput(JSON.stringify({ success: true, waivers: [] }))
           .setMimeType(ContentService.MimeType.JSON);
       }
-      var wData = wSheet.getRange(2, 1, wSheet.getLastRow() - 1, 11).getValues();
+      var wData = wSheet.getRange(2, 1, wSheet.getLastRow() - 1, 12).getValues();
       var waivers = wData.map(function(row) {
         return {
           timestamp: String(row[0] || ''),
@@ -355,13 +382,80 @@ function doGet(e) {
           minorName:  String(row[7] || ''),
           minorAge:   String(row[8] || ''),
           relationship: String(row[9] || ''),
-          submittedAt: String(row[10] || '')
+          submittedAt: String(row[10] || ''),
+          driveUrl:   String(row[11] || '')
         };
       }).filter(function(w) { return w.signerName; });
       return ContentService.createTextOutput(JSON.stringify({ success: true, waivers: waivers }))
         .setMimeType(ContentService.MimeType.JSON);
     } catch(gErr) {
       return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(gErr) }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ===== SUBMIT FEEDBACK =====
+  if (action === 'submitFeedback') {
+    try {
+      var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      var fSheet = ss.getSheetByName('Feedback');
+      if (!fSheet) {
+        fSheet = ss.insertSheet('Feedback');
+        fSheet.appendRow(['Timestamp', 'Name', 'Rating', 'Event', 'Comments']);
+      }
+      var ts = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+      var rating = parseInt(p.rating) || 0;
+      if (rating < 1 || rating > 5) {
+        return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Invalid rating' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      fSheet.appendRow([
+        ts,
+        String(p.name || 'Anonymous'),
+        rating,
+        String(p.event || 'MOVE — May 9, 2026'),
+        String(p.comments || '')
+      ]);
+      return ContentService.createTextOutput(JSON.stringify({ success: true }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch(fErr) {
+      Logger.log('Feedback error: ' + fErr);
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(fErr) }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ===== GET FEEDBACK (admin) =====
+  if (action === 'getFeedback') {
+    var ph = p.hash || '';
+    var stored = getConfigValue('passcode_hash');
+    if (!stored || !stored.value || stored.value !== ph) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Unauthorized' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    try {
+      var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      var fSheet = ss.getSheetByName('Feedback');
+      if (!fSheet || fSheet.getLastRow() < 2) {
+        return ContentService.createTextOutput(JSON.stringify({ success: true, feedback: [], avgRating: 0, count: 0 }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var fData = fSheet.getRange(2, 1, fSheet.getLastRow() - 1, 5).getValues();
+      var feedback = fData.map(function(row) {
+        return {
+          timestamp: String(row[0] || ''),
+          name:      String(row[1] || ''),
+          rating:    Number(row[2] || 0),
+          event:     String(row[3] || ''),
+          comments:  String(row[4] || '')
+        };
+      });
+      var total = feedback.reduce(function(sum, f) { return sum + f.rating; }, 0);
+      var avg = feedback.length ? Math.round((total / feedback.length) * 10) / 10 : 0;
+      return ContentService.createTextOutput(JSON.stringify({ success: true, feedback: feedback, avgRating: avg, count: feedback.length }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch(fErr2) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(fErr2) }))
         .setMimeType(ContentService.MimeType.JSON);
     }
   }

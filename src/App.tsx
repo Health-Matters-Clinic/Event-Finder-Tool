@@ -581,7 +581,7 @@ const App: React.FC = () => {
     const shareText = `${eventTitle} - ${selectedEvent.dateDisplay}${selectedEvent.address ? ` @ ${selectedEvent.address}` : ''}`;
 
     // Create event-specific share URL, always use event ID for reliable deep linking
-    const shareUrl = `https://www.healthmatters.clinic/resources/eventfinder?event=${encodeURIComponent(selectedEvent.id)}&rsvp=true${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
+    const shareUrl = `https://eventfinder.healthmatters.clinic/?event=${encodeURIComponent(selectedEvent.id)}&rsvp=true${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
 
     const mailtoUrl = `mailto:?subject=${encodeURIComponent(eventTitle)}&body=${encodeURIComponent(`${shareText}\n\nRSVP here: ${shareUrl}`)}`;
 
@@ -826,7 +826,7 @@ const App: React.FC = () => {
               onClick={() => setSelectedEvent(null)}
             >
               <div
-                className="relative bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-200 max-h-[85vh] overflow-y-auto"
+                className="relative bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-200 max-h-[90dvh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
               <button
@@ -871,7 +871,7 @@ const App: React.FC = () => {
                     <img
                       src={selectedEvent.flyerUrl}
                       alt={`${selectedEvent.title} flyer`}
-                      className="w-full rounded-xl border border-gray-200 shadow-sm"
+                      className="w-full rounded-xl border border-gray-200 shadow-sm max-h-[45vw] sm:max-h-none object-cover object-top"
                       onError={(e) => (e.currentTarget.style.display = 'none')}
                     />
                   </div>
