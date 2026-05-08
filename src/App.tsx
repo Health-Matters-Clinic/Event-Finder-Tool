@@ -705,8 +705,18 @@ const App: React.FC = () => {
     }
   }, [selectedEvent]);
 
+  // Post height to parent so Webflow iframe auto-resizes
+  useEffect(() => {
+    if (window.self === window.top) return;
+    const send = () => window.parent.postMessage({ type: 'efHeight', height: document.documentElement.scrollHeight }, '*');
+    send();
+    const ro = new ResizeObserver(send);
+    ro.observe(document.documentElement);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <div className="flex flex-col bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white" style={{ height: '100%' }}>
+    <div className="flex flex-col bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white" style={{ minHeight: '100%' }}>
       <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 z-[200] relative flex items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
         {/* Left: Logo */}
         <div className="flex items-center gap-4">
