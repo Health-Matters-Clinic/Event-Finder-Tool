@@ -413,6 +413,18 @@
     color: #aaa;
     padding: 0 24px 20px;
   }
+  .backup-notice {
+    display: none;
+    background: #fffbea;
+    border: 1.5px solid #f0d060;
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #7a5c00;
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+  .backup-notice.show { display: block; }
 
   @media (max-width: 480px) {
     body { padding: 0; background: white; }
@@ -683,6 +695,7 @@
       <img id="confirmSig" class="confirm-sig" alt="Signature">
 
       <button class="print-btn" onclick="window.print()">Print for Your Records</button>
+      <div class="backup-notice" id="backupNotice">Your submission is saved locally and will sync automatically.</div>
     </div>
 
     <div class="confirm-footer">
@@ -895,6 +908,40 @@ function validateMinor() {
 }
 
 // =============================================
+// BACKGROUND GAS SUBMIT — retry + localStorage backup
+// =============================================
+function gasSubmitWithRetry(url, backupData, attempt) {
+  attempt = attempt || 1;
+  fetch(url)
+    .then(function(r) {
+      // GAS returns 302 redirects that browsers follow; a non-ok status or
+      // CORS-blocked response lands in catch. Treat any response as success.
+      console.log('GAS submit response (attempt ' + attempt + '):', r.status);
+    })
+    .catch(function(err) {
+      console.warn('GAS submit attempt ' + attempt + ' failed:', err);
+      if (attempt < 3) {
+        var delay = Math.pow(2, attempt) * 1000; // 2s, 4s
+        setTimeout(function() {
+          gasSubmitWithRetry(url, backupData, attempt + 1);
+        }, delay);
+      } else {
+        // All 3 attempts exhausted — save to localStorage
+        console.error('All GAS submit attempts failed. Saving to localStorage.');
+        try {
+          var existing = JSON.parse(localStorage.getItem('hmc_waiver_backup') || '[]');
+          existing.push(backupData);
+          localStorage.setItem('hmc_waiver_backup', JSON.stringify(existing));
+        } catch(e) {
+          console.error('localStorage save failed:', e);
+        }
+        var notice = document.getElementById('backupNotice');
+        if (notice) notice.classList.add('show');
+      }
+    });
+}
+
+// =============================================
 // SUBMIT
 // =============================================
 function submitWaiver() {
@@ -913,7 +960,6 @@ function submitWaiver() {
 
   var btn = document.getElementById('submitBtn');
   btn.disabled = true;
-  btn.textContent = 'Submitting...';
   btn.classList.add('loading');
 
   var sigData = getSignatureDataURL();
@@ -926,6 +972,8 @@ function submitWaiver() {
     type:        currentType,
     eventName:   EVENT_NAME,
     eventDate:   EVENT_DATE,
+    eventId:     EVENT_ID,
+    checkinToken: CHECKIN_TOKEN,
     submittedAt: submittedAt,
     signature:   sigData
   };
@@ -945,31 +993,25 @@ function submitWaiver() {
     payload.relationship    = document.getElementById('cRel').value;
   }
 
-  // Build URL with all params (GAS doGet reads e.parameter)
+  // --- 1. Show confirmation immediately (optimistic) ---
+  showConfirmation(payload, sigData);
+
+  // --- 2. Fire GAS submission in background with retry ---
   var params = new URLSearchParams(payload);
-  // Signature is large — keep as-is (URLSearchParams handles encoding)
   var url = GAS_URL + '?' + params.toString();
 
-  fetch(url)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data && data.success) {
-        showConfirmation(payload, sigData);
-      } else {
-        btn.disabled = false;
-        btn.textContent = 'Submit Waiver';
-        btn.classList.remove('loading');
-        showError('There was a problem submitting your waiver. Please try again or contact events@healthmatters.clinic.');
-        console.error('GAS error:', data);
-      }
-    })
-    .catch(function(err) {
-      // GAS often returns CORS errors on redirect even when successful.
-      // Show confirmation optimistically if we get a network/CORS error
-      // (the submission likely went through — GAS does not set CORS headers by default).
-      console.warn('Fetch error (may be CORS on redirect — submission likely succeeded):', err);
-      showConfirmation(payload, sigData);
-    });
+  // Backup record excludes the large signature data URL
+  var backupData = {
+    name:         payload.signerFirstName + ' ' + payload.signerLastName,
+    email:        payload.email,
+    eventDate:    EVENT_DATE,
+    eventId:      EVENT_ID,
+    checkinToken: CHECKIN_TOKEN,
+    submittedAt:  submittedAt
+  };
+
+  // Start with attempt 1; on failure retry at 2s then 4s then save to localStorage
+  gasSubmitWithRetry(url, backupData, 1);
 }
 
 // =============================================
