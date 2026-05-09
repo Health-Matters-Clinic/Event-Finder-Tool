@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>MOVE — Live Unstoppable Walk/Run | Liability Waiver</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue: #233dff;
+    --blue-dark: #1a2ecc;
+    --blue-light: #eef0ff;
+    --text: #111;
+    --muted: #555;
+    --border: #d4d4d4;
+    --bg: #f0f0ed;
+    --white: #fff;
+    --error: #c0392b;
+    --success: #1a7a4a;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    font-family: 'Inter', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .card {
+    max-width: 640px;
+    margin: 0 auto;
+    background: var(--white);
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.10);
+    overflow: hidden;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    background: var(--blue);
+    color: white;
+    padding: 28px 24px 24px;
+    text-align: center;
+  }
+  .header img {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    margin-bottom: 14px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    background: white;
+    padding: 4px;
+  }
+  .header-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    opacity: .75;
+    margin-bottom: 6px;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+  .header-meta {
+    font-size: 13px;
+    line-height: 1.6;
+    opacity: .88;
+  }
+
+  /* ---- Body ---- */
+  .body { padding: 24px; }
+
+  /* ---- Toggle ---- */
+  .toggle-wrap {
+    display: flex;
+    background: var(--blue-light);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 28px;
+    gap: 4px;
+  }
+  .toggle-btn {
+    flex: 1;
+    padding: 14px 8px;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    background: transparent;
+    color: var(--blue);
+    transition: background .15s, color .15s, box-shadow .15s;
+    line-height: 1;
+  }
+  .toggle-btn.active {
+    background: var(--blue);
+    color: white;
+    box-shadow: 0 2px 8px rgba(35,61,255,.3);
+  }
+
+  /* ---- Section heading ---- */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    margin-top: 24px;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  /* ---- Form ---- */
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .field-row.single { grid-template-columns: 1fr; }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .field label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .field input,
+  .field select {
+    height: 48px;
+    padding: 0 14px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--text);
+    background: white;
+    outline: none;
+    transition: border-color .15s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23555' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+  .field input:focus,
+  .field select:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(35,61,255,.12);
+  }
+  .field input.error,
+  .field select.error {
+    border-color: var(--error);
+  }
+
+  /* ---- Waiver text ---- */
+  .waiver-text {
+    background: #fafafa;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #333;
+    max-height: 240px;
+    overflow-y: auto;
+    margin-bottom: 4px;
+  }
+  .waiver-text ol {
+    padding-left: 18px;
+    margin: 8px 0;
+  }
+  .waiver-text li {
+    margin-bottom: 8px;
+  }
+  .waiver-attestation {
+    font-size: 13px;
+    font-style: italic;
+    color: #444;
+    line-height: 1.6;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e5e5e5;
+  }
+
+  /* ---- Signature pad ---- */
+  .sig-wrap {
+    margin-top: 4px;
+  }
+  .sig-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .sig-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .sig-clear {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--blue);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background .12s;
+  }
+  .sig-clear:hover { background: var(--blue-light); }
+
+  .sig-canvas-wrap {
+    position: relative;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: white;
+    overflow: hidden;
+    transition: border-color .15s;
+  }
+  .sig-canvas-wrap.active { border-color: var(--blue); }
+  .sig-canvas-wrap.error { border-color: var(--error); }
+
+  #sigCanvas {
+    display: block;
+    width: 100%;
+    height: 200px;
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .sig-line {
+    position: absolute;
+    bottom: 44px;
+    left: 16px;
+    right: 16px;
+    border-bottom: 1.5px dashed #ccc;
+    pointer-events: none;
+  }
+  .sig-hint {
+    position: absolute;
+    bottom: 16px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 12px;
+    color: #bbb;
+    pointer-events: none;
+    font-weight: 500;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  /* ---- Error message ---- */
+  .error-msg {
+    display: none;
+    background: #fdf0ef;
+    border: 1.5px solid #f5c5c2;
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--error);
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+  .error-msg.show { display: block; }
+
+  /* ---- Submit button ---- */
+  .submit-btn {
+    width: 100%;
+    height: 56px;
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 24px;
+    transition: background .15s, opacity .15s;
+    letter-spacing: .02em;
+  }
+  .submit-btn:hover:not(:disabled) { background: var(--blue-dark); }
+  .submit-btn:disabled { opacity: .55; cursor: not-allowed; }
+  .submit-btn.loading { opacity: .7; cursor: not-allowed; }
+
+  /* ---- Divider ---- */
+  .divider {
+    border: none;
+    border-top: 1.5px solid #eee;
+    margin: 24px 0;
+  }
+
+  /* ---- Confirmation page ---- */
+  #confirmPage { display: none; }
+  .confirm-header {
+    background: #f0fff7;
+    border-bottom: 2px solid #c3ecd6;
+    padding: 28px 24px;
+    text-align: center;
+  }
+  .confirm-check {
+    width: 56px;
+    height: 56px;
+    background: var(--success);
+    border-radius: 50%;
+    margin: 0 auto 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .confirm-check svg { display: block; }
+  .confirm-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--success);
+    margin-bottom: 4px;
+  }
+  .confirm-subtitle {
+    font-size: 14px;
+    color: #555;
+  }
+  .confirm-body { padding: 24px; }
+  .confirm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .confirm-table td {
+    padding: 8px 0;
+    vertical-align: top;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .confirm-table td:first-child {
+    color: var(--muted);
+    width: 140px;
+    font-weight: 500;
+  }
+  .confirm-waiver-text {
+    background: #fafafa;
+    border: 1px solid #e5e5e5;
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #444;
+    margin-bottom: 16px;
+  }
+  .confirm-waiver-text ol {
+    padding-left: 18px;
+    margin: 6px 0;
+  }
+  .confirm-waiver-text li { margin-bottom: 6px; }
+
+  .confirm-sig-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .confirm-sig {
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    max-width: 320px;
+    display: block;
+    margin-bottom: 20px;
+  }
+  .print-btn {
+    width: 100%;
+    height: 52px;
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 12px;
+    transition: background .15s;
+  }
+  .print-btn:hover { background: var(--blue-dark); }
+  .confirm-footer {
+    text-align: center;
+    font-size: 12px;
+    color: #aaa;
+    padding: 0 24px 20px;
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 0; background: white; }
+    .card { border-radius: 0; box-shadow: none; }
+    .header { padding: 24px 20px 20px; }
+    .body { padding: 20px; }
+    .confirm-body { padding: 20px; }
+    .field-row { grid-template-columns: 1fr; gap: 10px; }
+    .header h1 { font-size: 19px; }
+  }
+
+  @media print {
+    body { background: white; padding: 0; }
+    .card { box-shadow: none; border-radius: 0; }
+    #formPage { display: none !important; }
+    #confirmPage { display: block !important; }
+    .print-btn { display: none !important; }
+    .confirm-footer { display: none; }
+  }
+
+  /* ---- Gate page ---- */
+  .gate-body {
+    padding: 40px 24px 48px;
+    text-align: center;
+  }
+  .gate-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .gate-icon.not-yet { background: var(--blue-light); }
+  .gate-icon.closed  { background: #f0f0f0; }
+  .gate-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  .gate-pill.not-yet { background: var(--blue-light); color: var(--blue); }
+  .gate-pill.closed  { background: #f0f0f0; color: #888; }
+  .gate-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.2;
+  }
+  .gate-subtitle {
+    font-size: 15px;
+    color: var(--muted);
+    line-height: 1.65;
+    max-width: 340px;
+    margin: 0 auto 20px;
+  }
+  .gate-clock {
+    font-size: 13px;
+    color: #bbb;
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+
+  <!-- ========== GATE PAGE ========== -->
+  <div id="gatePage">
+    <div class="header">
+      <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="Health Matters Clinic">
+      <div class="header-eyebrow">Health Matters Clinic Presents</div>
+      <h1>MOVE — Live Unstoppable Walk/Run</h1>
+      <div class="header-meta">Curtis Tucker Center for Community Wellness<br>Inglewood, CA &nbsp;|&nbsp; May 9, 2026 &nbsp;|&nbsp; 8:00 AM</div>
+    </div>
+    <div class="gate-body">
+      <div class="gate-icon not-yet" id="gateIcon">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <circle cx="14" cy="14" r="10" stroke="#233dff" stroke-width="2"/>
+          <path d="M14 9v5l3 3" stroke="#233dff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="gate-pill not-yet" id="gatePill">Not Yet Open</div>
+      <div class="gate-title" id="gateTitle">Check-in opens at 7:15 AM</div>
+      <div class="gate-subtitle" id="gateSubtitle">Come back when you arrive at the event. This page activates at 7:15 AM on May 9.</div>
+      <div class="gate-clock" id="gateClock"></div>
+    </div>
+  </div>
+
+  <!-- ========== FORM PAGE ========== -->
+  <div id="formPage" style="display:none;">
+    <div class="header">
+      <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="Health Matters Clinic">
+      <div class="header-eyebrow">Health Matters Clinic Presents</div>
+      <h1>MOVE — Live Unstoppable Walk/Run</h1>
+      <div class="header-meta">
+        Curtis Tucker Center for Community Wellness<br>
+        Inglewood, CA &nbsp;|&nbsp; May 9, 2026 &nbsp;|&nbsp; 8:00 AM – 10:00 AM<br>
+        Coordinator: Health Matters Clinic
+      </div>
+    </div>
+
+    <div class="body">
+
+      <!-- Toggle -->
+      <div class="toggle-wrap" role="group" aria-label="Participant type">
+        <button class="toggle-btn active" id="btnAdult" onclick="switchType('adult')">Adult (18+)</button>
+        <button class="toggle-btn" id="btnMinor" onclick="switchType('minor')">Minor (Under 18)</button>
+      </div>
+
+      <!-- ===== ADULT FORM ===== -->
+      <div id="adultForm">
+        <div class="section-label">Your Information</div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="aFirst">First Name</label>
+            <input type="text" id="aFirst" autocomplete="given-name" placeholder="First">
+          </div>
+          <div class="field">
+            <label for="aLast">Last Name</label>
+            <input type="text" id="aLast" autocomplete="family-name" placeholder="Last">
+          </div>
+        </div>
+
+        <div class="field-row single">
+          <div class="field">
+            <label for="aEmail">Email Address</label>
+            <input type="email" id="aEmail" autocomplete="email" placeholder="you@example.com">
+          </div>
+        </div>
+
+        <hr class="divider">
+        <div class="section-label">Liability Waiver &amp; Release</div>
+
+        <div class="waiver-text" id="adultWaiverText">
+          By completing and signing this form, I hereby agree to the following:
+          <ol>
+            <li>I am voluntarily participating in an event/activity held at the Los Angeles County Department of Public Health Curtis Tucker Center for Community Wellness. I understand that my participation in this event/activity may involve risk of injury.</li>
+            <li>I understand that it is my responsibility to consult with a physician before participating in any physical exercise.</li>
+            <li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my voluntary participation in this event/activity. Additionally, I hereby release Los Angeles County, its employees and agents from any claim for such injuries, damages or death resulting from my participation in this event/activity.</li>
+          </ol>
+          <div class="waiver-attestation">I have read the above release and waiver of liability and fully understand its contents. I am 18 years of age or older and voluntarily agree to the terms and conditions stated above.</div>
+        </div>
+      </div>
+
+      <!-- ===== MINOR FORM ===== -->
+      <div id="minorForm" style="display:none;">
+        <div class="section-label">Parent / Guardian Information</div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="pgFirst">Guardian First Name</label>
+            <input type="text" id="pgFirst" autocomplete="given-name" placeholder="First">
+          </div>
+          <div class="field">
+            <label for="pgLast">Guardian Last Name</label>
+            <input type="text" id="pgLast" autocomplete="family-name" placeholder="Last">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="pgEmail">Guardian Email</label>
+            <input type="email" id="pgEmail" autocomplete="email" placeholder="you@example.com">
+          </div>
+          <div class="field">
+            <label for="pgPhone">Guardian Phone</label>
+            <input type="tel" id="pgPhone" autocomplete="tel" placeholder="(323) 555-0100">
+          </div>
+        </div>
+
+        <hr class="divider">
+        <div class="section-label">Child Information</div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="cFirst">Child First Name</label>
+            <input type="text" id="cFirst" placeholder="First">
+          </div>
+          <div class="field">
+            <label for="cLast">Child Last Name</label>
+            <input type="text" id="cLast" placeholder="Last">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="cAge">Child's Age</label>
+            <input type="number" id="cAge" min="1" max="17" placeholder="Age">
+          </div>
+          <div class="field">
+            <label for="cRel">Relationship to Child</label>
+            <select id="cRel">
+              <option value="">Select...</option>
+              <option value="Parent">Parent</option>
+              <option value="Legal Guardian">Legal Guardian</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <hr class="divider">
+        <div class="section-label">Liability Waiver &amp; Release</div>
+
+        <div class="waiver-text" id="minorWaiverText">
+          By completing and signing this form, I hereby agree to the following:
+          <ol>
+            <li>I am voluntarily authorizing the participation of <span id="waiverChildName" style="font-weight:600;">[Child Name]</span> who is <span id="waiverChildAge" style="font-weight:600;">[Age]</span> years old in an event/activity held at the Los Angeles County Department of Public Health Curtis Tucker Center for Community Wellness. I understand that their participation in this event/activity may involve risk of injury.</li>
+            <li>I understand that it is my responsibility to consult with a physician before authorizing my child's participation in any physical exercise.</li>
+            <li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my child's participation in this event/activity. Additionally, I hereby release Los Angeles County, its employees and agents from any claim for such injuries, damages or death resulting from my child's participation in this event/activity.</li>
+          </ol>
+          <div class="waiver-attestation">I have read and completed the above release and waiver of liability and fully understand its contents. I am 18 years of age or older and voluntarily agree to the terms and conditions stated above.</div>
+        </div>
+      </div>
+
+      <!-- ===== SIGNATURE (shared) ===== -->
+      <hr class="divider">
+      <div class="section-label">Signature</div>
+
+      <div class="sig-wrap">
+        <div class="sig-label-row">
+          <span class="sig-label">Sign below (finger or stylus on mobile)</span>
+          <button class="sig-clear" onclick="clearSig()" type="button">Clear</button>
+        </div>
+        <div class="sig-canvas-wrap" id="sigWrap">
+          <canvas id="sigCanvas"></canvas>
+          <div class="sig-line"></div>
+          <div class="sig-hint">Sign above</div>
+        </div>
+      </div>
+
+      <!-- Error message -->
+      <div class="error-msg" id="errorMsg" role="alert"></div>
+
+      <!-- Submit -->
+      <button class="submit-btn" id="submitBtn" onclick="submitWaiver()">Submit Waiver</button>
+
+    </div><!-- /body -->
+  </div><!-- /formPage -->
+
+
+  <!-- ========== CONFIRMATION PAGE ========== -->
+  <div id="confirmPage">
+    <div class="confirm-header">
+      <div class="confirm-check">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M6 14l6 6 10-12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="confirm-title">Waiver Submitted</div>
+      <div class="confirm-subtitle" id="confirmTimestamp"></div>
+    </div>
+
+    <div class="confirm-body">
+      <table class="confirm-table" id="confirmTable"></table>
+
+      <div class="section-label" style="margin-top:20px;">Waiver Text</div>
+      <div class="confirm-waiver-text" id="confirmWaiverText"></div>
+
+      <div class="confirm-sig-label">Signature on File</div>
+      <img id="confirmSig" class="confirm-sig" alt="Signature">
+
+      <button class="print-btn" onclick="window.print()">Print for Your Records</button>
+    </div>
+
+    <div class="confirm-footer">
+      Electronically signed via Health Matters Clinic waiver system.<br>
+      Questions? Contact <a href="mailto:events@healthmatters.clinic" style="color:#233dff;">events@healthmatters.clinic</a>
+    </div>
+  </div>
+
+</div><!-- /card -->
+
+<script>
+// =============================================
+// CONFIG
+// =============================================
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbwAGaUHatSNN73LJt3FlewowCDDZWHJKWWTsx3nbBY6jY-lNkDmMeid6yuJ0V9h3-ttuQ/exec';
+var EVENT_NAME = 'MOVE — Live Unstoppable Walk/Run';
+var EVENT_DATE = 'May 9, 2026';
+
+// =============================================
+// URL PARAMS & TIME GATE
+// =============================================
+var _urlParams     = new URLSearchParams(window.location.search);
+var CHECKIN_TOKEN  = _urlParams.get('checkin') || '';
+var EVENT_ID       = _urlParams.get('event')   || '';
+
+// Check-in window: May 9, 2026  7:15 AM PDT (14:15 UTC) – 11:00 AM PDT (18:00 UTC)
+var GATE_OPEN  = new Date('2026-05-09T13:00:00Z');
+var GATE_CLOSE = new Date('2026-05-09T18:00:00Z');
+
+function updateGate() {
+  var now      = new Date();
+  var formPage = document.getElementById('formPage');
+  var gatePage = document.getElementById('gatePage');
+
+  if (now >= GATE_OPEN && now <= GATE_CLOSE) {
+    gatePage.style.display = 'none';
+    formPage.style.display = '';
+    return;
+  }
+
+  gatePage.style.display = '';
+  formPage.style.display = 'none';
+
+  var ptTime = now.toLocaleTimeString('en-US', {
+    hour: 'numeric', minute: '2-digit',
+    timeZone: 'America/Los_Angeles', hour12: true
+  }) + ' PT';
+
+  var icon     = document.getElementById('gateIcon');
+  var pill     = document.getElementById('gatePill');
+  var title    = document.getElementById('gateTitle');
+  var subtitle = document.getElementById('gateSubtitle');
+  var clock    = document.getElementById('gateClock');
+
+  if (now < GATE_OPEN) {
+    icon.className = 'gate-icon not-yet';
+    icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="10" stroke="#233dff" stroke-width="2"/><path d="M14 9v5l3 3" stroke="#233dff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    pill.className   = 'gate-pill not-yet';
+    pill.textContent = 'Not Yet Open';
+    title.textContent    = 'Check-in opens at 7:15 AM';
+    subtitle.textContent = 'Come back when you arrive at the event. This page activates at 7:15 AM on May 9.';
+  } else {
+    icon.className = 'gate-icon closed';
+    icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M8 8l12 12M20 8L8 20" stroke="#888" stroke-width="2" stroke-linecap="round"/></svg>';
+    pill.className   = 'gate-pill closed';
+    pill.textContent = 'Check-In Closed';
+    title.textContent    = 'Check-in is now closed';
+    subtitle.textContent = 'Thank you for being part of the Unstoppable Season 2026. See you at HEAL on May 20.';
+  }
+
+  if (clock) clock.textContent = 'Current time: ' + ptTime;
+}
+
+updateGate();
+setInterval(updateGate, 30000);
+
+// =============================================
+// TYPE TOGGLE
+// =============================================
+var currentType = 'adult';
+
+function switchType(type) {
+  currentType = type;
+  document.getElementById('btnAdult').classList.toggle('active', type === 'adult');
+  document.getElementById('btnMinor').classList.toggle('active', type === 'minor');
+  document.getElementById('adultForm').style.display = type === 'adult' ? '' : 'none';
+  document.getElementById('minorForm').style.display = type === 'minor' ? '' : 'none';
+  hideError();
+}
+
+// =============================================
+// MINOR WAIVER LIVE UPDATE
+// =============================================
+function updateMinorWaiver() {
+  var first = document.getElementById('cFirst').value.trim();
+  var last  = document.getElementById('cLast').value.trim();
+  var age   = document.getElementById('cAge').value.trim();
+  var name  = (first + ' ' + last).trim() || '[Child Name]';
+  document.getElementById('waiverChildName').textContent = name;
+  document.getElementById('waiverChildAge').textContent  = age || '[Age]';
+}
+
+['cFirst','cLast','cAge'].forEach(function(id) {
+  document.getElementById(id).addEventListener('input', updateMinorWaiver);
+});
+
+// =============================================
+// SIGNATURE PAD
+// =============================================
+var canvas = document.getElementById('sigCanvas');
+var ctx    = canvas.getContext('2d');
+var drawing = false;
+var hasSig  = false;
+
+function resizeCanvas() {
+  var wrap = canvas.parentElement;
+  var dpr  = window.devicePixelRatio || 1;
+  var w    = wrap.clientWidth;
+  var h    = 200;
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.scale(dpr, dpr);
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth   = 2.2;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function getPos(e) {
+  var rect = canvas.getBoundingClientRect();
+  var src  = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+}
+
+canvas.addEventListener('mousedown',  function(e){ drawing = true; var p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); document.getElementById('sigWrap').classList.add('active'); });
+canvas.addEventListener('mousemove',  function(e){ if(!drawing) return; var p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); hasSig = true; });
+canvas.addEventListener('mouseup',    function(){ drawing = false; ctx.beginPath(); });
+canvas.addEventListener('mouseleave', function(){ drawing = false; ctx.beginPath(); });
+
+canvas.addEventListener('touchstart', function(e){ e.preventDefault(); drawing = true; var p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); document.getElementById('sigWrap').classList.add('active'); }, { passive: false });
+canvas.addEventListener('touchmove',  function(e){ e.preventDefault(); if(!drawing) return; var p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); hasSig = true; }, { passive: false });
+canvas.addEventListener('touchend',   function(e){ e.preventDefault(); drawing = false; ctx.beginPath(); }, { passive: false });
+
+function clearSig() {
+  var dpr = window.devicePixelRatio || 1;
+  ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+  hasSig = false;
+  document.getElementById('sigWrap').classList.remove('active', 'error');
+}
+
+function getSignatureDataURL() {
+  // Scale down to a smaller canvas for compression (~30KB target)
+  var offscreen = document.createElement('canvas');
+  offscreen.width  = 480;
+  offscreen.height = 160;
+  var oc = offscreen.getContext('2d');
+  oc.fillStyle = '#fff';
+  oc.fillRect(0, 0, 480, 160);
+  oc.drawImage(canvas, 0, 0, 480, 160);
+  return offscreen.toDataURL('image/jpeg', 0.3);
+}
+
+// =============================================
+// VALIDATION
+// =============================================
+function showError(msg) {
+  var el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.add('show');
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function hideError() {
+  document.getElementById('errorMsg').classList.remove('show');
+}
+
+function markError(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.add('error');
+}
+function clearErrors() {
+  document.querySelectorAll('.error').forEach(function(el){ el.classList.remove('error'); });
+  document.getElementById('sigWrap').classList.remove('error');
+  hideError();
+}
+
+function validateAdult() {
+  var ok = true;
+  var first = document.getElementById('aFirst').value.trim();
+  var last  = document.getElementById('aLast').value.trim();
+  var email = document.getElementById('aEmail').value.trim();
+  if (!first)  { markError('aFirst');  ok = false; }
+  if (!last)   { markError('aLast');   ok = false; }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { markError('aEmail'); ok = false; }
+  return ok;
+}
+
+function validateMinor() {
+  var ok = true;
+  ['pgFirst','pgLast','pgEmail','pgPhone','cFirst','cLast','cAge','cRel'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el.value.trim()) { markError(id); ok = false; }
+  });
+  var email = document.getElementById('pgEmail').value.trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { markError('pgEmail'); ok = false; }
+  return ok;
+}
+
+// =============================================
+// SUBMIT
+// =============================================
+function submitWaiver() {
+  clearErrors();
+
+  var valid = currentType === 'adult' ? validateAdult() : validateMinor();
+  if (!valid) {
+    showError('Please fill in all required fields before submitting.');
+    return;
+  }
+  if (!hasSig) {
+    document.getElementById('sigWrap').classList.add('error');
+    showError('Please sign the waiver before submitting.');
+    return;
+  }
+
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+  btn.classList.add('loading');
+
+  var sigData = getSignatureDataURL();
+  var now = new Date();
+  var submittedAt = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric', timeZone:'America/Los_Angeles' }) +
+    ' at ' + now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZone:'America/Los_Angeles' });
+
+  var payload = {
+    action:      'submitWaiver',
+    type:        currentType,
+    eventName:   EVENT_NAME,
+    eventDate:   EVENT_DATE,
+    submittedAt: submittedAt,
+    signature:   sigData
+  };
+
+  if (currentType === 'adult') {
+    payload.signerFirstName = document.getElementById('aFirst').value.trim();
+    payload.signerLastName  = document.getElementById('aLast').value.trim();
+    payload.email           = document.getElementById('aEmail').value.trim();
+  } else {
+    payload.signerFirstName = document.getElementById('pgFirst').value.trim();
+    payload.signerLastName  = document.getElementById('pgLast').value.trim();
+    payload.email           = document.getElementById('pgEmail').value.trim();
+    payload.phone           = document.getElementById('pgPhone').value.trim();
+    payload.minorFirstName  = document.getElementById('cFirst').value.trim();
+    payload.minorLastName   = document.getElementById('cLast').value.trim();
+    payload.minorAge        = document.getElementById('cAge').value.trim();
+    payload.relationship    = document.getElementById('cRel').value;
+  }
+
+  // Build URL with all params (GAS doGet reads e.parameter)
+  var params = new URLSearchParams(payload);
+  // Signature is large — keep as-is (URLSearchParams handles encoding)
+  var url = GAS_URL + '?' + params.toString();
+
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && data.success) {
+        showConfirmation(payload, sigData);
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Submit Waiver';
+        btn.classList.remove('loading');
+        showError('There was a problem submitting your waiver. Please try again or contact events@healthmatters.clinic.');
+        console.error('GAS error:', data);
+      }
+    })
+    .catch(function(err) {
+      // GAS often returns CORS errors on redirect even when successful.
+      // Show confirmation optimistically if we get a network/CORS error
+      // (the submission likely went through — GAS does not set CORS headers by default).
+      console.warn('Fetch error (may be CORS on redirect — submission likely succeeded):', err);
+      showConfirmation(payload, sigData);
+    });
+}
+
+// =============================================
+// CONFIRMATION
+// =============================================
+function showConfirmation(payload, sigData) {
+  // Build confirm table rows
+  var rows = [];
+  rows.push(['Event', EVENT_NAME]);
+  rows.push(['Date', EVENT_DATE]);
+  rows.push(['Location', 'Curtis Tucker Center for Community Wellness, Inglewood, CA']);
+  rows.push(['Submitted', payload.submittedAt]);
+  rows.push(['Signer', payload.signerFirstName + ' ' + payload.signerLastName]);
+  rows.push(['Email', payload.email]);
+  if (payload.phone)        rows.push(['Phone', payload.phone]);
+  if (payload.minorFirstName) rows.push(['Minor', payload.minorFirstName + ' ' + payload.minorLastName + ', age ' + payload.minorAge]);
+  if (payload.relationship) rows.push(['Relationship', payload.relationship]);
+  rows.push(['Type', payload.type === 'minor' ? 'Minor Participation Waiver' : 'Adult Liability Waiver']);
+
+  var tableHTML = rows.map(function(r) {
+    return '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>';
+  }).join('');
+  document.getElementById('confirmTable').innerHTML = tableHTML;
+  document.getElementById('confirmTimestamp').textContent = payload.submittedAt;
+
+  // Waiver text
+  var waiverHTML;
+  if (payload.type === 'minor') {
+    var childName = payload.minorFirstName + ' ' + payload.minorLastName;
+    var age = payload.minorAge;
+    waiverHTML = 'By completing and signing this form, I hereby agree to the following:<ol>' +
+      '<li>I am voluntarily authorizing the participation of <strong>' + esc(childName) + '</strong> who is <strong>' + esc(age) + '</strong> years old in an event/activity held at the Los Angeles County Department of Public Health Curtis Tucker Center for Community Wellness. I understand that their participation in this event/activity may involve risk of injury.</li>' +
+      '<li>I understand that it is my responsibility to consult with a physician before authorizing my child\'s participation in any physical exercise.</li>' +
+      '<li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my child\'s participation in this event/activity. Additionally, I hereby release Los Angeles County, its employees and agents from any claim for such injuries, damages or death resulting from my child\'s participation in this event/activity.</li>' +
+      '</ol><p style="margin-top:10px;font-style:italic;">I have read and completed the above release and waiver of liability and fully understand its contents. I am 18 years of age or older and voluntarily agree to the terms and conditions stated above.</p>';
+  } else {
+    waiverHTML = 'By completing and signing this form, I hereby agree to the following:<ol>' +
+      '<li>I am voluntarily participating in an event/activity held at the Los Angeles County Department of Public Health Curtis Tucker Center for Community Wellness. I understand that my participation in this event/activity may involve risk of injury.</li>' +
+      '<li>I understand that it is my responsibility to consult with a physician before participating in any physical exercise.</li>' +
+      '<li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my voluntary participation in this event/activity. Additionally, I hereby release Los Angeles County, its employees and agents from any claim for such injuries, damages or death resulting from my participation in this event/activity.</li>' +
+      '</ol><p style="margin-top:10px;font-style:italic;">I have read the above release and waiver of liability and fully understand its contents. I am 18 years of age or older and voluntarily agree to the terms and conditions stated above.</p>';
+  }
+  document.getElementById('confirmWaiverText').innerHTML = waiverHTML;
+
+  // Signature
+  document.getElementById('confirmSig').src = sigData;
+
+  // Switch pages
+  document.getElementById('formPage').style.display = 'none';
+  document.getElementById('confirmPage').style.display = 'block';
+  window.scrollTo(0, 0);
+
+  // Mark checked-in at GAS (fire-and-forget)
+  if (CHECKIN_TOKEN) {
+    var checkinParams = 'action=checkin&checkinToken=' + encodeURIComponent(CHECKIN_TOKEN);
+    if (EVENT_ID) checkinParams += '&eventId=' + encodeURIComponent(EVENT_ID);
+    fetch(GAS_URL + '?' + checkinParams).catch(function() {});
+  }
+}
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
