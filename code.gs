@@ -267,6 +267,7 @@ function doGet(e) {
   // ===== WAIVER SUBMISSION =====
   if (action === 'submitWaiver') {
     try {
+      // Cache spreadsheet reference once
       var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
       var wSheet = ss.getSheetByName('Waivers');
       if (!wSheet) {
@@ -277,9 +278,25 @@ function doGet(e) {
       var minorName = p.minorFirstName ? ((p.minorFirstName || '') + ' ' + (p.minorLastName || '')) : '';
       var ts = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
 
-      // Save signature PNG to Google Drive
+      // STEP 1: Write sheet row immediately — this is the record of truth.
+      // Drive URL placeholder; will be updated below if Drive save succeeds.
+      wSheet.appendRow([
+        ts, p.type || 'adult', p.eventName || 'MOVE — Live Unstoppable Walk/Run',
+        p.eventDate || 'May 9, 2026', signerName.trim(), p.email || '', p.phone || '',
+        minorName.trim(), p.minorAge || '', p.relationship || '', p.submittedAt || ts, 'pending'
+      ]);
+
+      // STEP 2: Build response immediately after the sheet write so GAS can
+      // return success as soon as possible. Drive save happens after this.
+      var response = ContentService.createTextOutput(JSON.stringify({ success: true }))
+        .setMimeType(ContentService.MimeType.JSON);
+
+      // STEP 3: Save signature PNG to Google Drive — skipped if payload > 500KB
+      // to prevent OOM/timeout under event load.
       var driveUrl = '';
-      if (p.signature && p.signature.indexOf('data:image/') === 0) {
+      var SIG_SIZE_LIMIT = 500 * 1024; // 500KB in characters (base64 chars ~ bytes)
+      if (p.signature && p.signature.indexOf('data:image/') === 0 &&
+          p.signature.length <= SIG_SIZE_LIMIT) {
         try {
           var base64Data = p.signature.split(',')[1];
           var mimeType = p.signature.split(';')[0].split(':')[1] || 'image/jpeg';
@@ -297,55 +314,21 @@ function doGet(e) {
           driveUrl = file.getUrl();
         } catch(driveErr) {
           Logger.log('Drive save error: ' + driveErr);
+          driveUrl = 'drive-save-error';
         }
+      } else if (p.signature && p.signature.length > SIG_SIZE_LIMIT) {
+        Logger.log('Signature skipped — payload too large: ' + p.signature.length + ' chars');
+        driveUrl = 'signature-skipped-size';
       }
 
-      wSheet.appendRow([
-        ts, p.type || 'adult', p.eventName || 'MOVE — Live Unstoppable Walk/Run',
-        p.eventDate || 'May 9, 2026', signerName.trim(), p.email || '', p.phone || '',
-        minorName.trim(), p.minorAge || '', p.relationship || '', p.submittedAt || ts, driveUrl
-      ]);
+      // Update the Drive URL cell in the row we just appended
+      var lastRow = wSheet.getLastRow();
+      wSheet.getRange(lastRow, 12).setValue(driveUrl || 'no-signature');
 
-      function escW(s) {
-        return String(s || '')
-          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      }
+      // Confirmation email removed — reminder already sent; GmailApp.sendEmail
+      // under 500-user load would hit quota and add latency to every request.
 
-      var waiverType = p.type === 'minor' ? 'Minor Participation' : 'Adult';
-      var sigImgHtml = p.signature
-        ? '<p style="font-size:13px;color:#555;margin:0 0 8px;">Signature:</p><img src="' + p.signature + '" style="border:1px solid #ddd;border-radius:4px;max-width:300px;" alt="Signature"/>'
-        : '';
-      var driveLinkHtml = driveUrl
-        ? '<p style="margin:12px 0 0;font-size:13px;"><a href="' + driveUrl + '" style="color:#233dff;">View signature in Google Drive</a></p>'
-        : '';
-
-      var emailHtml =
-        '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">' +
-        '<p style="font-size:12px;color:#999;text-transform:uppercase;letter-spacing:.1em;margin:0 0 4px;">Health Matters Clinic</p>' +
-        '<h2 style="margin:0 0 16px;color:#111;">Signed Waiver — ' + waiverType + '</h2>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px;">' +
-        '<tr><td style="padding:6px 0;color:#555;width:140px;">Event:</td><td>' + escW(p.eventName || 'MOVE') + '</td></tr>' +
-        '<tr><td style="padding:6px 0;color:#555;">Date:</td><td>' + escW(p.eventDate || 'May 9, 2026') + '</td></tr>' +
-        '<tr><td style="padding:6px 0;color:#555;">Signer:</td><td>' + escW(signerName.trim()) + '</td></tr>' +
-        '<tr><td style="padding:6px 0;color:#555;">Email:</td><td>' + escW(p.email || '') + '</td></tr>' +
-        (p.phone ? '<tr><td style="padding:6px 0;color:#555;">Phone:</td><td>' + escW(p.phone) + '</td></tr>' : '') +
-        (minorName ? '<tr><td style="padding:6px 0;color:#555;">Minor:</td><td>' + escW(minorName.trim()) + ', age ' + escW(p.minorAge || '') + '</td></tr>' : '') +
-        (p.relationship ? '<tr><td style="padding:6px 0;color:#555;">Relationship:</td><td>' + escW(p.relationship) + '</td></tr>' : '') +
-        '<tr><td style="padding:6px 0;color:#555;">Submitted:</td><td>' + escW(p.submittedAt || ts) + '</td></tr>' +
-        '</table>' +
-        sigImgHtml + driveLinkHtml +
-        '<hr style="margin:20px 0;border:none;border-top:1px solid #eee;">' +
-        '<p style="font-size:11px;color:#999;">Electronically signed via HMC Event Finder waiver page.</p>' +
-        '</div>';
-
-      GmailApp.sendEmail('events@healthmatters.clinic',
-        waiverType + ' Waiver — ' + signerName.trim() + ' — MOVE May 9',
-        'Waiver submitted by ' + signerName.trim() + ' (' + (p.email || 'no email') + ') on ' + ts,
-        { htmlBody: emailHtml, name: 'HMC Event Waivers', replyTo: 'events@healthmatters.clinic' }
-      );
-
-      return ContentService.createTextOutput(JSON.stringify({ success: true, driveUrl: driveUrl }))
-        .setMimeType(ContentService.MimeType.JSON);
+      return response;
     } catch(wErr) {
       Logger.log('Waiver error: ' + wErr);
       return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(wErr) }))
