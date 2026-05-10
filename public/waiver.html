@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>MOVE — Live Unstoppable Walk/Run | Liability Waiver</title>
+<title>MOVE: Live Unstoppable Walk/Run | Liability Waiver</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -503,7 +503,7 @@
     <div class="header">
       <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="Health Matters Clinic">
       <div class="header-eyebrow">Health Matters Clinic Presents</div>
-      <h1>MOVE — Live Unstoppable Walk/Run</h1>
+      <h1>MOVE: Live Unstoppable Walk/Run</h1>
       <div class="header-meta">Curtis Tucker Center for Community Wellness<br>Inglewood, CA &nbsp;|&nbsp; May 9, 2026 &nbsp;|&nbsp; 8:00 AM</div>
     </div>
     <div class="gate-body">
@@ -525,7 +525,7 @@
     <div class="header">
       <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="Health Matters Clinic">
       <div class="header-eyebrow">Health Matters Clinic Presents</div>
-      <h1>MOVE — Live Unstoppable Walk/Run</h1>
+      <h1>MOVE: Live Unstoppable Walk/Run</h1>
       <div class="header-meta">
         Curtis Tucker Center for Community Wellness<br>
         Inglewood, CA &nbsp;|&nbsp; May 9, 2026 &nbsp;|&nbsp; 8:00 AM – 10:00 AM<br>
@@ -710,8 +710,8 @@
 // =============================================
 // CONFIG
 // =============================================
-var GAS_URL = 'https://script.google.com/macros/s/AKfycbwAGaUHatSNN73LJt3FlewowCDDZWHJKWWTsx3nbBY6jY-lNkDmMeid6yuJ0V9h3-ttuQ/exec';
-var EVENT_NAME = 'MOVE — Live Unstoppable Walk/Run';
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbz5vZVE7f124Wowhtg6f7b1XBy1YV-uu6qPZeSMipBBUoM1MwxhXfT0wIJZeXlSVyfuMg/exec';
+var EVENT_NAME = 'MOVE: Live Unstoppable Walk/Run';
 var EVENT_DATE = 'May 9, 2026';
 
 // =============================================
@@ -720,6 +720,23 @@ var EVENT_DATE = 'May 9, 2026';
 var _urlParams     = new URLSearchParams(window.location.search);
 var CHECKIN_TOKEN  = _urlParams.get('checkin') || '';
 var EVENT_ID       = _urlParams.get('event')   || '';
+
+// Events that skip the waiver and go straight to check-in
+var NO_WAIVER_EVENTS = ['event-1773943614235'];
+
+if (NO_WAIVER_EVENTS.indexOf(EVENT_ID) !== -1 && CHECKIN_TOKEN) {
+  // Fire check-in and show confirmation immediately, no waiver needed
+  fetch(GAS_URL + '?action=checkin&checkinToken=' + encodeURIComponent(CHECKIN_TOKEN))
+    .catch(function() {});
+  document.addEventListener('DOMContentLoaded', function() {
+    var formPage    = document.getElementById('formPage');
+    var gatePage    = document.getElementById('gatePage');
+    var confirmPage = document.getElementById('confirmPage');
+    if (formPage)    formPage.style.display    = 'none';
+    if (gatePage)    gatePage.style.display    = 'none';
+    if (confirmPage) confirmPage.style.display = '';
+  });
+}
 
 // Check-in window: May 9, 2026  7:15 AM PDT (14:15 UTC) – 11:00 AM PDT (18:00 UTC)
 var GATE_OPEN  = new Date('2026-05-09T13:00:00Z');

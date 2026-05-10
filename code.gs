@@ -3,7 +3,7 @@
 // ========================================
 const CONFIG = {
   SPREADSHEET_ID: '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM',
-  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwAGaUHatSNN73LJt3FlewowCDDZWHJKWWTsx3nbBY6jY-lNkDmMeid6yuJ0V9h3-ttuQ/exec',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbz5vZVE7f124Wowhtg6f7b1XBy1YV-uu6qPZeSMipBBUoM1MwxhXfT0wIJZeXlSVyfuMg/exec',
   ADMIN_EMAIL: 'admin@healthmatters.clinic',
   CC_EMAILS: 'events@healthmatters.clinic',
   LOGO_URL: 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
@@ -281,7 +281,7 @@ function doGet(e) {
       // STEP 1: Write sheet row immediately — this is the record of truth.
       // Drive URL placeholder; will be updated below if Drive save succeeds.
       wSheet.appendRow([
-        ts, p.type || 'adult', p.eventName || 'MOVE — Live Unstoppable Walk/Run',
+        ts, p.type || 'adult', p.eventName || 'MOVE: Live Unstoppable Walk/Run',
         p.eventDate || 'May 9, 2026', signerName.trim(), p.email || '', p.phone || '',
         minorName.trim(), p.minorAge || '', p.relationship || '', p.submittedAt || ts, 'pending'
       ]);
@@ -902,13 +902,13 @@ function handleRSVP(payload) {
       var minorNameMatch = rowIsMinor === 'Yes' && rowMinorName === (payload.minorName || '').toLowerCase().trim();
       if ((emailMatch || phoneMatch) && minorNameMatch) {
         // Duplicate minor — resend confirmation with existing token
-        if (payload.email) sendRSVPConfirmationEmail(payload, data[i][14]);
+        try { if (payload.email) sendRSVPConfirmationEmail(payload, data[i][14]); } catch(e) {}
         return { success: true, duplicate: true, checkinToken: data[i][14] };
       }
     } else {
       if (emailMatch || phoneMatch) {
         // Duplicate non-minor — resend confirmation with existing token
-        if (payload.email) sendRSVPConfirmationEmail(payload, data[i][14]);
+        try { if (payload.email) sendRSVPConfirmationEmail(payload, data[i][14]); } catch(e) {}
         return { success: true, duplicate: true, checkinToken: data[i][14] };
       }
     }
@@ -941,16 +941,108 @@ function handleRSVP(payload) {
     payload.accessibilityNeeds || ''
   ]);
 
-  if (payload.email) {
-    sendRSVPConfirmationEmail(payload, checkinToken);
+  SpreadsheetApp.flush();
+
+  try {
+    if (payload.email) sendRSVPConfirmationEmail(payload, checkinToken);
+  } catch(emailErr) {
+    Logger.log('Confirmation email failed (quota?): ' + emailErr);
   }
 
-  // Route accessibility needs to event coordinator
-  if (payload.accessibilityNeeds && payload.accessibilityNeeds.trim()) {
-    sendAccessibilityAlert(payload);
+  try {
+    if (payload.accessibilityNeeds && payload.accessibilityNeeds.trim()) sendAccessibilityAlert(payload);
+  } catch(accErr) {
+    Logger.log('Accessibility alert failed: ' + accErr);
+  }
+
+  try {
+    if (payload.email && needsStr.toLowerCase().indexOf('volunteer') !== -1) {
+      sendVolunteerInterestEmail(payload);
+    }
+  } catch(volErr) {
+    Logger.log('Volunteer interest email failed: ' + volErr);
+  }
+
+  try {
+    if (payload.email && needsStr.toLowerCase().indexOf('resources') !== -1) {
+      sendResourcesEmail(payload);
+    }
+  } catch(resErr) {
+    Logger.log('Resources email failed: ' + resErr);
   }
 
   return { success: true, checkinToken: checkinToken };
+}
+
+function sendVolunteerInterestEmail(payload) {
+  var firstName = (payload.name || '').split(' ')[0] || 'there';
+  var html =
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+    '<div style="max-width:580px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1);border:1px solid #e5e5e5;">' +
+    '<div style="background:#233dff;color:white;padding:24px;text-align:center;">' +
+    '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;background:white;padding:4px;">' +
+    '<h1 style="margin:0;font-size:20px;font-weight:700;">Health Matters Clinic</h1>' +
+    '</div>' +
+    '<div style="padding:32px;">' +
+    '<p style="font-size:17px;font-weight:600;color:#111;margin:0 0 12px;">Hi ' + firstName + ', thanks for your interest in volunteering.</p>' +
+    '<p style="font-size:15px;color:#444;line-height:1.65;margin:0 0 24px;">We saw that you want to get involved. We would love to have you. Our volunteer portal is where you can learn about open roles, view upcoming events, and sign up to help.</p>' +
+    '<div style="text-align:center;margin:0 0 28px;">' +
+    '<a href="https://volunteer.healthmatters.clinic/tour" style="display:inline-block;background:#233dff;color:#fff;padding:15px 48px;border-radius:30px;text-decoration:none;font-weight:700;font-size:15px;">Learn How to Get Involved</a>' +
+    '</div>' +
+    '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 6px;">Questions? Reply to this email. We read every one.</p>' +
+    '<p style="font-size:14px;color:#555;margin:0 0 28px;">— Health Matters Clinic</p>' +
+    '<p style="font-size:12px;color:#bbb;border-top:1px solid #eee;padding-top:20px;margin:0;">In crisis? Call or text <strong>988</strong>.</p>' +
+    '</div></div></body></html>';
+
+  var plain =
+    'Hi ' + firstName + ',\n\n' +
+    'Thanks for your interest in volunteering with Health Matters Clinic.\n\n' +
+    'Visit our volunteer portal to learn about open roles and how to get involved:\n\n' +
+    'https://volunteer.healthmatters.clinic/tour\n\n' +
+    'Questions? Reply to this email.\n' +
+    '— Health Matters Clinic\n\nIn crisis? Call or text 988';
+
+  GmailApp.sendEmail(payload.email, 'Thanks for your interest in volunteering with Health Matters Clinic', plain, {
+    htmlBody: html,
+    name: 'Health Matters Clinic',
+    replyTo: 'volunteer@healthmatters.clinic'
+  });
+}
+
+function sendResourcesEmail(payload) {
+  var firstName = (payload.name || '').split(' ')[0] || 'there';
+  var html =
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+    '<div style="max-width:580px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1);border:1px solid #e5e5e5;">' +
+    '<div style="background:#233dff;color:white;padding:24px;text-align:center;">' +
+    '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;background:white;padding:4px;">' +
+    '<h1 style="margin:0;font-size:20px;font-weight:700;">Health Matters Clinic</h1>' +
+    '</div>' +
+    '<div style="padding:32px;">' +
+    '<p style="font-size:17px;font-weight:600;color:#111;margin:0 0 12px;">Hi ' + firstName + ', here are resources for you.</p>' +
+    '<p style="font-size:15px;color:#444;line-height:1.65;margin:0 0 24px;">Health Matters Clinic connects community members to mental health screenings, housing support, and other resources, all free and in your neighborhood.</p>' +
+    '<div style="text-align:center;margin:0 0 28px;">' +
+    '<a href="https://www.healthmatters.clinic/resources" style="display:inline-block;background:#233dff;color:#fff;padding:15px 48px;border-radius:30px;text-decoration:none;font-weight:700;font-size:15px;">View Resources</a>' +
+    '</div>' +
+    '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 6px;">Questions? Reply to this email. We are here to help.</p>' +
+    '<p style="font-size:14px;color:#555;margin:0 0 28px;">— Health Matters Clinic</p>' +
+    '<p style="font-size:12px;color:#bbb;border-top:1px solid #eee;padding-top:20px;margin:0;">In crisis? Call or text <strong>988</strong>.</p>' +
+    '</div></div></body></html>';
+
+  var plain =
+    'Hi ' + firstName + ',\n\n' +
+    'Health Matters Clinic connects community members to mental health screenings, housing support, and other free resources.\n\n' +
+    'View available resources:\nhttps://www.healthmatters.clinic/resources\n\n' +
+    'Questions? Reply to this email.\n' +
+    '— Health Matters Clinic\n\nIn crisis? Call or text 988';
+
+  GmailApp.sendEmail(payload.email, 'Resources from Health Matters Clinic', plain, {
+    htmlBody: html,
+    name: 'Health Matters Clinic',
+    replyTo: 'contact@healthmatters.clinic'
+  });
 }
 
 // ========================================
@@ -2021,4 +2113,191 @@ function restoreOriginalEvents() {
 
   Logger.log('=== RESTORED ' + events.length + ' ORIGINAL EVENTS ===');
   Logger.log('Events restored successfully!');
+}
+
+
+// ========================================
+// TESTING FUNCTIONS
+// Run any of these from the Apps Script editor dropdown → Run
+// All tests send to erica@healthmatters.clinic and use a TEST_ prefix
+// so real data is never affected. Run cleanupTestData() after testing.
+// ========================================
+
+var TEST_EMAIL   = 'erica@healthmatters.clinic';
+var TEST_EVENT   = 'event-1772063101013';
+var TEST_PREFIX  = 'TEST_';
+
+// Master runner — runs all tests in sequence and logs a summary
+function runAllTests() {
+  Logger.log('========== RUNNING ALL TESTS ==========');
+  var results = [];
+  results.push(runTest('Sheet write',        testSheetWrite));
+  results.push(runTest('RSVP flow',          testRSVPFlow));
+  results.push(runTest('Duplicate guard',    testDuplicateGuard));
+  results.push(runTest('Volunteer email',    testVolunteerEmail));
+  results.push(runTest('Resources email',    testResourcesEmail));
+  results.push(runTest('Confirmation email', testConfirmationEmail));
+  results.push(runTest('Checkin',            testCheckin));
+  results.push(runTest('Get events',         testGetEvents));
+  results.push(runTest('Sheet quota',        testSheetQuota));
+
+  var passed = results.filter(function(r) { return r; }).length;
+  Logger.log('========== ' + passed + '/' + results.length + ' PASSED ==========');
+  Logger.log('Run cleanupTestData() to remove test rows from the sheet.');
+}
+
+function runTest(name, fn) {
+  try {
+    fn();
+    Logger.log('[PASS] ' + name);
+    return true;
+  } catch(e) {
+    Logger.log('[FAIL] ' + name + ': ' + e);
+    return false;
+  }
+}
+
+// ---- Individual tests ----
+
+// 1. Direct sheet write — verifies Spreadsheet access and appendRow work
+function testSheetWrite() {
+  var ss    = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('RSVPs');
+  if (!sheet) throw new Error('RSVPs sheet not found');
+  var before = sheet.getLastRow();
+  sheet.appendRow([
+    TEST_PREFIX + 'direct-write',
+    TEST_EVENT, 'TEST EVENT', 'Saturday, May 9, 2026',
+    TEST_PREFIX + 'DirectWrite', TEST_EMAIL, '4049046355',
+    'email', 'No', 'No', '', '', 'en', 'test', 'test-token-direct', 'test', '', '', '', ''
+  ]);
+  SpreadsheetApp.flush();
+  if (sheet.getLastRow() <= before) throw new Error('Row count did not increase');
+}
+
+// 2. Full RSVP flow through handleRSVP()
+function testRSVPFlow() {
+  var payload = {
+    eventId:    TEST_EVENT,
+    eventTitle: 'TEST Live Unstoppable',
+    eventDate:  'Saturday, May 9, 2026',
+    name:       TEST_PREFIX + 'RSVPFlow User',
+    email:      TEST_EMAIL,
+    phone:      '4049046355',
+    contact_method: 'email',
+    sms_consent: false,
+    isMinor:    false,
+    minorName:  '',
+    needs:      '',
+    lang:       'en',
+    source:     'test',
+    guests:     0,
+    tshirtSize: '',
+    accessibilityNeeds: ''
+  };
+  var result = handleRSVP(payload);
+  if (!result.success) throw new Error('handleRSVP returned success=false');
+  if (!result.checkinToken && !result.duplicate) throw new Error('No checkinToken returned');
+  Logger.log('  token: ' + (result.checkinToken || 'duplicate'));
+}
+
+// 3. Duplicate guard — second RSVP with same email should return duplicate=true
+function testDuplicateGuard() {
+  var payload = {
+    eventId:    TEST_EVENT,
+    eventTitle: 'TEST Live Unstoppable',
+    eventDate:  'Saturday, May 9, 2026',
+    name:       TEST_PREFIX + 'RSVPFlow User',
+    email:      TEST_EMAIL,
+    phone:      '4049046355',
+    contact_method: 'email',
+    sms_consent: false, isMinor: false, minorName: '',
+    needs: '', lang: 'en', source: 'test', guests: 0, tshirtSize: '', accessibilityNeeds: ''
+  };
+  var result = handleRSVP(payload);
+  if (!result.duplicate) throw new Error('Expected duplicate=true for repeat RSVP');
+}
+
+// 4. Volunteer interest email
+function testVolunteerEmail() {
+  sendVolunteerInterestEmail({ name: TEST_PREFIX + 'Volunteer', email: TEST_EMAIL });
+  Logger.log('  Volunteer email sent to ' + TEST_EMAIL);
+}
+
+// 5. Resources email
+function testResourcesEmail() {
+  sendResourcesEmail({ name: TEST_PREFIX + 'Resources', email: TEST_EMAIL });
+  Logger.log('  Resources email sent to ' + TEST_EMAIL);
+}
+
+// 6. RSVP confirmation email
+function testConfirmationEmail() {
+  var payload = {
+    name: TEST_PREFIX + 'Confirmation',
+    email: TEST_EMAIL,
+    eventTitle: 'TEST Live Unstoppable',
+    eventDate: 'Saturday, May 9, 2026',
+    eventId: TEST_EVENT
+  };
+  sendRSVPConfirmationEmail(payload, 'test-checkin-token-000');
+  Logger.log('  Confirmation email sent to ' + TEST_EMAIL);
+}
+
+// 7. Check-in — marks a test token as checked in
+function testCheckin() {
+  var ss    = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('RSVPs');
+  if (!sheet) throw new Error('RSVPs sheet not found');
+  var data  = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][14]) === 'test-token-direct') {
+      var checkin = handleCheckinByToken('test-token-direct');
+      if (!checkin.success) throw new Error('handleCheckinByToken failed: ' + JSON.stringify(checkin));
+      Logger.log('  Checked in row ' + (i + 1));
+      return;
+    }
+  }
+  Logger.log('  No test-token-direct row found — run testSheetWrite first');
+}
+
+// 8. getEvents — verifies event data loads from the sheet
+function testGetEvents() {
+  var events = getEvents();
+  if (!events || !events.events) throw new Error('getEvents returned no events object');
+  Logger.log('  ' + events.events.length + ' event(s) loaded');
+}
+
+// 9. Sheet quota — writes 5 rows rapidly to confirm no quota errors
+function testSheetQuota() {
+  var ss    = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('RSVPs');
+  if (!sheet) throw new Error('RSVPs sheet not found');
+  for (var i = 0; i < 5; i++) {
+    sheet.appendRow([
+      TEST_PREFIX + 'quota-' + i,
+      TEST_EVENT, 'TEST', 'Saturday, May 9, 2026',
+      TEST_PREFIX + 'QuotaTest' + i, TEST_EMAIL, '4049046355',
+      'email', 'No', 'No', '', '', 'en', 'test', 'test-token-quota-' + i, 'test', '', '', '', ''
+    ]);
+  }
+  SpreadsheetApp.flush();
+  Logger.log('  5 rapid rows written successfully');
+}
+
+// Removes all rows from the RSVPs sheet that start with TEST_ in col A or col E
+function cleanupTestData() {
+  var ss    = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('RSVPs');
+  if (!sheet || sheet.getLastRow() < 2) { Logger.log('Nothing to clean up.'); return; }
+  var data    = sheet.getDataRange().getValues();
+  var toDelete = [];
+  for (var i = data.length - 1; i >= 1; i--) {
+    var col0 = String(data[i][0]);
+    var col4 = String(data[i][4]);
+    if (col0.indexOf(TEST_PREFIX) === 0 || col4.indexOf(TEST_PREFIX) === 0) {
+      toDelete.push(i + 1);
+    }
+  }
+  toDelete.forEach(function(row) { sheet.deleteRow(row); });
+  Logger.log('Cleaned up ' + toDelete.length + ' test row(s).');
 }

@@ -44,7 +44,7 @@ function sendMOVEReminder() {
     var checkinUrl = WAIVER_BASE_URL + '?checkin=' + encodeURIComponent(token) +
                      (eventId ? '&event=' + encodeURIComponent(eventId) : '');
 
-    var subject = 'Today is Live Unstoppable — Issa Rae + Spencer Paysinger · Check In Here';
+    var subject = 'Today is Live Unstoppable: Issa Rae + Spencer Paysinger';
 
     var html =
       '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
@@ -61,7 +61,7 @@ function sendMOVEReminder() {
       // Body
       '<div style="padding:32px;">' +
       '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 6px;">Hi ' + firstName + ',</p>' +
-      '<p style="color:#444;font-size:15px;line-height:1.65;margin:0 0 28px;">Today is Live Unstoppable — and you are on the list.</p>' +
+      '<p style="color:#444;font-size:15px;line-height:1.65;margin:0 0 28px;">Today is Live Unstoppable. You are on the list.</p>' +
 
       // Guests callout
       '<div style="background:#f0f4ff;border:1.5px solid rgba(35,61,255,.18);border-radius:12px;padding:20px 24px;margin:0 0 28px;">' +
@@ -79,7 +79,7 @@ function sendMOVEReminder() {
 
       // Series
       '<div style="border-left:3px solid #233dff;padding:12px 0 12px 18px;margin:0 0 28px;">' +
-      '<p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#233dff;text-transform:uppercase;letter-spacing:.08em;">The full series — all free</p>' +
+      '<p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#233dff;text-transform:uppercase;letter-spacing:.08em;">The full series, all free</p>' +
       '<p style="margin:4px 0;font-size:14px;color:#111;">Live Unstoppable &nbsp;&middot;&nbsp; May 9 &nbsp;<span style="color:#233dff;font-weight:600;">Today</span></p>' +
       '<p style="margin:4px 0;font-size:14px;color:#555;">HEAL &nbsp;&middot;&nbsp; May 20</p>' +
       '<p style="margin:4px 0;font-size:14px;color:#555;">TRANSFORM &nbsp;&middot;&nbsp; May 27</p>' +
@@ -89,14 +89,14 @@ function sendMOVEReminder() {
       '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 10px;">This morning\'s schedule</p>' +
       '<table style="width:100%;border-collapse:collapse;margin:0 0 28px;">' +
       '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">7:45 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">Registration opens</td></tr>' +
-      '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">8:15 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">The Talk — Issa Rae + Spencer Paysinger with Dave Helem</td></tr>' +
+      '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">8:15 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">The Talk: Issa Rae + Spencer Paysinger with Dave Helem</td></tr>' +
       '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">8:45 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">Walk/Run begins</td></tr>' +
       '</table>' +
 
       // Location
       '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 8px;">Where to go</p>' +
       '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 8px;">123 W. Manchester Blvd, Inglewood, CA 90301</p>' +
-      '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 8px;"><strong>Enter at the Queen St. entrance.</strong> Limited parking on site due to construction — street parking and surrounding parking lots are available. Public transit and rideshare encouraged.</p>' +
+      '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 8px;"><strong>Enter at the Queen St. entrance.</strong> Limited parking on site due to construction. Street parking and surrounding parking lots are available. Public transit and rideshare encouraged.</p>' +
 
       // Attire
       '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 8px;">What to wear</p>' +
@@ -105,7 +105,7 @@ function sendMOVEReminder() {
       // Morning affirmation
       '<div style="background:#111;border-radius:12px;padding:24px 28px;margin:0 0 28px;text-align:center;">' +
       '<p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5);">A word for this morning</p>' +
-      '<p style="margin:0;font-size:17px;font-weight:700;color:#fff;line-height:1.5;">Today you move. Not because you have to — because you chose to. That is what unstoppable looks like.</p>' +
+      '<p style="margin:0;font-size:17px;font-weight:700;color:#fff;line-height:1.5;">Today you move. Not because you have to. Because you chose to. That is what unstoppable looks like.</p>' +
       '</div>' +
 
       // Check-in button
@@ -125,7 +125,7 @@ function sendMOVEReminder() {
 
     var plain =
       'Hi ' + firstName + ',\n\n' +
-      'Today is Live Unstoppable — and you are on the list.\n\n' +
+      'Today is Live Unstoppable. You are on the list.\n\n' +
       'MENTAL HEALTH AWARENESS MONTH\n' +
       'Before the walk, Dave Helem hosts Issa Rae and Spencer Paysinger in conversation about movement, mental health, and what it means to be unstoppable.\n\n' +
       'WHAT LIVE UNSTOPPABLE IS\n' +
@@ -133,17 +133,17 @@ function sendMOVEReminder() {
       'WHAT LIVE UNSTOPPABLE IS NOT\n' +
       'Not an official race. Not a timed event. You do not need to be an expert runner, an athlete, or anything other than yourself. Just show up and move with us.\n\n' +
       'THIS MORNING\'S SCHEDULE\n' +
-      '7:45 AM — Registration opens\n' +
-      '8:15 AM — The Talk: Issa Rae + Spencer Paysinger with Dave Helem\n' +
-      '8:45 AM — Walk/Run begins\n\n' +
+      '7:45 AM: Registration opens\n' +
+      '8:15 AM: The Talk: Issa Rae + Spencer Paysinger with Dave Helem\n' +
+      '8:45 AM: Walk/Run begins\n\n' +
       'WHERE TO GO\n' +
       '123 W. Manchester Blvd, Inglewood, CA 90301\n' +
-      'Enter at the Queen St. entrance. Limited parking on site — street parking and surrounding lots available. Transit/rideshare encouraged.\n\n' +
+      'Enter at the Queen St. entrance. Limited parking on site. Street parking and surrounding lots available. Transit/rideshare encouraged.\n\n' +
       'A WORD FOR THIS MORNING\n' +
-      'Today you move. Not because you have to — because you chose to. That is what unstoppable looks like.\n\n' +
+      'Today you move. Not because you have to. Because you chose to. That is what unstoppable looks like.\n\n' +
       'CHECK IN NOW\n' +
       checkinUrl + '\n\n' +
-      'THE FULL SERIES — ALL FREE\n' +
+      'THE FULL SERIES, ALL FREE\n' +
       'Live Unstoppable · May 9 (Today)\n' +
       'HEAL · May 20\n' +
       'TRANSFORM · May 27\n\n' +
@@ -178,7 +178,7 @@ function sendTestReminder() {
   var eventId    = 'event-1772063101013';
   var checkinUrl = WAIVER_BASE_URL + '?checkin=' + encodeURIComponent(token) + '&event=' + encodeURIComponent(eventId);
 
-  var subject = '[TEST] Today is Live Unstoppable — Issa Rae + Spencer Paysinger · Check In Here';
+  var subject = '[TEST] Today is Live Unstoppable: Issa Rae + Spencer Paysinger';
 
   var html =
     '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
@@ -191,7 +191,7 @@ function sendTestReminder() {
     '</div>' +
     '<div style="padding:32px;">' +
     '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 6px;">Hi ' + firstName + ',</p>' +
-    '<p style="color:#444;font-size:15px;line-height:1.65;margin:0 0 28px;">Today is Live Unstoppable — and you are on the list.</p>' +
+    '<p style="color:#444;font-size:15px;line-height:1.65;margin:0 0 28px;">Today is Live Unstoppable. You are on the list.</p>' +
     '<div style="background:#f0f4ff;border:1.5px solid rgba(35,61,255,.18);border-radius:12px;padding:20px 24px;margin:0 0 28px;">' +
     '<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#233dff;">Mental Health Awareness Month</p>' +
     '<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#111;">Issa Rae + Spencer Paysinger</p>' +
@@ -202,7 +202,7 @@ function sendTestReminder() {
     '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 8px;">What Live Unstoppable is not</p>' +
     '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 28px;">Not an official race. Not a timed event. You do not need to be an expert runner, an athlete, or anything other than yourself. Just show up and move with us.</p>' +
     '<div style="border-left:3px solid #233dff;padding:12px 0 12px 18px;margin:0 0 28px;">' +
-    '<p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#233dff;text-transform:uppercase;letter-spacing:.08em;">The full series — all free</p>' +
+    '<p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#233dff;text-transform:uppercase;letter-spacing:.08em;">The full series, all free</p>' +
     '<p style="margin:4px 0;font-size:14px;color:#111;">Live Unstoppable &nbsp;&middot;&nbsp; May 9 &nbsp;<span style="color:#233dff;font-weight:600;">Today</span></p>' +
     '<p style="margin:4px 0;font-size:14px;color:#555;">HEAL &nbsp;&middot;&nbsp; May 20</p>' +
     '<p style="margin:4px 0;font-size:14px;color:#555;">TRANSFORM &nbsp;&middot;&nbsp; May 27</p>' +
@@ -210,17 +210,17 @@ function sendTestReminder() {
     '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 10px;">This morning\'s schedule</p>' +
     '<table style="width:100%;border-collapse:collapse;margin:0 0 28px;">' +
     '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">7:45 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">Registration opens</td></tr>' +
-    '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">8:15 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">The Talk — Issa Rae + Spencer Paysinger with Dave Helem</td></tr>' +
+    '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">8:15 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">The Talk: Issa Rae + Spencer Paysinger with Dave Helem</td></tr>' +
     '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">8:45 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">Walk/Run begins</td></tr>' +
     '</table>' +
     '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 8px;">Where to go</p>' +
     '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 8px;">123 W. Manchester Blvd, Inglewood, CA 90301</p>' +
-    '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 28px;"><strong>Enter at the Queen St. entrance.</strong> Limited parking on site due to construction — street parking and surrounding parking lots are available. Public transit and rideshare encouraged.</p>' +
+    '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 28px;"><strong>Enter at the Queen St. entrance.</strong> Limited parking on site due to construction. Street parking and surrounding parking lots are available. Public transit and rideshare encouraged.</p>' +
     '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 8px;">What to wear</p>' +
     '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 32px;">Comfortable shoes and layers — mornings can be cool.</p>' +
     '<div style="background:#111;border-radius:12px;padding:24px 28px;margin:0 0 28px;text-align:center;">' +
     '<p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5);">A word for this morning</p>' +
-    '<p style="margin:0;font-size:17px;font-weight:700;color:#fff;line-height:1.5;">Today you move. Not because you have to — because you chose to. That is what unstoppable looks like.</p>' +
+    '<p style="margin:0;font-size:17px;font-weight:700;color:#fff;line-height:1.5;">Today you move. Not because you have to. Because you chose to. That is what unstoppable looks like.</p>' +
     '</div>' +
     '<div style="text-align:center;background:#fafafa;border:1px solid #eee;border-radius:12px;padding:24px;margin:0 0 28px;">' +
     '<p style="margin:0 0 4px;font-size:12px;color:#999;font-weight:600;text-transform:uppercase;letter-spacing:.08em;">Check in now</p>' +
@@ -236,7 +236,7 @@ function sendTestReminder() {
   var plain =
     '[TEST EMAIL]\n\n' +
     'Hi ' + firstName + ',\n\n' +
-    'Today is Live Unstoppable — and you are on the list.\n\n' +
+    'Today is Live Unstoppable. You are on the list.\n\n' +
     'MENTAL HEALTH AWARENESS MONTH\n' +
     'Before the walk, Dave Helem hosts Issa Rae and Spencer Paysinger in conversation about movement, mental health, and what it means to be unstoppable.\n\n' +
     'WHAT LIVE UNSTOPPABLE IS\n' +
@@ -244,17 +244,17 @@ function sendTestReminder() {
     'WHAT LIVE UNSTOPPABLE IS NOT\n' +
     'Not an official race. Not a timed event. You do not need to be an expert runner, an athlete, or anything other than yourself. Just show up and move with us.\n\n' +
     'THIS MORNING\'S SCHEDULE\n' +
-    '7:45 AM — Registration opens\n' +
-    '8:15 AM — The Talk: Issa Rae + Spencer Paysinger with Dave Helem\n' +
-    '8:45 AM — Walk/Run begins\n\n' +
+    '7:45 AM: Registration opens\n' +
+    '8:15 AM: The Talk: Issa Rae + Spencer Paysinger with Dave Helem\n' +
+    '8:45 AM: Walk/Run begins\n\n' +
     'WHERE TO GO\n' +
     '123 W. Manchester Blvd, Inglewood, CA 90301\n' +
-    'Enter at the Queen St. entrance. Limited parking on site — street parking and surrounding lots available. Transit/rideshare encouraged.\n\n' +
+    'Enter at the Queen St. entrance. Limited parking on site. Street parking and surrounding lots available. Transit/rideshare encouraged.\n\n' +
     'A WORD FOR THIS MORNING\n' +
-    'Today you move. Not because you have to — because you chose to. That is what unstoppable looks like.\n\n' +
+    'Today you move. Not because you have to. Because you chose to. That is what unstoppable looks like.\n\n' +
     'CHECK IN NOW\n' +
     checkinUrl + '\n\n' +
-    'THE FULL SERIES — ALL FREE\n' +
+    'THE FULL SERIES, ALL FREE\n' +
     'Live Unstoppable · May 9 (Today)\n' +
     'HEAL · May 20\n' +
     'TRANSFORM · May 27\n\n' +
@@ -269,4 +269,382 @@ function sendTestReminder() {
   });
 
   Logger.log('Test email sent to ' + email);
+}
+
+function sendFirestoreRSVPs() {
+  var attendees = [
+    { name: 'Jill Bragg',        email: 'REDACTED@example.com',                    token: '5e5c101d3e35584e2c9d175420b41a43' },
+    { name: 'Ashley Galvan',     email: 'REDACTED@example.com',     token: 'a874ed0e48c8f7a9fd0cce5069023467' },
+    { name: 'Osagie Obanor',     email: 'REDACTED@example.com',                token: 'd077d792c79baf53451fd94496573cb1' },
+    { name: 'Krys Robinson',     email: 'REDACTED@example.com',              token: '3f52adb5043f5b7bfa8e5f6c3f942aa6' },
+    { name: 'Grace Nwakudu',     email: 'REDACTED@example.com',                token: '6c6549ca5ddab29bce64340dbbaaf22f' },
+    { name: 'Marnie Mondragon',  email: 'REDACTED@example.com',                token: 'ba0f5d1ad46f915db4b89b6aacff135c' },
+    { name: 'Nena Hernandez',    email: 'REDACTED@example.com',             token: 'cbb64d0a9c13ee6560d9d405ffc554f3' },
+    { name: 'Veronica G',        email: 'REDACTED@example.com',             token: '19f6c2acb9075db2d13133e3fd88163d' },
+    { name: 'Brittany Coleman',  email: 'REDACTED@example.com',                 token: '5715fe837bc4b4c81bd9213fbd9c4bb8' },
+    { name: 'Dominique Brown',   email: 'REDACTED@example.com',              token: 'b4d394c79a31bfe53d45c61fd4ede93f' },
+    { name: 'Keesha Hernandez',  email: 'REDACTED@example.com',              token: '0f43773182fceb42ad6e4cc426b38d28' },
+    { name: 'Kayla Anthony',     email: 'REDACTED@example.com',           token: '2fa4801a0941e5e2580ae17c49d27ecb' },
+    { name: 'Darika Brown',      email: 'REDACTED@example.com',                token: '66587bcaec3eadd7389cd40f5d86957a' },
+    { name: 'Elleanor Gipson',   email: 'REDACTED@example.com',          token: '64dcd9bc41574438e89578fda78cbd2f' },
+    { name: 'Ivonne Rodriguez',  email: 'REDACTED@example.com',             token: 'becba7cda3ea8a43b92e5940111bc19c' },
+    { name: 'Kashif Laurie',     email: 'REDACTED@example.com',            token: '3611fbe067238a77dd02f1c1504fbf94' },
+    { name: 'Tashi Scott',       email: 'REDACTED@example.com',               token: 'fed679fdbae0d48310a0591ce0dc0ad7' },
+    { name: 'Lauren Bowie',      email: 'REDACTED@example.com',                token: '27fd3abd39240dedb28c3065c0e62d41' },
+    { name: 'Taquita Love',      email: 'REDACTED@example.com',            token: '031fa98d10c6bab85b515270ca3d8c80' },
+    { name: 'Brandi Smith',      email: 'REDACTED@example.com',            token: 'b2478c546743f5dd033d4a2e8ebccdd4' },
+    { name: 'Nonny Okoye',       email: 'REDACTED@example.com',                token: '9b42b15037321b1313120bd3a2004fea' },
+    { name: 'John Smith',        email: 'REDACTED@example.com',               token: '914ba4b4c3abe115dc55869b9d66ca94' },
+    { name: 'Quinita Glaze',     email: 'REDACTED@example.com',           token: '1b7e4ab1846aeea2ee292303bb445286' },
+    { name: 'Omar Hernandez',    email: 'REDACTED@example.com',            token: '9a218ed6a7445780c6a28433acb690a2' },
+    { name: 'Stacy McAlister',   email: 'REDACTED@example.com',              token: 'ac25e882bc020b3c9d33d4ebd3739604' },
+    { name: 'Micaela McNeil',    email: 'REDACTED@example.com',              token: 'eb603415cf2f4acc41dbfc16ccdc5f1e' },
+    { name: 'S B',               email: 'REDACTED@example.com',                token: '7ec443d3132b9caf3274597f30e4bad0' },
+    { name: 'Marvellous Iheukwumere', email: 'REDACTED@example.com',   token: 'fe478fccb2ee209fb0197ea605124094' },
+    { name: 'Peyton Christine Russell', email: 'REDACTED@example.com',       token: '3a03782a45e7b11aba3b326f048748a8' },
+    { name: 'Regina Shields',   email: 'REDACTED@example.com',         token: '5bf9d9d53f014ecf0a27675dfe053398' },
+    { name: 'Aaron Sparrow',    email: 'REDACTED@example.com',              token: '32f61aa849c722207c34988a8bcd332b' },
+    { name: 'Jamie Walker',     email: 'REDACTED@example.com',         token: '09f5bf35082b32abba0d86761e84c15a' },
+    { name: 'Jose Leon',        email: 'REDACTED@example.com',             token: '0000f6d1f228f1466c987c625cee97c0' },
+    { name: 'Taylor Ginwright', email: 'REDACTED@example.com',            token: 'fe8e2902278e2d18600c39c6716c5e55' },
+  ];
+
+  var PORTAL_CHECKIN = 'https://volunteer.healthmatters.clinic/checkin?token=';
+  var sent = 0;
+
+  attendees.forEach(function(a) {
+    var firstName = (a.name || '').split(' ')[0] || 'there';
+    var checkinUrl = a.token ? PORTAL_CHECKIN + encodeURIComponent(a.token) : 'https://www.healthmatters.clinic/resources/eventfinder';
+
+    var subject = 'Today is Live Unstoppable: Issa Rae + Spencer Paysinger';
+
+    var html =
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+      '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+      '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1);border:1px solid #e5e5e5;">' +
+      '<div style="background:#233dff;color:white;padding:24px;text-align:center;">' +
+      '<img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;background:white;padding:4px;">' +
+      '<h1 style="margin:0;font-size:20px;font-weight:700;">Health Matters Clinic</h1>' +
+      '<p style="margin:8px 0 0;opacity:.85;font-size:12px;text-transform:uppercase;letter-spacing:.08em;">Unstoppable Season 2026</p>' +
+      '</div>' +
+      '<div style="padding:32px;">' +
+      '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 6px;">Hi ' + firstName + ',</p>' +
+      '<p style="color:#444;font-size:15px;line-height:1.65;margin:0 0 28px;">Today is Live Unstoppable. You are on the list.</p>' +
+      '<div style="background:#f0f4ff;border:1.5px solid rgba(35,61,255,.18);border-radius:12px;padding:20px 24px;margin:0 0 28px;">' +
+      '<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#233dff;">Mental Health Awareness Month</p>' +
+      '<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#111;">Issa Rae + Spencer Paysinger</p>' +
+      '<p style="margin:0;font-size:14px;color:#555;line-height:1.6;">Before the walk, Dave Helem hosts Issa Rae and Spencer Paysinger in conversation about movement, mental health, and what it means to be unstoppable. No stage. Crowd close. About 25 minutes.</p>' +
+      '</div>' +
+      '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 10px;">This morning\'s schedule</p>' +
+      '<table style="width:100%;border-collapse:collapse;margin:0 0 28px;">' +
+      '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;">7:45 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">Registration opens</td></tr>' +
+      '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;">8:15 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">The Talk: Issa Rae + Spencer Paysinger with Dave Helem</td></tr>' +
+      '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;">8:45 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">Walk/Run begins</td></tr>' +
+      '</table>' +
+      '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 8px;">Where to go</p>' +
+      '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 8px;">123 W. Manchester Blvd, Inglewood, CA 90301</p>' +
+      '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 28px;"><strong>Enter at the Queen St. entrance.</strong> Limited parking on site. Street parking and surrounding lots available. Transit/rideshare encouraged.</p>' +
+      '<div style="background:#111;border-radius:12px;padding:24px 28px;margin:0 0 28px;text-align:center;">' +
+      '<p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5);">A word for this morning</p>' +
+      '<p style="margin:0;font-size:17px;font-weight:700;color:#fff;line-height:1.5;">Today you move. Not because you have to. Because you chose to. That is what unstoppable looks like.</p>' +
+      '</div>' +
+      '<div style="text-align:center;background:#fafafa;border:1px solid #eee;border-radius:12px;padding:24px;margin:0 0 28px;">' +
+      '<p style="margin:0 0 20px;font-size:14px;color:#555;line-height:1.55;">Your waiver and check-in are handled in one step from your phone. Nothing to print.</p>' +
+      '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:#fff;padding:15px 48px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">Check In Now</a>' +
+      '</div>' +
+      '<p style="font-size:14px;color:#555;margin:0 0 28px;">See you out there.
+Health Matters Clinic</p>' +
+      '<p style="font-size:12px;color:#bbb;">Questions? <a href="https://www.healthmatters.clinic" style="color:#233dff;text-decoration:none;">healthmatters.clinic</a> | Crisis: call or text <strong>988</strong></p>' +
+      '</div></div></body></html>';
+
+    var plain =
+      'Hi ' + firstName + ',\n\nToday is Live Unstoppable. You are on the list.\n\n' +
+      'Issa Rae + Spencer Paysinger with Dave Helem.\n\n' +
+      '7:45 AM: Registration\n8:15 AM: The Talk\n8:45 AM: Walk/Run\n\n' +
+      '123 W. Manchester Blvd, Inglewood (Queen St. entrance)\n\n' +
+      'CHECK IN: ' + checkinUrl + '\n\n' +
+      'See you out there.\n— Health Matters Clinic\nCrisis: call or text 988';
+
+    try {
+      GmailApp.sendEmail(a.email, subject, plain, {
+        htmlBody: html,
+        name: 'Health Matters Clinic Events',
+        replyTo: 'rsvp@healthmatters.clinic'
+      });
+      sent++;
+      Logger.log('Sent: ' + a.email);
+    } catch(e) {
+      Logger.log('ERROR ' + a.email + ': ' + e);
+    }
+    Utilities.sleep(200);
+  });
+
+  Logger.log('Done — Sent: ' + sent);
+}
+
+function sendGenericBlast() {
+  var html =
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+    '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1);border:1px solid #e5e5e5;">' +
+    '<div style="background:#233dff;color:white;padding:24px;text-align:center;">' +
+    '<img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;background:white;padding:4px;">' +
+    '<h1 style="margin:0;font-size:20px;font-weight:700;">Health Matters Clinic</h1>' +
+    '<p style="margin:8px 0 0;opacity:.85;font-size:12px;text-transform:uppercase;letter-spacing:.08em;">Unstoppable Season 2026</p>' +
+    '</div>' +
+    '<div style="padding:32px;">' +
+    '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 6px;">Hi there,</p>' +
+    '<p style="color:#444;font-size:15px;line-height:1.65;margin:0 0 28px;">Today is Live Unstoppable. You are on the list.</p>' +
+    '<div style="background:#f0f4ff;border:1.5px solid rgba(35,61,255,.18);border-radius:12px;padding:20px 24px;margin:0 0 28px;">' +
+    '<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#233dff;">Mental Health Awareness Month</p>' +
+    '<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#111;">Issa Rae + Spencer Paysinger</p>' +
+    '<p style="margin:0;font-size:14px;color:#555;line-height:1.6;">Before the walk, Dave Helem hosts Issa Rae and Spencer Paysinger in conversation about movement, mental health, and what it means to be unstoppable. No stage. Crowd close. About 25 minutes.</p>' +
+    '</div>' +
+    '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 10px;">This morning\'s schedule</p>' +
+    '<table style="width:100%;border-collapse:collapse;margin:0 0 28px;">' +
+    '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">7:45 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">Registration opens</td></tr>' +
+    '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">8:15 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">The Talk: Issa Rae + Spencer Paysinger with Dave Helem</td></tr>' +
+    '<tr><td style="font-size:14px;font-weight:600;color:#233dff;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">8:45 AM</td><td style="font-size:14px;color:#444;padding:6px 0;">Walk/Run begins</td></tr>' +
+    '</table>' +
+    '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 8px;">Where to go</p>' +
+    '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 8px;">123 W. Manchester Blvd, Inglewood, CA 90301</p>' +
+    '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 28px;"><strong>Enter at the Queen St. entrance.</strong> Limited parking on site. Street parking and surrounding lots available. Transit and rideshare encouraged.</p>' +
+    '<div style="background:#111;border-radius:12px;padding:24px 28px;margin:0 0 28px;text-align:center;">' +
+    '<p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5);">A word for this morning</p>' +
+    '<p style="margin:0;font-size:17px;font-weight:700;color:#fff;line-height:1.5;">Today you move. Not because you have to. Because you chose to. That is what unstoppable looks like.</p>' +
+    '</div>' +
+    '<div style="border-left:3px solid #233dff;padding:12px 0 12px 18px;margin:0 0 28px;">' +
+    '<p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#233dff;text-transform:uppercase;letter-spacing:.08em;">The full series, all free</p>' +
+    '<p style="margin:4px 0;font-size:14px;color:#111;">Live Unstoppable &nbsp;&middot;&nbsp; May 9 &nbsp;<span style="color:#233dff;font-weight:600;">Today</span></p>' +
+    '<p style="margin:4px 0;font-size:14px;color:#555;">HEAL &nbsp;&middot;&nbsp; May 20</p>' +
+    '<p style="margin:4px 0;font-size:14px;color:#555;">TRANSFORM &nbsp;&middot;&nbsp; May 27</p>' +
+    '</div>' +
+    '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 6px;">See you out there.</p>' +
+    '<p style="font-size:14px;color:#555;margin:0 0 28px;">— Health Matters Clinic</p>' +
+    '<div style="border-top:1px solid #eee;padding-top:20px;">' +
+    '<p style="font-size:12px;color:#bbb;line-height:1.5;margin:0;">Questions? Reply to this email or visit <a href="https://www.healthmatters.clinic" style="color:#233dff;text-decoration:none;">healthmatters.clinic</a>.<br>In crisis? Call or text <strong>988</strong>.</p>' +
+    '</div></div></div></body></html>';
+
+  var plain =
+    'Hi there,\n\n' +
+    'Today is Live Unstoppable. You are on the list.\n\n' +
+    'Issa Rae + Spencer Paysinger with Dave Helem.\n\n' +
+    '7:45 AM: Registration\n' +
+    '8:15 AM: The Talk\n' +
+    '8:45 AM: Walk/Run\n\n' +
+    '123 W. Manchester Blvd, Inglewood (Queen St. entrance)\n\n' +
+    'See you out there.\n— Health Matters Clinic\nCrisis: call or text 988';
+
+  GmailApp.sendEmail('events@healthmatters.clinic', 'Today is Live Unstoppable: Issa Rae + Spencer Paysinger', plain, {
+    htmlBody: html,
+    name:    'Health Matters Clinic Events',
+    replyTo: 'rsvp@healthmatters.clinic'
+  });
+
+  Logger.log('Sent to events@healthmatters.clinic');
+}
+
+// ============================================================
+// HEAL REMINDER — "10 days away" email to all May 20 RSVPs
+// Run on May 10: select sendHEALReminder in dropdown, then Run
+// ============================================================
+
+function sendHEALReminder() {
+  var SPREADSHEET_ID  = '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM';
+  var WAIVER_BASE_URL = 'https://eventfinder.healthmatters.clinic/waiver.html';
+
+  var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('RSVPs');
+
+  if (!sheet || sheet.getLastRow() < 2) {
+    Logger.log('No RSVPs found.');
+    return;
+  }
+
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 16).getValues();
+  var sent = 0, skipped = 0;
+
+  for (var i = 0; i < data.length; i++) {
+    var row       = data[i];
+    var eventDate = String(row[3] || '');
+    var name      = String(row[4] || '').trim();
+    var email     = String(row[5] || '').trim().toLowerCase();
+    var eventId   = String(row[1] || '').trim();
+    var token     = String(row[14] || '').trim();
+
+    var isHEAL = eventId === 'event-1772064063990' ||
+                 eventDate.indexOf('5/20/2026') === 0 ||
+                 (eventDate instanceof Date && Utilities.formatDate(eventDate, 'America/Los_Angeles', 'M/d/yyyy') === '5/20/2026');
+
+    if (!isHEAL || !email || !token) { skipped++; continue; }
+
+    var firstName  = name.split(' ')[0] || 'there';
+    var checkinUrl = WAIVER_BASE_URL + '?checkin=' + encodeURIComponent(token) + '&event=event-1772064063990';
+
+    var subject = 'HEAL is 10 Days Away: Unstoppable Wellness Meetup, May 20';
+
+    var html =
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+      '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+      '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1);border:1px solid #e5e5e5;">' +
+
+      '<div style="background:#FF6E28;color:white;padding:24px;text-align:center;">' +
+      '<img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;background:white;padding:4px;">' +
+      '<h1 style="margin:0;font-size:20px;font-weight:700;">Health Matters Clinic</h1>' +
+      '<p style="margin:8px 0 0;opacity:.85;font-size:12px;text-transform:uppercase;letter-spacing:.08em;">Unstoppable Season 2026</p>' +
+      '</div>' +
+
+      '<div style="padding:32px;">' +
+      '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 6px;">Hi ' + firstName + ',</p>' +
+      '<p style="color:#444;font-size:15px;line-height:1.65;margin:0 0 8px;">You are registered for HEAL: Unstoppable Wellness Meetup.</p>' +
+      '<p style="color:#444;font-size:15px;line-height:1.65;margin:0 0 28px;">10 days away. Wednesday, May 20 at 5:45 PM in Inglewood. Mark your calendar.</p>' +
+
+      '<div style="background:#fff3ee;border:1.5px solid rgba(255,110,40,.25);border-radius:12px;padding:20px 24px;margin:0 0 28px;">' +
+      '<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#FF6E28;">Mental Health Awareness Month</p>' +
+      '<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#111;">HEAL: Unstoppable Wellness Meetup</p>' +
+      '<p style="margin:0;font-size:14px;color:#555;line-height:1.6;">Music, movement, and self-care experiences made for you. Pull up. Tap in. Leave feeling Unstoppable. Free giveaways.</p>' +
+      '</div>' +
+
+      '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 10px;">Event details</p>' +
+      '<table style="width:100%;border-collapse:collapse;margin:0 0 28px;">' +
+      '<tr><td style="font-size:14px;font-weight:600;color:#FF6E28;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">Date</td><td style="font-size:14px;color:#444;padding:6px 0;">Wednesday, May 20, 2026</td></tr>' +
+      '<tr><td style="font-size:14px;font-weight:600;color:#FF6E28;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">Time</td><td style="font-size:14px;color:#444;padding:6px 0;">5:45 PM to 7:15 PM</td></tr>' +
+      '<tr><td style="font-size:14px;font-weight:600;color:#FF6E28;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">Where</td><td style="font-size:14px;color:#444;padding:6px 0;">Curtis Tucker Center, 123 W Manchester Blvd, Inglewood, CA 90301</td></tr>' +
+      '</table>' +
+
+      '<div style="border-left:3px solid #FF6E28;padding:12px 0 12px 18px;margin:0 0 28px;">' +
+      '<p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#FF6E28;text-transform:uppercase;letter-spacing:.08em;">The full series, all free</p>' +
+      '<p style="margin:4px 0;font-size:14px;color:#999;text-decoration:line-through;">MOVE &nbsp;&middot;&nbsp; May 9 (complete)</p>' +
+      '<p style="margin:4px 0;font-size:14px;color:#111;font-weight:700;">HEAL &nbsp;&middot;&nbsp; May 20 &nbsp;<span style="color:#FF6E28;">You are registered</span></p>' +
+      '<p style="margin:4px 0;font-size:14px;color:#555;">TRANSFORM &nbsp;&middot;&nbsp; May 27 (virtual) &nbsp;&middot;&nbsp; <a href="https://eventfinder.healthmatters.clinic?event=event-1773943614235&rsvp=true" style="color:#233dff;text-decoration:none;">Register Free</a></p>' +
+      '</div>' +
+
+      '<div style="background:#111;border-radius:12px;padding:24px 28px;margin:0 0 28px;text-align:center;">' +
+      '<p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5);">A word for you</p>' +
+      '<p style="margin:0;font-size:17px;font-weight:700;color:#fff;line-height:1.5;">You showed up for yourself when you registered. Show up again on May 20. We will be there.</p>' +
+      '</div>' +
+
+      '<div style="text-align:center;background:#fafafa;border:1px solid #eee;border-radius:12px;padding:24px;margin:0 0 28px;">' +
+      '<p style="margin:0 0 4px;font-size:12px;color:#999;font-weight:600;text-transform:uppercase;letter-spacing:.08em;">Your check-in link</p>' +
+      '<p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.55;">Save this link. On May 20, tap it from your phone to check in at the door. No printouts needed.</p>' +
+      '<a href="' + checkinUrl + '" style="display:inline-block;background:#FF6E28;color:#fff;padding:15px 48px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">Save My Check-In Link</a>' +
+      '</div>' +
+
+      '<p style="font-size:14px;color:#555;line-height:1.65;margin:0 0 6px;">See you May 20.</p>' +
+      '<p style="font-size:14px;color:#555;margin:0 0 28px;">Health Matters Clinic</p>' +
+
+      '<div style="border-top:1px solid #eee;padding-top:20px;">' +
+      '<p style="font-size:12px;color:#bbb;line-height:1.5;margin:0;">Questions? Reply to this email or visit <a href="https://www.healthmatters.clinic" style="color:#233dff;text-decoration:none;">healthmatters.clinic</a>.<br>In crisis? Call or text <strong>988</strong>.</p>' +
+      '</div>' +
+      '</div></div></body></html>';
+
+    var plain =
+      'Hi ' + firstName + ',\n\n' +
+      'You are registered for HEAL: Unstoppable Wellness Meetup.\n\n' +
+      '10 days away. Wednesday, May 20 at 5:45 PM in Inglewood.\n\n' +
+      'EVENT DETAILS\n' +
+      'Date: Wednesday, May 20, 2026\n' +
+      'Time: 5:45 PM to 7:15 PM\n' +
+      'Where: Curtis Tucker Center, 123 W Manchester Blvd, Inglewood, CA 90301\n\n' +
+      'Music, movement, and self-care experiences made for you. Pull up. Tap in. Leave feeling Unstoppable.\n\n' +
+      'YOUR CHECK-IN LINK\n' +
+      'Save this and tap it from your phone at the door on May 20:\n' +
+      checkinUrl + '\n\n' +
+      'THE FULL SERIES\n' +
+      'MOVE · May 9 (complete)\n' +
+      'HEAL · May 20 (you are registered)\n' +
+      'TRANSFORM · May 27 (virtual, still open): https://eventfinder.healthmatters.clinic?event=event-1773943614235&rsvp=true\n\n' +
+      'See you May 20.\n' +
+      'Health Matters Clinic\n\n' +
+      'Questions? healthmatters.clinic | Crisis: call or text 988';
+
+    try {
+      GmailApp.sendEmail(email, subject, plain, {
+        htmlBody: html,
+        name:     'Health Matters Clinic Events',
+        replyTo:  'rsvp@healthmatters.clinic'
+      });
+      sent++;
+      Logger.log('Sent: ' + email + ' (' + name + ')');
+    } catch(err) {
+      Logger.log('ERROR ' + email + ': ' + err);
+      skipped++;
+    }
+
+    Utilities.sleep(200);
+  }
+
+  Logger.log('===== DONE — Sent: ' + sent + '  Skipped: ' + skipped + ' =====');
+}
+
+function sendTestHEALReminder() {
+  var firstName  = 'Erica';
+  var email      = 'erica@healthmatters.clinic';
+  var token      = 'test-token-heal-preview';
+  var checkinUrl = 'https://eventfinder.healthmatters.clinic/waiver.html?checkin=' + encodeURIComponent(token) + '&event=event-1772064063990';
+
+  var subject = '[TEST] HEAL is 10 Days Away: Unstoppable Wellness Meetup, May 20';
+
+  var html =
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+    '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1);border:1px solid #e5e5e5;">' +
+    '<div style="background:#FF6E28;color:white;padding:24px;text-align:center;">' +
+    '<img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;background:white;padding:4px;">' +
+    '<h1 style="margin:0;font-size:20px;font-weight:700;">Health Matters Clinic</h1>' +
+    '<p style="margin:8px 0 0;opacity:.85;font-size:12px;text-transform:uppercase;letter-spacing:.08em;">Unstoppable Season 2026</p>' +
+    '</div>' +
+    '<div style="padding:32px;">' +
+    '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 6px;">Hi ' + firstName + ',</p>' +
+    '<p style="color:#444;font-size:15px;line-height:1.65;margin:0 0 8px;">You are registered for HEAL: Unstoppable Wellness Meetup.</p>' +
+    '<p style="color:#444;font-size:15px;line-height:1.65;margin:0 0 28px;">10 days away. Wednesday, May 20 at 5:45 PM in Inglewood. Mark your calendar.</p>' +
+    '<div style="background:#fff3ee;border:1.5px solid rgba(255,110,40,.25);border-radius:12px;padding:20px 24px;margin:0 0 28px;">' +
+    '<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#FF6E28;">Mental Health Awareness Month</p>' +
+    '<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#111;">HEAL: Unstoppable Wellness Meetup</p>' +
+    '<p style="margin:0;font-size:14px;color:#555;line-height:1.6;">Music, movement, and self-care experiences made for you. Pull up. Tap in. Leave feeling Unstoppable. Free giveaways.</p>' +
+    '</div>' +
+    '<p style="font-size:15px;font-weight:600;color:#111;margin:0 0 10px;">Event details</p>' +
+    '<table style="width:100%;border-collapse:collapse;margin:0 0 28px;">' +
+    '<tr><td style="font-size:14px;font-weight:600;color:#FF6E28;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">Date</td><td style="font-size:14px;color:#444;padding:6px 0;">Wednesday, May 20, 2026</td></tr>' +
+    '<tr><td style="font-size:14px;font-weight:600;color:#FF6E28;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">Time</td><td style="font-size:14px;color:#444;padding:6px 0;">5:45 PM to 7:15 PM</td></tr>' +
+    '<tr><td style="font-size:14px;font-weight:600;color:#FF6E28;padding:6px 14px 6px 0;white-space:nowrap;vertical-align:top;">Where</td><td style="font-size:14px;color:#444;padding:6px 0;">Curtis Tucker Center, 123 W Manchester Blvd, Inglewood, CA 90301</td></tr>' +
+    '</table>' +
+    '<div style="border-left:3px solid #FF6E28;padding:12px 0 12px 18px;margin:0 0 28px;">' +
+    '<p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#FF6E28;text-transform:uppercase;letter-spacing:.08em;">The full series, all free</p>' +
+    '<p style="margin:4px 0;font-size:14px;color:#999;text-decoration:line-through;">MOVE &nbsp;&middot;&nbsp; May 9 (complete)</p>' +
+    '<p style="margin:4px 0;font-size:14px;color:#111;font-weight:700;">HEAL &nbsp;&middot;&nbsp; May 20 &nbsp;<span style="color:#FF6E28;">You are registered</span></p>' +
+    '<p style="margin:4px 0;font-size:14px;color:#555;">TRANSFORM &nbsp;&middot;&nbsp; May 27 (virtual) &nbsp;&middot;&nbsp; <a href="https://eventfinder.healthmatters.clinic?event=event-1773943614235&rsvp=true" style="color:#233dff;text-decoration:none;">Register Free</a></p>' +
+    '</div>' +
+    '<div style="background:#111;border-radius:12px;padding:24px 28px;margin:0 0 28px;text-align:center;">' +
+    '<p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5);">A word for you</p>' +
+    '<p style="margin:0;font-size:17px;font-weight:700;color:#fff;line-height:1.5;">You showed up for yourself when you registered. Show up again on May 20. We will be there.</p>' +
+    '</div>' +
+    '<div style="text-align:center;background:#fafafa;border:1px solid #eee;border-radius:12px;padding:24px;margin:0 0 28px;">' +
+    '<p style="margin:0 0 4px;font-size:12px;color:#999;font-weight:600;text-transform:uppercase;letter-spacing:.08em;">Your check-in link</p>' +
+    '<p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.55;">Save this link. On May 20, tap it from your phone to check in at the door. No printouts needed.</p>' +
+    '<a href="' + checkinUrl + '" style="display:inline-block;background:#FF6E28;color:#fff;padding:15px 48px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">Save My Check-In Link</a>' +
+    '</div>' +
+    '<p style="font-size:14px;color:#555;margin:0 0 28px;">See you May 20. Health Matters Clinic</p>' +
+    '<p style="font-size:12px;color:#bbb;">Questions? <a href="https://www.healthmatters.clinic" style="color:#233dff;text-decoration:none;">healthmatters.clinic</a> | Crisis: call or text <strong>988</strong></p>' +
+    '</div></div></body></html>';
+
+  var plain =
+    '[TEST EMAIL]\n\n' +
+    'Hi ' + firstName + ',\n\n' +
+    'You are registered for HEAL: Unstoppable Wellness Meetup.\n\n' +
+    '10 days away. Wednesday, May 20 at 5:45 PM in Inglewood.\n\n' +
+    'Date: Wednesday, May 20, 2026\n' +
+    'Time: 5:45 PM to 7:15 PM\n' +
+    'Where: 123 W Manchester Blvd, Inglewood, CA 90301\n\n' +
+    'YOUR CHECK-IN LINK\n' +
+    checkinUrl + '\n\n' +
+    'See you May 20.\nHealth Matters Clinic\nCrisis: call or text 988';
+
+  GmailApp.sendEmail(email, subject, plain, {
+    htmlBody: html,
+    name:    'Health Matters Clinic Events',
+    replyTo: 'rsvp@healthmatters.clinic'
+  });
+
+  Logger.log('Test HEAL reminder sent to ' + email);
 }
