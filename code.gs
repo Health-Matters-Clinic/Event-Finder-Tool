@@ -2128,7 +2128,7 @@ var TEST_EMAIL   = 'erica@healthmatters.clinic';
 // EVENT REMINDER FUNCTION
 // Run daily via a time-based trigger (Apps Script → Triggers).
 // Sends a reminder email the day before each event to all
-// confirmed RSVPs that have not yet checked in.
+// confirmed RSVPs that are not cancelled.
 // ============================================================
 function sendEventReminders() {
   var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
@@ -2147,14 +2147,12 @@ function sendEventReminders() {
     var row = data[i];
     var email        = String(row[5] || '').trim();
     var eventDateRaw = row[3];
-    var checkinTime  = String(row[16] || '').trim();
     var status       = String(row[15] || '').trim().toLowerCase();
     var lang         = String(row[12] || 'en').trim();
     var es           = lang === 'es';
 
-    // Skip rows with no email, already checked in, or cancelled
+    // Skip rows with no email or cancelled
     if (!email) continue;
-    if (checkinTime) continue;
     if (status === 'cancelled') continue;
 
     // Normalize event date to yyyy-MM-dd
