@@ -2124,6 +2124,125 @@ function restoreOriginalEvents() {
 // ========================================
 
 var TEST_EMAIL   = 'erica@healthmatters.clinic';
+// ============================================================
+// EVENT REMINDER FUNCTION
+// Run daily via a time-based trigger (Apps Script → Triggers).
+// Sends a reminder email the day before each event to all
+// confirmed RSVPs that have not yet checked in.
+// ============================================================
+function sendEventReminders() {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('RSVPs');
+  if (!sheet) return;
+
+  var tz = CONFIG.TIMEZONE;
+  var tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  var tomorrowStr = Utilities.formatDate(tomorrow, tz, 'yyyy-MM-dd');
+
+  var data = sheet.getDataRange().getValues();
+  var sent = 0;
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var email        = String(row[5] || '').trim();
+    var eventDateRaw = row[3];
+    var checkinTime  = String(row[16] || '').trim();
+    var status       = String(row[15] || '').trim().toLowerCase();
+    var lang         = String(row[12] || 'en').trim();
+    var es           = lang === 'es';
+
+    // Skip rows with no email, already checked in, or cancelled
+    if (!email) continue;
+    if (checkinTime) continue;
+    if (status === 'cancelled') continue;
+
+    // Normalize event date to yyyy-MM-dd
+    var eventDateNorm;
+    try {
+      if (eventDateRaw instanceof Date) {
+        eventDateNorm = Utilities.formatDate(eventDateRaw, 'UTC', 'yyyy-MM-dd');
+      } else {
+        var parts = String(eventDateRaw).split('/');
+        if (parts.length === 3) {
+          var parsedDate = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
+          eventDateNorm = Utilities.formatDate(parsedDate, 'UTC', 'yyyy-MM-dd');
+        } else {
+          // Try parsing display dates like "Saturday, May 9, 2026"
+          var parsed = new Date(String(eventDateRaw));
+          if (!isNaN(parsed.getTime())) {
+            eventDateNorm = Utilities.formatDate(parsed, 'UTC', 'yyyy-MM-dd');
+          }
+        }
+      }
+    } catch (e) {
+      continue;
+    }
+
+    if (!eventDateNorm || eventDateNorm !== tomorrowStr) continue;
+
+    var name         = String(row[4] || '').trim();
+    var eventTitle   = String(row[2] || '').trim();
+    var eventDate    = String(row[3] || '').trim();
+    var eventId      = String(row[1] || '').trim();
+    var checkinToken = String(row[14] || '').trim();
+
+    var checkinUrl = 'https://eventfinder.healthmatters.clinic/waiver.html?checkin=' + encodeURIComponent(checkinToken) +
+      (eventId ? '&event=' + encodeURIComponent(eventId) : '');
+
+    var subject = es
+      ? 'Recordatorio: Tu evento es mañana | Health Matters Clinic'
+      : 'Reminder: Your event is tomorrow | Health Matters Clinic';
+
+    var firstName = (name || '').split(' ')[0] || (es ? 'amigo' : 'there');
+
+    var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
+      '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+      '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid #e5e5e5;">' +
+      '<div style="background:#233dff;color:white;padding:24px;text-align:center;">' +
+      '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;">' +
+      '<h1 style="margin:0;font-size:22px;font-weight:700;">Health Matters Clinic</h1>' +
+      '<p style="margin:8px 0 0;opacity:0.9;font-size:14px;">' + (es ? 'Recordatorio del Evento' : 'Event Reminder') + '</p></div>' +
+      '<div style="padding:32px;">' +
+      '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 8px;">' + (es ? 'Hola ' : 'Hi ') + firstName + '!</p>' +
+      '<p style="color:#666;margin:0 0 24px;font-size:15px;">' +
+        (es ? 'Tu evento es mañana. ¡Estamos emocionados de verte!' : 'Your event is tomorrow. We\'re excited to see you!') + '</p>' +
+      '<div style="background:#f0f4ff;padding:20px;border-radius:12px;margin:0 0 28px;border:1.5px solid rgba(35,61,255,0.2);">' +
+      '<h2 style="color:#233dff;margin:0 0 12px 0;font-size:18px;font-weight:700;">' + eventTitle + '</h2>' +
+      '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + (es ? 'Fecha: ' : 'Date: ') + '</strong>' + eventDate + '</p>' +
+      '</div>' +
+      '<div style="text-align:center;margin:0 0 8px;">' +
+      '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' +
+        (es ? 'Check-in el Día del Evento' : 'Check-in on Event Day') + '</a></div>' +
+      '<p style="text-align:center;font-size:12px;color:#999;margin:0 0 28px;">' + (es ? 'Abre a las 7:15 AM el día del evento' : 'Opens at 7:15 AM on event day') + '</p>' +
+      '</div>' +
+      '<div style="background:#f5f3ef;padding:20px;border-top:1px solid #e5e5e5;text-align:center;">' +
+      '<p style="color:#666;font-size:13px;margin:0;">' + (es ? '¿Preguntas?' : 'Questions?') + ' <a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
+      '</div></div></body></html>';
+
+    var plainText = (es ? 'Hola ' : 'Hi ') + firstName + ',\n\n' +
+      (es ? 'Tu evento "' + eventTitle + '" es mañana.' : 'Your event "' + eventTitle + '" is tomorrow.') + '\n\n' +
+      (es ? 'Haz check-in aquí: ' : 'Check in here: ') + checkinUrl + '\n\n' +
+      '— Health Matters Clinic\n' +
+      (es ? 'En crisis? Llama o escribe al 988.' : 'In crisis? Call or text 988.');
+
+    try {
+      MailApp.sendEmail({
+        to: email,
+        subject: subject,
+        htmlBody: htmlBody,
+        body: plainText,
+        name: 'Health Matters Clinic Events'
+      });
+      sent++;
+    } catch (err) {
+      Logger.log('Reminder email failed for ' + email + ': ' + err);
+    }
+  }
+
+  Logger.log('sendEventReminders: sent ' + sent + ' reminder(s) for ' + tomorrowStr);
+}
+
 var TEST_EVENT   = 'event-1772063101013';
 var TEST_PREFIX  = 'TEST_';
 
