@@ -1,7 +1,7 @@
 // Configuration for Event Finder Tool
 
 // Google Apps Script URL - Backend for events, RSVPs, and partner requests
-export const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5vZVE7f124Wowhtg6f7b1XBy1YV-uu6qPZeSMipBBUoM1MwxhXfT0wIJZeXlSVyfuMg/exec';
+export const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyACCW478QkLQ9wu1Y8S0KUwc59NzvsGvB-Az5RLxVlUqU4G5beZTWFcIvFyoPtp5lHCg/exec';
 
 // Volunteer Portal API - dual-write RSVPs for volunteer matching
 export const PORTAL_API_URL = 'https://hmc-volunteer-portal-172668994130.us-central1.run.app';
