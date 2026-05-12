@@ -132,17 +132,14 @@ const isPast = (dateStr: string) => {
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>('en');
   const [events, setEvents] = useState<ClinicEvent[]>(() => {
-    // Hydrate from cache synchronously so the list is never blank on mount.
-    // Try current key first; fall back to previous key so a cache-bust doesn't leave the page blank.
-    for (const key of [STORAGE_KEYS.EVENTS_CACHE, 'event-finder-events-cache']) {
-      try {
-        const cached = localStorage.getItem(key);
-        if (cached) {
-          const parsed = sanitizeEvents(JSON.parse(cached));
-          if (parsed.length > 0) return parsed;
-        }
-      } catch { /* ignore */ }
-    }
+    // Hydrate from cache synchronously so the list is never blank on mount
+    try {
+      const cached = localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE);
+      if (cached) {
+        const parsed = sanitizeEvents(JSON.parse(cached));
+        if (parsed.length > 0) return parsed;
+      }
+    } catch { /* ignore */ }
     return [];
   });
   const [eventsLoading, setEventsLoading] = useState(true);
@@ -278,37 +275,31 @@ const App: React.FC = () => {
         return false;
       };
 
-      // Primary: portal API — fast (no cold start), fetches GAS sheet server-side + enriches with Firestore flyerUrls
-      try {
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 8000);
-        const response = await fetch(`${PORTAL_API_URL}/api/public/events`, { signal: controller.signal });
-        clearTimeout(tid);
-        if (response.ok) {
-          const events = await response.json();
-          if (Array.isArray(events) && events.length > 0) {
-            if (applyEvents(events)) return;
-          }
-        }
-      } catch (e: any) {
-        console.warn('Portal events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
-      }
+      // Fetch portal and GAS in parallel — use whichever returns more events (GAS is sheet source of truth)
+      const portalCtrl = new AbortController();
+      const gasCtrl = new AbortController();
+      const portalTid = setTimeout(() => portalCtrl.abort(), 8000);
+      const gasTid = setTimeout(() => gasCtrl.abort(), 15000);
 
-      // Fallback: direct GAS call (if portal is unreachable)
-      try {
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 15000);
-        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`, { signal: controller.signal });
-        clearTimeout(tid);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-            if (applyEvents(data.events)) return;
-          }
-        }
-      } catch (e: any) {
-        console.warn('GAS events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
-      }
+      const [portalResult, gasResult] = await Promise.allSettled([
+        fetch(`${PORTAL_API_URL}/api/public/events`, { signal: portalCtrl.signal })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => Array.isArray(d) && d.length > 0 ? d : null)
+          .catch(() => null),
+        fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`, { signal: gasCtrl.signal })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => d?.success && Array.isArray(d.events) && d.events.length > 0 ? d.events : null)
+          .catch(() => null),
+      ]);
+      clearTimeout(portalTid);
+      clearTimeout(gasTid);
+
+      const portalEvents = portalResult.status === 'fulfilled' ? portalResult.value : null;
+      const gasEvents = gasResult.status === 'fulfilled' ? gasResult.value : null;
+
+      // Use GAS if it has more events; otherwise portal; otherwise whichever succeeded
+      const best = (gasEvents?.length ?? 0) >= (portalEvents?.length ?? 0) ? gasEvents : portalEvents;
+      if (best && applyEvents(best)) return;
 
       // If both failed and no cache, fall back to hardcoded events
       if (isMounted) {
