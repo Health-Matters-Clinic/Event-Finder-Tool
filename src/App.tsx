@@ -42,6 +42,8 @@ const PROGRAM_COLORS: { [key: string]: string } = {
 };
 
 const DEFAULT_CENTER: [number, number] = [33.9719, -118.2108];
+const REQUIRED_DEEP_LINK_EVENT_IDS = ['event-1772064063990', 'event-1773943614235'];
+const PUBLIC_EVENTFINDER_URL = 'https://www.healthmatters.clinic/resources/eventfinder';
 
 // Sanitize raw event data from Google Sheets or cache before putting it in state.
 // Drops records missing required fields; coerces optional fields to safe types.
@@ -104,6 +106,26 @@ const sanitizeEvents = (raw: any[]): ClinicEvent[] => {
   return deduped;
 };
 
+const mergeWithBundledEvents = (raw: any[]): ClinicEvent[] => {
+  const bundled = sanitizeEvents(EVENTS);
+  const incoming = sanitizeEvents(raw);
+  const byId = new Map<string, ClinicEvent>();
+
+  // Bundled events are the safety floor so a partial backend response cannot wipe the calendar.
+  bundled.forEach((event) => byId.set(event.id, event));
+  incoming.forEach((event) => byId.set(event.id, { ...(byId.get(event.id) || {}), ...event }));
+
+  // These two links were publicly mandated and must always resolve.
+  REQUIRED_DEEP_LINK_EVENT_IDS.forEach((id) => {
+    if (!byId.has(id)) {
+      const fallback = bundled.find((event) => event.id === id);
+      if (fallback) byId.set(id, fallback);
+    }
+  });
+
+  return sanitizeEvents(Array.from(byId.values()));
+};
+
 const parseTimeToISO = (timeStr: string): string => {
   if (!timeStr) return '08:00:00';
   const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
@@ -136,7 +158,7 @@ const App: React.FC = () => {
     try {
       const cached = localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE);
       if (cached) {
-        const parsed = sanitizeEvents(JSON.parse(cached));
+        const parsed = mergeWithBundledEvents(JSON.parse(cached));
         if (parsed.length > 0) return parsed;
       }
     } catch { /* ignore */ }
@@ -259,7 +281,7 @@ const App: React.FC = () => {
       // Just fetch fresh data and replace, never delete stale cache before fresh data arrives.
 
       const applyEvents = (events: ClinicEvent[]) => {
-        const cleanEvents = sanitizeEvents(events);
+        const cleanEvents = mergeWithBundledEvents(events);
         if (isMounted && cleanEvents.length > 0) {
           setEvents(cleanEvents);
           const cacheEvents = cleanEvents.map((e) => ({
@@ -570,7 +592,7 @@ const App: React.FC = () => {
     const shareText = `${eventTitle} - ${selectedEvent.dateDisplay}${selectedEvent.address ? ` @ ${selectedEvent.address}` : ''}`;
 
     // Create event-specific share URL, always use event ID for reliable deep linking
-    const shareUrl = `https://eventfinder.healthmatters.clinic/?event=${encodeURIComponent(selectedEvent.id)}&rsvp=true${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
+    const shareUrl = `${PUBLIC_EVENTFINDER_URL}?event=${encodeURIComponent(selectedEvent.id)}&rsvp=true${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
 
     const mailtoUrl = `mailto:?subject=${encodeURIComponent(eventTitle)}&body=${encodeURIComponent(`${shareText}\n\nRSVP here: ${shareUrl}`)}`;
 
@@ -623,7 +645,7 @@ const App: React.FC = () => {
   };
 
   const handleEventsUpdate = (newEvents: ClinicEvent[]) => {
-    setEvents(newEvents);
+    setEvents(mergeWithBundledEvents(newEvents));
   };
 
   const programLabel = (program: string) => translateProgram(program, lang);
@@ -632,7 +654,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const upcoming = events.filter(e => !isPast(e.date));
     const jsonLd = upcoming.map(e => {
-      const eventUrl = `https://eventfinder.healthmatters.clinic/?event=${e.id}`;
+      const eventUrl = `${PUBLIC_EVENTFINDER_URL}?event=${e.id}`;
       const isVirtual = !e.address || e.address.toLowerCase().includes('virtual') || e.address.toLowerCase().includes('zoom');
       const entry: any = {
         '@context': 'https://schema.org',

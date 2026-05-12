@@ -657,14 +657,21 @@
     var iframes = document.querySelectorAll('iframe');
     iframes.forEach(function(iframe) {
       var src = iframe.getAttribute('src') || '';
-      if (src.indexOf('Event-Finder-Tool') !== -1 || src.indexOf('teamhmc.github.io') !== -1) {
-        // Append the event param to the iframe src if not already present
-        if (src.indexOf('event=') === -1) {
+      if (
+        src.indexOf('Event-Finder-Tool') !== -1 ||
+        src.indexOf('teamhmc.github.io') !== -1 ||
+        src.indexOf('eventfinder.healthmatters.clinic') !== -1 ||
+        src.indexOf('/resources/eventfinder') !== -1
+      ) {
+        try {
+          var iframeUrl = new URL(src, window.location.href);
+          iframeUrl.searchParams.set('event', eventSlug);
+          if (rsvpFlag === 'true') iframeUrl.searchParams.set('rsvp', 'true');
+          iframe.src = iframeUrl.toString();
+        } catch (_) {
           var separator = src.indexOf('?') !== -1 ? '&' : '?';
           var params = 'event=' + encodeURIComponent(eventSlug);
-          if (rsvpFlag === 'true') {
-            params += '&rsvp=true';
-          }
+          if (rsvpFlag === 'true') params += '&rsvp=true';
           iframe.src = src + separator + params;
         }
       }

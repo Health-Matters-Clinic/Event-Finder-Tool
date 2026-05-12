@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from './Button';
 import { ClinicEvent, EventSession, Language } from '../types';
 import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, hashPasscode, postGasJson } from '../config';
+import { EVENTS } from '../constants';
 
 interface AdminModalProps {
   lang: Language;
@@ -33,6 +34,7 @@ const PROGRAM_COLORS: Record<string, string> = {
 };
 
 const SHARE_BASE_URL = 'https://www.healthmatters.clinic/resources/eventfinder?event=';
+const REQUIRED_EVENT_IDS = ['event-1772064063990', 'event-1773943614235'];
 
 // Get default date (2 weeks from now)
 const getDefaultDate = () => {
@@ -66,6 +68,17 @@ const parseEventDate = (dateStr: string): Date => {
 
 // Helper: get today as YYYY-MM-DD
 const todayStr = () => new Date().toISOString().split('T')[0];
+
+const preserveRequiredEvents = (events: ClinicEvent[]) => {
+  const byId = new Map(events.map((event) => [event.id, event]));
+  REQUIRED_EVENT_IDS.forEach((id) => {
+    if (!byId.has(id)) {
+      const fallback = EVENTS.find((event) => event.id === id);
+      if (fallback) byId.set(id, fallback);
+    }
+  });
+  return Array.from(byId.values());
+};
 
 // Helper: days between two YYYY-MM-DD strings
 const daysBetween = (a: string, b: string): number => {
@@ -378,8 +391,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         if (!delResult.success) throw new Error(delResult.error || 'Delete failed');
 
         const updated = events.filter((e) => e.id !== eventId);
-        onEventsUpdate(updated);
-        localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(updated));
+        const safeUpdated = preserveRequiredEvents(updated);
+        onEventsUpdate(safeUpdated);
+        localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(safeUpdated));
       } catch (error) {
         console.error('Failed to delete event:', error);
         setSaveError(lang === 'es' ? 'Error al eliminar' : 'Failed to delete');
@@ -439,8 +453,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       updated = [...events, eventToSave];
     }
 
-    onEventsUpdate(updated);
-    localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(updated));
+    const safeUpdated = preserveRequiredEvents(updated);
+    onEventsUpdate(safeUpdated);
+    localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(safeUpdated));
     setView('main');
     setIsSaving(false);
   };
@@ -486,8 +501,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           console.warn('Failed to sync to backend:', e);
         }
 
-        onEventsUpdate(imported);
-        localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(imported));
+        const safeImported = preserveRequiredEvents(imported);
+        onEventsUpdate(safeImported);
+        localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(safeImported));
         setShowImport(false);
         setImportText('');
         setIsSaving(false);
@@ -551,7 +567,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         const key = `${String(e.title || '').trim().toLowerCase()}|${String(e.date || '').split('T')[0]}`;
         if (!seen.has(key)) seen.set(key, e);
       }
-      const deduped = Array.from(seen.values());
+      const deduped = preserveRequiredEvents(Array.from(seen.values()));
 
       onEventsUpdate(deduped);
       localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(deduped));
