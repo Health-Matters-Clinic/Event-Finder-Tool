@@ -275,26 +275,10 @@ const App: React.FC = () => {
         return false;
       };
 
-      // Primary: direct GAS call — browser reads Google Sheet directly, no server-side dependency
+      // Primary: portal API — proxies GAS server-side (GAS is CORS-blocked from browser)
       try {
         const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 15000);
-        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`, { signal: controller.signal });
-        clearTimeout(tid);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-            if (applyEvents(data.events)) return;
-          }
-        }
-      } catch (e: any) {
-        console.warn('GAS events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
-      }
-
-      // Fallback: portal API (if GAS is unreachable)
-      try {
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 8000);
+        const tid = setTimeout(() => controller.abort(), 12000);
         const response = await fetch(`${PORTAL_API_URL}/api/public/events`, { signal: controller.signal });
         clearTimeout(tid);
         if (response.ok) {
