@@ -56,7 +56,6 @@ const REQUIRED_EVENT_OVERRIDES: Record<string, Partial<ClinicEvent>> = {
     program: 'Community Wellness',
     lat: 33.9614,
     lng: -118.3528,
-    flyerUrl: '/flyers/wellness-meetup-may.png',
     isSponsored: true,
   },
   'event-1773943614235': {
@@ -70,7 +69,6 @@ const REQUIRED_EVENT_OVERRIDES: Record<string, Partial<ClinicEvent>> = {
     program: 'Community Wellness',
     lat: 0,
     lng: 0,
-    flyerUrl: '/flyers/unstoppable-experience-virtual.png',
     isSponsored: true,
   },
 };
