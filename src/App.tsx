@@ -258,6 +258,24 @@ const App: React.FC = () => {
       // Stale-while-revalidate: cache was already applied synchronously in useState.
       // Just fetch fresh data and replace, never delete stale cache before fresh data arrives.
 
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // Supplement API events with any hardcoded upcoming events not already covered.
+      // Guards against the portal GAS cache returning a partial list.
+      const mergeWithFallback = (apiEvents: ClinicEvent[]): ClinicEvent[] => {
+        const apiIds = new Set(apiEvents.map((e) => String(e.id)));
+        const apiKeys = new Set(
+          apiEvents.map((e) => `${(e.title || '').trim().toLowerCase()}|${e.date}`)
+        );
+        const missing = EVENTS.filter((e) => {
+          if (!e.date || e.date < todayStr) return false;
+          if (apiIds.has(String(e.id))) return false;
+          return !apiKeys.has(`${(e.title || '').trim().toLowerCase()}|${e.date}`);
+        });
+        if (missing.length === 0) return apiEvents;
+        return [...apiEvents, ...missing].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      };
+
       const applyEvents = (events: ClinicEvent[]) => {
         const cleanEvents = sanitizeEvents(events);
         if (isMounted && cleanEvents.length > 0) {
@@ -285,7 +303,7 @@ const App: React.FC = () => {
         if (response.ok) {
           const events = await response.json();
           if (Array.isArray(events) && events.length > 0) {
-            if (applyEvents(events)) return;
+            if (applyEvents(mergeWithFallback(events))) return;
           }
         }
       } catch (e: any) {
@@ -301,7 +319,7 @@ const App: React.FC = () => {
         if (response.ok) {
           const data = await response.json();
           if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-            applyEvents(data.events);
+            applyEvents(mergeWithFallback(data.events));
             return;
           }
         }
