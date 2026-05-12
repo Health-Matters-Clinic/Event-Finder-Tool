@@ -122,6 +122,16 @@ function resetPasscode(codeHash, newPasscodeHash) {
   return { success: true };
 }
 
+function verifyAdminRequest(params) {
+  var hash = params && params.hash ? String(params.hash) : '';
+  if (!hash) return { success: false, error: 'Unauthorized' };
+  var stored = getConfigValue('passcode_hash');
+  if (!stored || !stored.value || stored.value !== hash) {
+    return { success: false, error: 'Unauthorized' };
+  }
+  return { success: true };
+}
+
 // ========================================
 // doGet - handles all incoming requests
 // ========================================
@@ -207,6 +217,11 @@ function doGet(e) {
   // ===== SAVE EVENT (via GET for CORS compatibility) =====
   if (action === 'saveEvent') {
     try {
+      var saveAuth = verifyAdminRequest(p);
+      if (!saveAuth.success) {
+        return ContentService.createTextOutput(JSON.stringify(saveAuth))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
       var eventData = p.event ? JSON.parse(p.event) : null;
       if (eventData) {
         var result = saveEvent(eventData);
@@ -235,6 +250,11 @@ function doGet(e) {
 
   // ===== DELETE EVENT (via GET for CORS compatibility) =====
   if (action === 'deleteEvent') {
+    var deleteAuth = verifyAdminRequest(p);
+    if (!deleteAuth.success) {
+      return ContentService.createTextOutput(JSON.stringify(deleteAuth))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     var result = deleteEvent(p.id);
     return ContentService.createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON);
@@ -285,13 +305,16 @@ function doPost(e) {
         result = resetPasscode(params.codeHash || '', params.newHash || '');
         break;
       case 'saveEvent':
-        result = saveEvent(params.event || params);
+        result = verifyAdminRequest(params);
+        if (result.success) result = saveEvent(params.event || params);
         break;
       case 'deleteEvent':
-        result = deleteEvent(params.id);
+        result = verifyAdminRequest(params);
+        if (result.success) result = deleteEvent(params.id);
         break;
       case 'saveAllEvents':
-        result = saveAllEvents(params.events);
+        result = verifyAdminRequest(params);
+        if (result.success) result = saveAllEvents(params.events);
         break;
       case 'preregister':
         handleRSVP(params);

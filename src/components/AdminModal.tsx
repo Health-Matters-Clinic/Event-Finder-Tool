@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from './Button';
 import { ClinicEvent, EventSession, Language } from '../types';
-import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, hashPasscode } from '../config';
+import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, hashPasscode, postGasJson } from '../config';
 
 interface AdminModalProps {
   lang: Language;
@@ -249,12 +249,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setPasscodeError('');
     try {
       const hash = await hashPasscode(passcode);
-      // Route through portal proxy to avoid GAS CORS issues
-      const proxyUrl = `${PORTAL_API_URL}/api/public/admin-auth?action=verifyPasscode&hash=${encodeURIComponent(hash)}`;
-      const res = await fetch(proxyUrl).catch(() => fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=verifyPasscode&hash=${encodeURIComponent(hash)}`));
-      const data = await res.json();
+      let data: any;
+      try {
+        const res = await fetch(`${PORTAL_API_URL}/api/public/admin-auth`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'verifyPasscode', hash }),
+        });
+        if (!res.ok) throw new Error('Portal auth failed');
+        data = await res.json();
+      } catch {
+        data = await postGasJson({ action: 'verifyPasscode', hash });
+      }
       if (data.success === true && !('events' in data)) {
         sessionStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, 'true');
+        sessionStorage.setItem(STORAGE_KEYS.ADMIN_HASH, hash);
         setView('main');
       } else if (data.needsSetup) {
         setPasscodeError(lang === 'es' ? 'No hay codigo configurado. Usa "Restablecer Codigo" para crear uno.' : 'No passcode set. Use "Reset Passcode" to create one.');
@@ -275,9 +284,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setResetMessage('');
     setPasscodeError('');
     try {
-      const url = `${GOOGLE_APPS_SCRIPT_URL}?action=requestPasscodeReset`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await postGasJson({ action: 'requestPasscodeReset' });
       if (data.success) {
         setView('reset-confirm');
         setResetMessage(lang === 'es' ? 'Codigo enviado al correo del admin.' : 'Reset code sent to admin email.');
@@ -306,11 +313,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     try {
       const codeHash = await hashPasscode(resetCode);
       const newHash = await hashPasscode(newPasscode);
-      const url = `${GOOGLE_APPS_SCRIPT_URL}?action=resetPasscode&codeHash=${encodeURIComponent(codeHash)}&newHash=${encodeURIComponent(newHash)}`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await postGasJson({ action: 'resetPasscode', codeHash, newHash });
       if (data.success) {
         sessionStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, 'true');
+        sessionStorage.setItem(STORAGE_KEYS.ADMIN_HASH, newHash);
         setView('main');
         setPasscode('');
         setResetCode('');
@@ -366,7 +372,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         const delRes = await fetch(`${PORTAL_API_URL}/api/public/save-event`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'deleteEvent', id: eventId }),
+          body: JSON.stringify({ action: 'deleteEvent', id: eventId, hash: sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '' }),
         });
         const delResult = await delRes.json();
         if (!delResult.success) throw new Error(delResult.error || 'Delete failed');
@@ -454,12 +460,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     const res = await fetch(`${PORTAL_API_URL}/api/public/save-event`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'saveEvent', event }),
+      body: JSON.stringify({ action: 'saveEvent', event, hash: sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '' }),
     });
     const result = await res.json();
     if (!result.success) throw new Error(result.error || 'Save failed');
     // Bust server-side GAS cache so Event Finder shows updates immediately
-    fetch(`${PORTAL_API_URL}/api/public/bust-events-cache`, { method: 'POST' }).catch(() => {});
+    fetch(`${PORTAL_API_URL}/api/public/bust-events-cache`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hash: sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '' }),
+    }).catch(() => {});
   };
 
   const handleImportJSON = async () => {
@@ -511,7 +521,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setSaveError('');
     try {
       // Bust cache first so portal returns fresh data
-      await fetch(`${PORTAL_API_URL}/api/public/bust-events-cache`, { method: 'POST' }).catch(() => {});
+      await fetch(`${PORTAL_API_URL}/api/public/bust-events-cache`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hash: sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '' }),
+      }).catch(() => {});
 
       // Prefer portal API (already deduplicates); fall back to GAS
       let raw: ClinicEvent[] | null = null;
@@ -550,6 +564,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   const handleLogout = () => {
     sessionStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
+    sessionStorage.removeItem(STORAGE_KEYS.ADMIN_HASH);
     setView('passcode');
     setPasscode('');
   };

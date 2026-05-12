@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from './Button';
 import { I18N } from '../constants';
-import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, RECAPTCHA_SITE_KEY } from '../config';
+import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, RECAPTCHA_SITE_KEY, buildGasUrl } from '../config';
 import { Language, ClinicEvent, RSVPPayload } from '../types';
 import { translateEventTitle } from '../utils/translation';
 
@@ -96,9 +96,11 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     });
     if (recaptchaToken) params.append('recaptchaToken', recaptchaToken);
 
-    // Fire-and-forget portal dual-write (Firestore + volunteer matching) — does not block submission
+    let portalWrite: Promise<boolean> = Promise.resolve(false);
+
+    // Fire-and-forget portal dual-write (Firestore + volunteer matching) — primary success still comes from GAS
     if (payload.action === 'preregister' || !payload.action) {
-      fetch(`${PORTAL_API_URL}/api/public/rsvp`, {
+      portalWrite = fetch(`${PORTAL_API_URL}/api/public/rsvp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -121,18 +123,20 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
           sms_consent: payload.sms_consent,
           guests: payload.guests,
         }),
-      }).catch(() => {}); // never block on portal failure
+      }).then((response) => response.ok).catch(() => false);
     }
 
     // Primary write: Google Apps Script — writes to Sheet + sends confirmation email
     try {
-      const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
-      let checkinToken: string | undefined;
-      try { checkinToken = (await response.json()).checkinToken; } catch {}
-      return { success: true, checkinToken };
+      const response = await fetch(buildGasUrl(params));
+      if (!response.ok) throw new Error(`Registration failed (${response.status})`);
+      const data = await response.json();
+      if (data?.success === false) throw new Error(data.error || 'Registration failed');
+      return { success: true, checkinToken: data?.checkinToken };
     } catch {
-      // GAS unreachable — portal already wrote to Firestore above, so treat as success
-      return { success: true };
+      // If the portal accepted the RSVP, keep the user moving; otherwise surface a real failure.
+      if (await portalWrite) return { success: true };
+      return { success: false };
     }
   };
 
@@ -168,7 +172,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
         contact_method: email ? 'email' : 'text',
         lang,
       });
-      const resp = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
+      const resp = await fetch(buildGasUrl(params));
+      if (!resp.ok) throw new Error('Waitlist request failed');
       const data = await resp.json();
       if (data.success) {
         setWaitlistedSessions(prev => ({ ...prev, [sessionId]: { position: data.position, token: data.token } }));
@@ -321,6 +326,9 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
 
     try {
       const data = await postJson(payload);
+      if (!data.success) {
+        throw new Error(lang === 'es' ? 'No pudimos completar tu registro. Intenta de nuevo.' : 'We could not complete your registration. Please try again.');
+      }
 
       // Analytics: RSVP confirmed
       try {
@@ -347,6 +355,9 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
         action: 'checkin',
         checkinToken,
       });
+      if (!data.success) {
+        throw new Error(lang === 'es' ? 'No pudimos completar el check-in.' : 'We could not complete check-in.');
+      }
       setState('checked_in');
       // Optional: auto-close after success
       setTimeout(onClose, 1800);
