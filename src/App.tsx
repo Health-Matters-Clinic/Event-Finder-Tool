@@ -132,14 +132,17 @@ const isPast = (dateStr: string) => {
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>('en');
   const [events, setEvents] = useState<ClinicEvent[]>(() => {
-    // Hydrate from cache synchronously so the list is never blank on mount
-    try {
-      const cached = localStorage.getItem(STORAGE_KEYS.EVENTS_CACHE);
-      if (cached) {
-        const parsed = sanitizeEvents(JSON.parse(cached));
-        if (parsed.length > 0) return parsed;
-      }
-    } catch { /* ignore */ }
+    // Hydrate from cache synchronously so the list is never blank on mount.
+    // Try current key first; fall back to previous key so a cache-bust doesn't leave the page blank.
+    for (const key of [STORAGE_KEYS.EVENTS_CACHE, 'event-finder-events-cache']) {
+      try {
+        const cached = localStorage.getItem(key);
+        if (cached) {
+          const parsed = sanitizeEvents(JSON.parse(cached));
+          if (parsed.length > 0) return parsed;
+        }
+      } catch { /* ignore */ }
+    }
     return [];
   });
   const [eventsLoading, setEventsLoading] = useState(true);
@@ -275,8 +278,7 @@ const App: React.FC = () => {
         return false;
       };
 
-      // Primary: portal API — fetches all GAS sheet events server-side (no browser CORS) + enriches with Firestore flyerUrls
-      // Requires portal Cloud Run APPS_SCRIPT_URL = AKfycbz5... (Event Finder GAS)
+      // Primary: portal API — fast (no cold start), fetches GAS sheet server-side + enriches with Firestore flyerUrls
       try {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 8000);
