@@ -44,6 +44,46 @@ const PROGRAM_COLORS: { [key: string]: string } = {
 const DEFAULT_CENTER: [number, number] = [33.9719, -118.2108];
 const REQUIRED_DEEP_LINK_EVENT_IDS = ['event-1772064063990', 'event-1773943614235'];
 const PUBLIC_EVENTFINDER_URL = 'https://www.healthmatters.clinic/resources/eventfinder';
+const REQUIRED_EVENT_OVERRIDES: Record<string, Partial<ClinicEvent>> = {
+  'event-1772064063990': {
+    title: 'Unstoppable Wellness Meetup',
+    date: '2026-05-20',
+    dateDisplay: 'Wednesday, May 20, 2026',
+    time: '5:45 PM - 7:15 PM',
+    location: 'Inglewood',
+    city: 'Los Angeles',
+    address: '123 W. Manchester Blvd, Inglewood, CA 90301',
+    program: 'Community Wellness',
+    lat: 33.9614,
+    lng: -118.3528,
+    flyerUrl: '/flyers/wellness-meetup-may.png',
+    isSponsored: true,
+  },
+  'event-1773943614235': {
+    title: 'UNSTOPPABLE Experience',
+    date: '2026-05-27',
+    dateDisplay: 'Wednesday, May 27, 2026',
+    time: '7:00 PM - 8:00 PM',
+    location: 'Online',
+    city: 'Online',
+    address: 'Virtual',
+    program: 'Community Wellness',
+    lat: 0,
+    lng: 0,
+    flyerUrl: '/flyers/unstoppable-experience-virtual.png',
+    isSponsored: true,
+  },
+};
+
+const mergeEventData = (base: ClinicEvent, incoming: ClinicEvent): ClinicEvent => {
+  const merged = { ...base, ...incoming };
+  (['title', 'dateDisplay', 'time', 'location', 'city', 'address', 'program', 'description', 'flyerUrl', 'websiteUrl'] as const)
+    .forEach((key) => {
+      if (!incoming[key] && base[key]) merged[key] = base[key] as any;
+    });
+  if ((!incoming.sessions || incoming.sessions.length === 0) && base.sessions?.length) merged.sessions = base.sessions;
+  return merged;
+};
 
 // Sanitize raw event data from Google Sheets or cache before putting it in state.
 // Drops records missing required fields; coerces optional fields to safe types.
@@ -95,11 +135,11 @@ const sanitizeEvents = (raw: any[]): ClinicEvent[] => {
       const idx = seen.get(key)!;
       const existing = deduped[idx];
       if (isEbId(e.id) && !isEbId(existing.id)) {
-        deduped[idx] = { ...e, ...existing, id: e.id } as ClinicEvent;
+        deduped[idx] = mergeEventData(e, { ...existing, id: e.id } as ClinicEvent);
       } else if (!isEbId(e.id) && isEbId(existing.id)) {
-        deduped[idx] = { ...existing, ...e, id: existing.id } as ClinicEvent;
+        deduped[idx] = mergeEventData(existing, { ...e, id: existing.id } as ClinicEvent);
       } else {
-        deduped[idx] = e; // keep latest
+        deduped[idx] = mergeEventData(existing, e); // keep latest non-empty values
       }
     }
   }
@@ -113,13 +153,20 @@ const mergeWithBundledEvents = (raw: any[]): ClinicEvent[] => {
 
   // Bundled events are the safety floor so a partial backend response cannot wipe the calendar.
   bundled.forEach((event) => byId.set(event.id, event));
-  incoming.forEach((event) => byId.set(event.id, { ...(byId.get(event.id) || {}), ...event }));
+  incoming.forEach((event) => {
+    const existing = byId.get(event.id);
+    byId.set(event.id, existing ? mergeEventData(existing, event) : event);
+  });
 
   // These two links were publicly mandated and must always resolve.
   REQUIRED_DEEP_LINK_EVENT_IDS.forEach((id) => {
-    if (!byId.has(id)) {
-      const fallback = bundled.find((event) => event.id === id);
-      if (fallback) byId.set(id, fallback);
+    const fallback = bundled.find((event) => event.id === id);
+    const existing = byId.get(id) || fallback;
+    if (existing) {
+      const merged = mergeEventData(existing, { ...existing, ...REQUIRED_EVENT_OVERRIDES[id], id } as ClinicEvent);
+      // Force HMC RSVP modal — these events use HMC registration, not external links
+      merged.websiteUrl = '';
+      byId.set(id, merged);
     }
   });
 
@@ -396,7 +443,6 @@ const App: React.FC = () => {
           try { hasRsvp = new URL(document.referrer).searchParams.get('rsvp') === 'true'; } catch {}
         }
         if (hasRsvp && !foundEvent.websiteUrl) {
-          // Only auto-open HMC's RSVP modal for events without their own registration page
           setIsRSVPOpen(true);
         }
         setPendingEventSlug(null);
