@@ -249,8 +249,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setPasscodeError('');
     try {
       const hash = await hashPasscode(passcode);
-      const url = `${GOOGLE_APPS_SCRIPT_URL}?action=verifyPasscode&hash=${encodeURIComponent(hash)}`;
-      const res = await fetch(url);
+      // Route through portal proxy to avoid GAS CORS issues
+      const proxyUrl = `${PORTAL_API_URL}/api/public/admin-auth?action=verifyPasscode&hash=${encodeURIComponent(hash)}`;
+      const res = await fetch(proxyUrl).catch(() => fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=verifyPasscode&hash=${encodeURIComponent(hash)}`));
       const data = await res.json();
       if (data.success === true && !('events' in data)) {
         sessionStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, 'true');
