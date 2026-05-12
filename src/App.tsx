@@ -3,7 +3,7 @@ import { EVENTS, I18N } from './constants';
 import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, STORAGE_KEYS } from './config';
 import { ClinicEvent, Language } from './types';
 import { Button } from './components/Button';
-import { translateEventTitle, translateProgram } from './utils/translation';
+import { translateDescription, translateEventTitle, translateProgram } from './utils/translation';
 
 const RSVPModal = lazy(() => import('./components/RSVPModal').then(m => ({ default: m.RSVPModal })));
 const AdminModal = lazy(() => import('./components/AdminModal').then(m => ({ default: m.AdminModal })));
@@ -43,15 +43,36 @@ const PROGRAM_COLORS: { [key: string]: string } = {
 
 const DEFAULT_CENTER: [number, number] = [33.9719, -118.2108];
 
+const parseBoolean = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    return ['true', 'yes', '1', 'y'].includes(value.trim().toLowerCase());
+  }
+  return false;
+};
+
+const normalizeEventTitle = (title: string): string => {
+  const trimmed = title.trim();
+  if (/^heal:\s*unstoppable wellness meetup$/i.test(trimmed)) {
+    return 'Unstoppable Wellness Meetup';
+  }
+  if (/^transform:\s*the unstoppable experience$/i.test(trimmed)) {
+    return 'UNSTOPPABLE Experience';
+  }
+  return trimmed;
+};
+
 // Sanitize raw event data from Google Sheets or cache before putting it in state.
 // Drops records missing required fields; coerces optional fields to safe types.
 const sanitizeEvent = (e: any): ClinicEvent | null => {
   if (!e || typeof e !== 'object') return null;
   if (!e.id || !e.date || typeof e.date !== 'string') return null;
+  const title = normalizeEventTitle(e.title ? String(e.title) : 'Untitled Event');
   return {
     ...e,
     id: String(e.id),
-    title: e.title ? String(e.title) : 'Untitled Event',
+    title,
     date: String(e.date),
     dateDisplay: (() => {
       const raw = String(e.dateDisplay || e.date || '');
@@ -68,12 +89,19 @@ const sanitizeEvent = (e: any): ClinicEvent | null => {
     location: e.location ? String(e.location) : '',
     city: e.city ? String(e.city) : '',
     address: e.address ? String(e.address) : '',
-    program: e.program ? String(e.program) : 'Community Wellness',
+    program: title === 'Unstoppable Wellness Meetup' ? 'Unstoppable Wellness Meetup' : (e.program ? String(e.program) : 'Community Wellness'),
     description: e.description ? String(e.description) : '',
     lat: typeof e.lat === 'number' ? e.lat : parseFloat(e.lat) || DEFAULT_CENTER[0],
     lng: typeof e.lng === 'number' ? e.lng : parseFloat(e.lng) || DEFAULT_CENTER[1],
     flyerUrl: e.flyerUrl ? String(e.flyerUrl) : '',
     websiteUrl: e.websiteUrl ? String(e.websiteUrl) : '',
+    saveTheDate: parseBoolean(e.saveTheDate),
+    isPromoted: parseBoolean(e.isPromoted),
+    isSponsored: parseBoolean(e.isSponsored),
+    promotedUntil: e.promotedUntil ? String(e.promotedUntil) : undefined,
+    createdAt: e.createdAt ? String(e.createdAt) : undefined,
+    title_es: e.title_es ? String(e.title_es) : undefined,
+    description_es: e.description_es ? String(e.description_es) : undefined,
     sessions: Array.isArray(e.sessions) ? e.sessions : [],
   };
 };
@@ -102,6 +130,36 @@ const sanitizeEvents = (raw: any[]): ClinicEvent[] => {
     }
   }
   return deduped;
+};
+
+const CRITICAL_FALLBACK_EVENT_IDS = new Set([
+  'event-1772063101013',
+  'event-1772064063990',
+  'event-1773943614235',
+]);
+
+const mergeCriticalFallbackEvents = (events: ClinicEvent[]): ClinicEvent[] => {
+  const byId = new Map(events.map((event) => [event.id, event]));
+  for (const fallback of EVENTS) {
+    if (!CRITICAL_FALLBACK_EVENT_IDS.has(fallback.id)) continue;
+    const existing = byId.get(fallback.id);
+    if (!existing) {
+      byId.set(fallback.id, fallback);
+      continue;
+    }
+
+    byId.set(fallback.id, {
+      ...existing,
+      ...fallback,
+      id: existing.id,
+      sessions: existing.sessions ?? fallback.sessions,
+      title_es: existing.title_es ?? fallback.title_es,
+      description_es: existing.description_es ?? fallback.description_es,
+      createdAt: existing.createdAt ?? fallback.createdAt,
+      promotedUntil: existing.promotedUntil ?? fallback.promotedUntil,
+    });
+  }
+  return Array.from(byId.values());
 };
 
 const parseTimeToISO = (timeStr: string): string => {
@@ -259,7 +317,7 @@ const App: React.FC = () => {
       // Just fetch fresh data and replace, never delete stale cache before fresh data arrives.
 
       const applyEvents = (events: ClinicEvent[]) => {
-        const cleanEvents = sanitizeEvents(events);
+        const cleanEvents = mergeCriticalFallbackEvents(sanitizeEvents(events));
         if (isMounted && cleanEvents.length > 0) {
           setEvents(cleanEvents);
           const cacheEvents = cleanEvents.map((e) => ({
@@ -275,24 +333,8 @@ const App: React.FC = () => {
         return false;
       };
 
-      // Primary: portal API (Cloud Run + Firestore, always warm, no cold-start)
-      // Returns a plain array; merges Firestore events + cached GAS events server-side
-      try {
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 8000);
-        const response = await fetch(`${PORTAL_API_URL}/api/public/events`, { signal: controller.signal });
-        clearTimeout(tid);
-        if (response.ok) {
-          const events = await response.json();
-          if (Array.isArray(events) && events.length > 0) {
-            if (applyEvents(events)) return;
-          }
-        }
-      } catch (e: any) {
-        console.warn('Portal events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
-      }
-
-      // Fallback: direct GAS call (only reached if portal is completely unreachable)
+      // Primary: Google Apps Script backed by the Events sheet.
+      // This is the canonical source of truth for event titles, flyers, sponsorship, and descriptions.
       try {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 15000);
@@ -301,12 +343,28 @@ const App: React.FC = () => {
         if (response.ok) {
           const data = await response.json();
           if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-            applyEvents(data.events);
-            return;
+            if (applyEvents(data.events)) return;
           }
         }
       } catch (e: any) {
         console.warn('GAS events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
+      }
+
+      // Fallback: portal API if GAS is unreachable
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch(`${PORTAL_API_URL}/api/public/events`, { signal: controller.signal });
+        clearTimeout(tid);
+        if (response.ok) {
+          const events = await response.json();
+          if (Array.isArray(events) && events.length > 0) {
+            applyEvents(events);
+            return;
+          }
+        }
+      } catch (e: any) {
+        console.warn('Portal events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
       }
 
       // If backend failed and no cache, fall back to hardcoded events (includes critical Unstoppable Season events)
@@ -878,6 +936,16 @@ const App: React.FC = () => {
                 )}
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                    {lang === 'es' ? 'Descripcion' : 'Description'}
+                  </label>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    {selectedEvent.description ? translateDescription(selectedEvent.description, lang, selectedEvent) : (lang === 'es'
+                      ? 'Detalles del evento proximamente.'
+                      : 'Event details coming soon.')}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
                     {lang === 'es' ? 'Cuando' : 'When'}
                   </label>
                   <p className="text-base font-bold text-gray-900 leading-snug">
@@ -1258,6 +1326,12 @@ const App: React.FC = () => {
                   >
                     {translateEventTitle(event.title, lang, event)}
                   </h4>
+
+                  {event.description && (
+                    <p className="text-xs text-gray-500 leading-relaxed line-clamp-2 mb-3">
+                      {translateDescription(event.description, lang, event)}
+                    </p>
+                  )}
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2.5 text-xs text-gray-500 font-semibold">
