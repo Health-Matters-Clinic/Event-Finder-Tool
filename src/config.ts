@@ -17,7 +17,7 @@ export const RECAPTCHA_SITE_KEY =
 
 // Local storage keys (used as cache only, backend is source of truth)
 export const STORAGE_KEYS = {
-  EVENTS_CACHE: 'event-finder-events-cache',
+  EVENTS_CACHE: 'event-finder-events-cache-v2',
   ADMIN_AUTH: 'event-finder-admin-auth',
   ADMIN_HASH: 'event-finder-admin-hash',
 } as const;

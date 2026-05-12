@@ -275,67 +275,38 @@ const App: React.FC = () => {
         return false;
       };
 
-      // Fetch GAS (source of truth for all events) and portal (for flyerUrl enrichment) in parallel
-      const gasPromise = (async () => {
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 15000);
-        try {
-          const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`, { signal: controller.signal });
-          clearTimeout(tid);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success && Array.isArray(data.events) && data.events.length > 0) return data.events as any[];
-          }
-        } catch (e: any) {
-          clearTimeout(tid);
-          console.warn('GAS events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
-        }
-        return null;
-      })();
-
-      const portalPromise = (async () => {
+      // Primary: portal API — fetches all GAS sheet events server-side (no browser CORS) + enriches with Firestore flyerUrls
+      // Requires portal Cloud Run APPS_SCRIPT_URL = AKfycbz5... (Event Finder GAS)
+      try {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 8000);
-        try {
-          const response = await fetch(`${PORTAL_API_URL}/api/public/events`, { signal: controller.signal });
-          clearTimeout(tid);
-          if (response.ok) {
-            const events = await response.json();
-            if (Array.isArray(events) && events.length > 0) return events as any[];
+        const response = await fetch(`${PORTAL_API_URL}/api/public/events`, { signal: controller.signal });
+        clearTimeout(tid);
+        if (response.ok) {
+          const events = await response.json();
+          if (Array.isArray(events) && events.length > 0) {
+            if (applyEvents(events)) return;
           }
-        } catch (e: any) {
-          clearTimeout(tid);
-          console.warn('Portal events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
         }
-        return null;
-      })();
-
-      const [gasEvents, portalEvents] = await Promise.all([gasPromise, portalPromise]);
-
-      if (gasEvents) {
-        // GAS is source of truth for all events.
-        // Enrich flyerUrl from portal where the portal has a CDN URL and GAS doesn't.
-        let merged = gasEvents;
-        if (portalEvents && portalEvents.length > 0) {
-          const portalById = new Map<string, any>();
-          const portalByKey = new Map<string, any>();
-          for (const pe of portalEvents) {
-            if (pe.id) portalById.set(String(pe.id), pe);
-            portalByKey.set(`${(pe.title || '').trim().toLowerCase()}|${pe.date}`, pe);
-          }
-          merged = gasEvents.map((ge: any) => {
-            const match = portalById.get(String(ge.id)) ||
-              portalByKey.get(`${(ge.title || '').trim().toLowerCase()}|${ge.date}`);
-            const flyerUrl = ge.flyerUrl ||
-              (match?.flyerUrl && !match.flyerUrl.startsWith('data:') ? match.flyerUrl : '');
-            return flyerUrl !== ge.flyerUrl ? { ...ge, flyerUrl } : ge;
-          });
-        }
-        if (applyEvents(merged)) return;
+      } catch (e: any) {
+        console.warn('Portal events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
       }
 
-      // GAS failed — fall back to portal (partial but better than nothing)
-      if (portalEvents && applyEvents(portalEvents)) return;
+      // Fallback: direct GAS call (if portal is unreachable)
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 15000);
+        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getEvents`, { signal: controller.signal });
+        clearTimeout(tid);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+            if (applyEvents(data.events)) return;
+          }
+        }
+      } catch (e: any) {
+        console.warn('GAS events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
+      }
 
       // If both failed and no cache, fall back to hardcoded events
       if (isMounted) {
