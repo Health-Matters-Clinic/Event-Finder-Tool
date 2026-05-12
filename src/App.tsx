@@ -258,24 +258,6 @@ const App: React.FC = () => {
       // Stale-while-revalidate: cache was already applied synchronously in useState.
       // Just fetch fresh data and replace, never delete stale cache before fresh data arrives.
 
-      const todayStr = new Date().toISOString().split('T')[0];
-
-      // Supplement API events with any hardcoded upcoming events not already covered.
-      // Guards against the portal GAS cache returning a partial list.
-      const mergeWithFallback = (apiEvents: ClinicEvent[]): ClinicEvent[] => {
-        const apiIds = new Set(apiEvents.map((e) => String(e.id)));
-        const apiKeys = new Set(
-          apiEvents.map((e) => `${(e.title || '').trim().toLowerCase()}|${e.date}`)
-        );
-        const missing = EVENTS.filter((e) => {
-          if (!e.date || e.date < todayStr) return false;
-          if (apiIds.has(String(e.id))) return false;
-          return !apiKeys.has(`${(e.title || '').trim().toLowerCase()}|${e.date}`);
-        });
-        if (missing.length === 0) return apiEvents;
-        return [...apiEvents, ...missing].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-      };
-
       const applyEvents = (events: ClinicEvent[]) => {
         const cleanEvents = sanitizeEvents(events);
         if (isMounted && cleanEvents.length > 0) {
@@ -293,24 +275,7 @@ const App: React.FC = () => {
         return false;
       };
 
-      // Primary: portal API (Cloud Run + Firestore, always warm, no cold-start)
-      // Returns a plain array; merges Firestore events + cached GAS events server-side
-      try {
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 8000);
-        const response = await fetch(`${PORTAL_API_URL}/api/public/events`, { signal: controller.signal });
-        clearTimeout(tid);
-        if (response.ok) {
-          const events = await response.json();
-          if (Array.isArray(events) && events.length > 0) {
-            if (applyEvents(mergeWithFallback(events))) return;
-          }
-        }
-      } catch (e: any) {
-        console.warn('Portal events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
-      }
-
-      // Fallback: direct GAS call (only reached if portal is completely unreachable)
+      // Primary: GAS (Google Sheet) — source of truth for all events
       try {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 15000);
@@ -319,15 +284,30 @@ const App: React.FC = () => {
         if (response.ok) {
           const data = await response.json();
           if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-            applyEvents(mergeWithFallback(data.events));
-            return;
+            if (applyEvents(data.events)) return;
           }
         }
       } catch (e: any) {
         console.warn('GAS events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
       }
 
-      // If backend failed and no cache, fall back to hardcoded events (includes critical Unstoppable Season events)
+      // Fallback: portal API (if GAS is unreachable)
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch(`${PORTAL_API_URL}/api/public/events`, { signal: controller.signal });
+        clearTimeout(tid);
+        if (response.ok) {
+          const events = await response.json();
+          if (Array.isArray(events) && events.length > 0) {
+            if (applyEvents(events)) return;
+          }
+        }
+      } catch (e: any) {
+        console.warn('Portal events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
+      }
+
+      // If both failed and no cache, fall back to hardcoded events
       if (isMounted) {
         setEvents(prev => prev.length > 0 ? prev : EVENTS);
         setEventsLoading(false);
