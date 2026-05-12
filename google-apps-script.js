@@ -772,7 +772,7 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     ? 'Registro Confirmado | Health Matters Clinic Events'
     : 'Registration Confirmed | Health Matters Clinic Events';
 
-  var checkinUrl = CONFIG.SCRIPT_URL + '?token=' + checkinToken;
+  var checkinUrl = 'https://eventfinder.healthmatters.clinic/waiver.html?checkin=' + encodeURIComponent(checkinToken) + (payload.eventId ? '&event=' + encodeURIComponent(payload.eventId) : '');
 
   var greeting = payload.lang === 'es' ? 'Hola ' : 'Hi ';
   var confirmMsg = payload.lang === 'es'

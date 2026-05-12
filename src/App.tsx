@@ -486,8 +486,10 @@ const App: React.FC = () => {
     markersRef.current = {};
 
     filteredEvents.forEach((event) => {
-      // Skip virtual events (no address), they have no map pin
-      if (!event.address) return;
+      // Skip virtual/online events and events with invalid coordinates — no map pin
+      const addrLower = (event.address || '').toLowerCase();
+      const isVirtual = !event.address || addrLower.includes('online') || addrLower.includes('virtual') || addrLower.includes('zoom');
+      if (isVirtual || (event.lat === 0 && event.lng === 0)) return;
       const isSelected = selectedEvent?.id === event.id;
       const color = PROGRAM_COLORS[event.program] || PROGRAM_COLORS.default;
 
@@ -534,7 +536,10 @@ const App: React.FC = () => {
     if (!mapRef.current) return;
 
     const points = filteredEvents
-      .filter((event) => event.address)
+      .filter((event) => {
+        const addrLower = (event.address || '').toLowerCase();
+        return event.address && !addrLower.includes('online') && !addrLower.includes('virtual') && !addrLower.includes('zoom') && !(event.lat === 0 && event.lng === 0);
+      })
       .map(
         (event) =>
           [event.lat, event.lng, selectedEvent?.id === event.id ? 0.9 : 0.5] as [
@@ -567,7 +572,9 @@ const App: React.FC = () => {
 
   const handleSelectEvent = (event: ClinicEvent) => {
     setSelectedEvent(event);
-    mapRef.current?.setView([event.lat, event.lng], 14);
+    const addrLower = (event.address || '').toLowerCase();
+    const isVirtual = !event.address || addrLower.includes('online') || addrLower.includes('virtual') || addrLower.includes('zoom') || (event.lat === 0 && event.lng === 0);
+    if (!isVirtual) mapRef.current?.setView([event.lat, event.lng], 14);
     if (window.innerWidth < 768) {
       setMobileView('map');
     }
