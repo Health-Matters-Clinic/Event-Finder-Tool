@@ -297,8 +297,8 @@ const App: React.FC = () => {
       const portalEvents = portalResult.status === 'fulfilled' ? portalResult.value : null;
       const gasEvents = gasResult.status === 'fulfilled' ? gasResult.value : null;
 
-      // Use GAS if it has more events; otherwise portal; otherwise whichever succeeded
-      const best = (gasEvents?.length ?? 0) >= (portalEvents?.length ?? 0) ? gasEvents : portalEvents;
+      // GAS is the sheet source of truth — use it if it responded; portal is fallback only
+      const best = gasEvents ?? portalEvents;
       if (best && applyEvents(best)) return;
 
       // If both failed and no cache, fall back to hardcoded events
