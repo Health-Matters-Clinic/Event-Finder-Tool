@@ -172,9 +172,9 @@ function sendMOVEReminder() {
 
 function sendTestReminder() {
   var WAIVER_BASE_URL = 'https://eventfinder.healthmatters.clinic/waiver.html';
-  var firstName  = 'Erica';
+  var firstName  = 'Test';
   var email      = 'erica@healthmatters.clinic';
-  var token      = 'REDACTED-TOKEN';
+  var token      = 'YOUR_CHECKIN_TOKEN'; // replace with a real token from the RSVPs sheet before running
   var eventId    = 'event-1772063101013';
   var checkinUrl = WAIVER_BASE_URL + '?checkin=' + encodeURIComponent(token) + '&event=' + encodeURIComponent(eventId);
 
@@ -272,42 +272,10 @@ function sendTestReminder() {
 }
 
 function sendFirestoreRSVPs() {
-  var attendees = [
-    { name: 'Jill Bragg',        email: 'REDACTED@example.com',                    token: '5e5c101d3e35584e2c9d175420b41a43' },
-    { name: 'Ashley Galvan',     email: 'REDACTED@example.com',     token: 'a874ed0e48c8f7a9fd0cce5069023467' },
-    { name: 'Osagie Obanor',     email: 'REDACTED@example.com',                token: 'd077d792c79baf53451fd94496573cb1' },
-    { name: 'Krys Robinson',     email: 'REDACTED@example.com',              token: '3f52adb5043f5b7bfa8e5f6c3f942aa6' },
-    { name: 'Grace Nwakudu',     email: 'REDACTED@example.com',                token: '6c6549ca5ddab29bce64340dbbaaf22f' },
-    { name: 'Marnie Mondragon',  email: 'REDACTED@example.com',                token: 'ba0f5d1ad46f915db4b89b6aacff135c' },
-    { name: 'Nena Hernandez',    email: 'REDACTED@example.com',             token: 'cbb64d0a9c13ee6560d9d405ffc554f3' },
-    { name: 'Veronica G',        email: 'REDACTED@example.com',             token: '19f6c2acb9075db2d13133e3fd88163d' },
-    { name: 'Brittany Coleman',  email: 'REDACTED@example.com',                 token: '5715fe837bc4b4c81bd9213fbd9c4bb8' },
-    { name: 'Dominique Brown',   email: 'REDACTED@example.com',              token: 'b4d394c79a31bfe53d45c61fd4ede93f' },
-    { name: 'Keesha Hernandez',  email: 'REDACTED@example.com',              token: '0f43773182fceb42ad6e4cc426b38d28' },
-    { name: 'Kayla Anthony',     email: 'REDACTED@example.com',           token: '2fa4801a0941e5e2580ae17c49d27ecb' },
-    { name: 'Darika Brown',      email: 'REDACTED@example.com',                token: '66587bcaec3eadd7389cd40f5d86957a' },
-    { name: 'Elleanor Gipson',   email: 'REDACTED@example.com',          token: '64dcd9bc41574438e89578fda78cbd2f' },
-    { name: 'Ivonne Rodriguez',  email: 'REDACTED@example.com',             token: 'becba7cda3ea8a43b92e5940111bc19c' },
-    { name: 'Kashif Laurie',     email: 'REDACTED@example.com',            token: '3611fbe067238a77dd02f1c1504fbf94' },
-    { name: 'Tashi Scott',       email: 'REDACTED@example.com',               token: 'fed679fdbae0d48310a0591ce0dc0ad7' },
-    { name: 'Lauren Bowie',      email: 'REDACTED@example.com',                token: '27fd3abd39240dedb28c3065c0e62d41' },
-    { name: 'Taquita Love',      email: 'REDACTED@example.com',            token: '031fa98d10c6bab85b515270ca3d8c80' },
-    { name: 'Brandi Smith',      email: 'REDACTED@example.com',            token: 'b2478c546743f5dd033d4a2e8ebccdd4' },
-    { name: 'Nonny Okoye',       email: 'REDACTED@example.com',                token: '9b42b15037321b1313120bd3a2004fea' },
-    { name: 'John Smith',        email: 'REDACTED@example.com',               token: '914ba4b4c3abe115dc55869b9d66ca94' },
-    { name: 'Quinita Glaze',     email: 'REDACTED@example.com',           token: '1b7e4ab1846aeea2ee292303bb445286' },
-    { name: 'Omar Hernandez',    email: 'REDACTED@example.com',            token: '9a218ed6a7445780c6a28433acb690a2' },
-    { name: 'Stacy McAlister',   email: 'REDACTED@example.com',              token: 'ac25e882bc020b3c9d33d4ebd3739604' },
-    { name: 'Micaela McNeil',    email: 'REDACTED@example.com',              token: 'eb603415cf2f4acc41dbfc16ccdc5f1e' },
-    { name: 'S B',               email: 'REDACTED@example.com',                token: '7ec443d3132b9caf3274597f30e4bad0' },
-    { name: 'Marvellous Iheukwumere', email: 'REDACTED@example.com',   token: 'fe478fccb2ee209fb0197ea605124094' },
-    { name: 'Peyton Christine Russell', email: 'REDACTED@example.com',       token: '3a03782a45e7b11aba3b326f048748a8' },
-    { name: 'Regina Shields',   email: 'REDACTED@example.com',         token: '5bf9d9d53f014ecf0a27675dfe053398' },
-    { name: 'Aaron Sparrow',    email: 'REDACTED@example.com',              token: '32f61aa849c722207c34988a8bcd332b' },
-    { name: 'Jamie Walker',     email: 'REDACTED@example.com',         token: '09f5bf35082b32abba0d86761e84c15a' },
-    { name: 'Jose Leon',        email: 'REDACTED@example.com',             token: '0000f6d1f228f1466c987c625cee97c0' },
-    { name: 'Taylor Ginwright', email: 'REDACTED@example.com',            token: 'fe8e2902278e2d18600c39c6716c5e55' },
-  ];
+  // Attendee data removed from source control — PII must not be committed to a public repo.
+  // To re-run this function: source attendee records from the RSVPs Google Sheet instead,
+  // or use sendMOVEReminder() which reads directly from the sheet.
+  var attendees = [];
 
   var PORTAL_CHECKIN = 'https://volunteer.healthmatters.clinic/checkin?token=';
   var sent = 0;
