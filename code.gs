@@ -2441,3 +2441,78 @@ function cleanupTestData() {
   toDelete.forEach(function(row) { sheet.deleteRow(row); });
   Logger.log('Cleaned up ' + toDelete.length + ' test row(s).');
 }
+
+// =============================================
+// ONE-TIME CORRECTION EMAIL — run once from GAS editor
+// Sends an apology to real attendees who received a wrong or duplicate
+// confirmation email due to the processEventbriteEmails trigger bug.
+// =============================================
+function sendCorrectionEmails() {
+  var ss    = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('RSVPs');
+  if (!sheet) { Logger.log('RSVPs sheet not found'); return; }
+
+  var data = sheet.getDataRange().getValues();
+  // Headers (0-indexed): 0=Timestamp,1=Event,2=EventId,3=EventDate,
+  //   4=Name,5=Email,...,14=CheckinToken,15=Status
+  // Skip header row (i=0)
+
+  var TEST_PATTERN = /load.?test|warmtest|test\.invalid/i;
+
+  var EVENT_LABELS = {
+    'event-1772063101013': { name: 'MOVE: Live Unstoppable Walk/Run',   date: 'May 9, 2026' },
+    'event-1772064063990': { name: 'HEAL: Unstoppable Wellness Meetup', date: 'Wednesday, May 20, 2026', time: '5:45 PM to 7:15 PM', venue: 'Curtis Tucker Center, 123 W Manchester Blvd, Inglewood, CA 90301' },
+    'event-1773943614235': { name: 'TRANSFORM: Unstoppable Experience', date: 'Tuesday, May 27, 2026',  time: '7:00 PM to 8:00 PM', venue: 'Virtual on Zoom' }
+  };
+
+  var sent = 0;
+  var skipped = 0;
+
+  for (var i = 1; i < data.length; i++) {
+    var row    = data[i];
+    var email  = String(row[5] || '').trim();
+    var name   = String(row[4] || '').trim();
+    var eventId = String(row[2] || '').trim();
+    var status = String(row[15] || '').trim();
+
+    // Skip blank rows, test data, already-cancelled, and already-sent correction
+    if (!email || TEST_PATTERN.test(email)) { skipped++; continue; }
+    if (status === 'correction-sent')        { skipped++; continue; }
+
+    var firstName = name.split(' ')[0] || 'there';
+    var info = EVENT_LABELS[eventId];
+
+    // Only send for HEAL and TRANSFORM (real upcoming events that were affected)
+    if (!info || eventId === 'event-1772063101013') { skipped++; continue; }
+
+    var subject = 'Correction: Your ' + info.name + ' Registration';
+
+    var body = 'Hi ' + firstName + ',\n\n' +
+      'We owe you an apology. You recently received a confirmation email that contained incorrect event details. ' +
+      'That message was sent in error due to a technical issue on our end, and we are sorry for the confusion.\n\n' +
+      'Your registration is confirmed for:\n\n' +
+      info.name + '\n' +
+      info.date + '\n' +
+      info.time + '\n' +
+      info.venue + '\n\n' +
+      'We look forward to seeing you there. If you have any questions, please reply to this email or reach us at events@healthmatters.clinic.\n\n' +
+      'Thank you for your patience and support.\n\n' +
+      'Health Matters Clinic\n' +
+      'events@healthmatters.clinic';
+
+    try {
+      GmailApp.sendEmail(email, subject, body, {
+        from: 'events@healthmatters.clinic',
+        name: 'Health Matters Clinic'
+      });
+      sheet.getRange(i + 1, 16).setValue('correction-sent');
+      Logger.log('Sent correction to ' + email + ' for ' + info.name);
+      sent++;
+      Utilities.sleep(500); // avoid Gmail rate limits
+    } catch(err) {
+      Logger.log('Failed to send to ' + email + ': ' + err);
+    }
+  }
+
+  Logger.log('Done. Sent: ' + sent + ', Skipped: ' + skipped);
+}
