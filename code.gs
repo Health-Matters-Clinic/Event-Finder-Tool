@@ -2471,7 +2471,7 @@ function sendCorrectionEmails() {
     var row    = data[i];
     var email  = String(row[5] || '').trim();
     var name   = String(row[4] || '').trim();
-    var eventId = String(row[2] || '').trim();
+    var eventId = String(row[1] || '').trim();
     var status = String(row[15] || '').trim();
 
     // Skip blank rows, test data, already-cancelled, and already-sent correction
