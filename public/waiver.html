@@ -445,6 +445,73 @@
     .confirm-footer { display: none; }
   }
 
+  /* ---- Feedback page ---- */
+  #feedbackPage { display: none; }
+  .feedback-body {
+    padding: 40px 24px 48px;
+    text-align: center;
+  }
+  .feedback-icon {
+    width: 64px; height: 64px;
+    background: #f0f4ff;
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .feedback-title {
+    font-size: 22px; font-weight: 800; color: var(--text); margin: 0 0 8px;
+  }
+  .feedback-sub {
+    font-size: 15px; color: var(--muted); margin: 0 0 28px; line-height: 1.5;
+  }
+  .star-row {
+    display: flex; justify-content: center; gap: 10px; margin: 0 0 24px;
+  }
+  .star-btn {
+    background: none; border: none; cursor: pointer; padding: 4px;
+    font-size: 40px; line-height: 1; color: #ddd;
+    transition: color .15s, transform .1s;
+  }
+  .star-btn:hover, .star-btn.active { color: #f5a623; }
+  .star-btn:active { transform: scale(1.2); }
+  .feedback-comment {
+    width: 100%; box-sizing: border-box;
+    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    padding: 12px 14px; font-family: inherit; font-size: 14px;
+    resize: none; height: 88px; color: var(--text);
+    margin-bottom: 20px; outline: none;
+    transition: border-color .15s;
+  }
+  .feedback-comment:focus { border-color: var(--blue); }
+  .feedback-submit-btn {
+    width: 100%; height: 52px;
+    background: var(--blue); color: white; border: none;
+    border-radius: var(--radius-sm); font-family: inherit;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    transition: background .15s; margin-bottom: 12px;
+  }
+  .feedback-submit-btn:disabled { background: #aaa; cursor: default; }
+  .feedback-submit-btn:not(:disabled):hover { background: var(--blue-dark); }
+  .feedback-skip {
+    display: block; text-align: center; font-size: 13px;
+    color: var(--muted); cursor: pointer; text-decoration: underline;
+    background: none; border: none; font-family: inherit; width: 100%;
+  }
+  .feedback-done {
+    display: none;
+    padding: 32px 24px 40px;
+    text-align: center;
+  }
+  .feedback-done .done-icon {
+    font-size: 48px; margin-bottom: 16px;
+  }
+  .feedback-done-title {
+    font-size: 22px; font-weight: 800; color: var(--text); margin: 0 0 8px;
+  }
+  .feedback-done-sub {
+    font-size: 15px; color: var(--muted); line-height: 1.5;
+  }
+
   /* ---- Gate page ---- */
   .gate-body {
     padding: 40px 24px 48px;
@@ -694,7 +761,8 @@
       <div class="confirm-sig-label">Signature on File</div>
       <img id="confirmSig" class="confirm-sig" alt="Signature">
 
-      <button class="print-btn" onclick="window.print()">Print for Your Records</button>
+      <button class="print-btn" onclick="showFeedbackPage()" style="margin-bottom:8px;">Continue to Feedback</button>
+      <button class="print-btn" onclick="window.print()" style="background:#555;margin-bottom:12px;">Print for Your Records</button>
       <div class="backup-notice" id="backupNotice">Your submission is saved locally and will sync automatically.</div>
     </div>
 
@@ -703,6 +771,36 @@
       Questions? Contact <a href="mailto:events@healthmatters.clinic" style="color:#233dff;">events@healthmatters.clinic</a>
     </div>
   </div>
+
+  <div id="feedbackPage">
+    <div class="feedback-body" id="feedbackForm">
+      <div class="feedback-icon">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M14 3l2.8 5.6 6.2.9-4.5 4.4 1.1 6.1L14 17l-5.6 3 1.1-6.1L5 9.5l6.2-.9L14 3z" fill="#233dff" opacity=".15" stroke="#233dff" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="feedback-title">How was your experience?</div>
+      <div class="feedback-sub">Your feedback helps us make every event better for the community.</div>
+      <div class="star-row" id="starRow">
+        <button class="star-btn" data-val="1" onclick="selectStar(1)" aria-label="1 star">&#9733;</button>
+        <button class="star-btn" data-val="2" onclick="selectStar(2)" aria-label="2 stars">&#9733;</button>
+        <button class="star-btn" data-val="3" onclick="selectStar(3)" aria-label="3 stars">&#9733;</button>
+        <button class="star-btn" data-val="4" onclick="selectStar(4)" aria-label="4 stars">&#9733;</button>
+        <button class="star-btn" data-val="5" onclick="selectStar(5)" aria-label="5 stars">&#9733;</button>
+      </div>
+      <textarea class="feedback-comment" id="feedbackComment" placeholder="Any comments? (optional)"></textarea>
+      <button class="feedback-submit-btn" id="feedbackSubmitBtn" onclick="submitFeedbackRating()" disabled>Submit Feedback</button>
+      <button class="feedback-skip" onclick="skipFeedback()">Skip for now</button>
+    </div>
+    <div class="feedback-done" id="feedbackDone">
+      <svg width="56" height="56" viewBox="0 0 56 56" fill="none" style="margin-bottom:16px;">
+        <circle cx="28" cy="28" r="28" fill="#f0fff7"/>
+        <path d="M16 28l8 8 16-16" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="feedback-done-title">Thank you!</div>
+      <div class="feedback-done-sub">Your feedback has been received.<br>See you at the next event.</div>
+    </div>
+  </div><!-- /feedbackPage -->
 
 </div><!-- /card -->
 
@@ -739,12 +837,10 @@ if (NO_WAIVER_EVENTS.indexOf(EVENT_ID) !== -1 && CHECKIN_TOKEN) {
     body: JSON.stringify({ action: 'checkin', checkinToken: CHECKIN_TOKEN })
   }).catch(function() {});
   document.addEventListener('DOMContentLoaded', function() {
-    var formPage    = document.getElementById('formPage');
-    var gatePage    = document.getElementById('gatePage');
-    var confirmPage = document.getElementById('confirmPage');
-    if (formPage)    formPage.style.display    = 'none';
-    if (gatePage)    gatePage.style.display    = 'none';
-    if (confirmPage) confirmPage.style.display = '';
+    document.getElementById('formPage').style.display    = 'none';
+    document.getElementById('gatePage').style.display    = 'none';
+    document.getElementById('confirmPage').style.display = 'none';
+    document.getElementById('feedbackPage').style.display = '';
   });
 }
 
@@ -1075,7 +1171,8 @@ function showConfirmation(payload, sigData) {
   rows.push(['Date', EVENT_DATE]);
   rows.push(['Location', 'Curtis Tucker Center for Community Wellness, Inglewood, CA']);
   rows.push(['Submitted', payload.submittedAt]);
-  rows.push(['Signer', payload.signerFirstName + ' ' + payload.signerLastName]);
+  _attendeeName = payload.signerFirstName + ' ' + payload.signerLastName;
+  rows.push(['Signer', _attendeeName]);
   rows.push(['Email', payload.email]);
   if (payload.phone)        rows.push(['Phone', payload.phone]);
   if (payload.minorFirstName) rows.push(['Minor', payload.minorFirstName + ' ' + payload.minorLastName + ', age ' + payload.minorAge]);
@@ -1125,6 +1222,52 @@ function showConfirmation(payload, sigData) {
       body: JSON.stringify(checkinBody)
     }).catch(function() {});
   }
+}
+
+// =============================================
+// FEEDBACK / 5-STAR
+// =============================================
+var _selectedRating = 0;
+var _attendeeName = '';
+
+function showFeedbackPage() {
+  document.getElementById('confirmPage').style.display = 'none';
+  document.getElementById('feedbackPage').style.display = '';
+  window.scrollTo(0, 0);
+}
+
+function selectStar(val) {
+  _selectedRating = val;
+  var btns = document.querySelectorAll('.star-btn');
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].classList.toggle('active', i < val);
+  }
+  document.getElementById('feedbackSubmitBtn').disabled = false;
+}
+
+function submitFeedbackRating() {
+  var btn = document.getElementById('feedbackSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+  var comment = document.getElementById('feedbackComment').value.trim();
+  fetch(GAS_URL, {
+    method: 'POST', mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({
+      action: 'submitFeedback',
+      rating: _selectedRating,
+      name: _attendeeName || 'Anonymous',
+      event: EVENT_NAME,
+      comments: comment
+    })
+  }).catch(function() {});
+  document.getElementById('feedbackForm').style.display = 'none';
+  document.getElementById('feedbackDone').style.display = 'block';
+}
+
+function skipFeedback() {
+  document.getElementById('feedbackForm').style.display = 'none';
+  document.getElementById('feedbackDone').style.display = 'block';
 }
 
 function esc(str) {
