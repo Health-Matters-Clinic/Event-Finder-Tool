@@ -1379,8 +1379,7 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     '<div style="text-align:center;margin:0 0 8px;">' +
     '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' + checkinLabel + '</a>' +
     '</div>' +
-    '<p style="text-align:center;font-size:12px;color:#999;margin:0 0 28px;">' + (es ? 'Abre a las 7:15 AM el día del evento' : 'Opens at 7:15 AM on event day') + '</p>' +
-    '<p style="text-align:center;margin:0;">' +
+    '<p style="text-align:center;margin:0 0 28px;">' +
     '<a href="' + cancelUrl + '" style="color:#999;font-size:12px;text-decoration:underline;">' + cancelLabel + '</a>' +
     '</p>' +
     '</div>' +
