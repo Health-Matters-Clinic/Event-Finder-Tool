@@ -3,7 +3,7 @@
 // Google Apps Script URL - Backend for events, RSVPs, and partner requests
 export const GOOGLE_APPS_SCRIPT_URL =
   import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL ||
-  'https://script.google.com/macros/s/AKfycbyM6jD_8ePyk4_M2Ki0gKFjq0AKZZSonZFqirvygPDlFv06lz6tFtDE0BBGhAc95FZsBA/exec';
+  'https://script.google.com/macros/s/AKfycbxPpn0Q8jiyZ5ftR1uLcb3BJwPI-C2zyEdm1xJT-7iX3dDIYIV5kZwR_nrsl2PC7ExSvg/exec';
 
 // Volunteer Portal API - dual-write RSVPs for volunteer matching
 export const PORTAL_API_URL =
