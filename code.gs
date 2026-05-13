@@ -286,74 +286,9 @@ function doGet(e) {
 
   // ===== WAIVER SUBMISSION =====
   if (action === 'submitWaiver') {
-    try {
-      // Cache spreadsheet reference once
-      var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-      var wSheet = ss.getSheetByName('Waivers');
-      if (!wSheet) {
-        wSheet = ss.insertSheet('Waivers');
-        wSheet.appendRow(['Timestamp', 'Type', 'Event', 'Event Date', 'Signer Name', 'Email', 'Phone', 'Minor Name', 'Minor Age', 'Relationship', 'Submitted At', 'Signature Drive URL']);
-      }
-      var signerName = (p.signerFirstName || '') + ' ' + (p.signerLastName || '');
-      var minorName = p.minorFirstName ? ((p.minorFirstName || '') + ' ' + (p.minorLastName || '')) : '';
-      var ts = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
-
-      // STEP 1: Write sheet row immediately — this is the record of truth.
-      // Drive URL placeholder; will be updated below if Drive save succeeds.
-      wSheet.appendRow([
-        ts, p.type || 'adult', p.eventName || 'MOVE: Live Unstoppable Walk/Run',
-        p.eventDate || 'May 9, 2026', signerName.trim(), p.email || '', p.phone || '',
-        minorName.trim(), p.minorAge || '', p.relationship || '', p.submittedAt || ts, 'pending'
-      ]);
-
-      // STEP 2: Build response immediately after the sheet write so GAS can
-      // return success as soon as possible. Drive save happens after this.
-      var response = ContentService.createTextOutput(JSON.stringify({ success: true }))
-        .setMimeType(ContentService.MimeType.JSON);
-
-      // STEP 3: Save signature PNG to Google Drive — skipped if payload > 500KB
-      // to prevent OOM/timeout under event load.
-      var driveUrl = '';
-      var SIG_SIZE_LIMIT = 500 * 1024; // 500KB in characters (base64 chars ~ bytes)
-      if (p.signature && p.signature.indexOf('data:image/') === 0 &&
-          p.signature.length <= SIG_SIZE_LIMIT) {
-        try {
-          var base64Data = p.signature.split(',')[1];
-          var mimeType = p.signature.split(';')[0].split(':')[1] || 'image/jpeg';
-          var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType,
-            'waiver_' + signerName.trim().replace(/\s+/g,'_') + '_' + new Date().getTime() + '.jpg');
-          var folder;
-          var folders = DriveApp.getFoldersByName('HMC Waivers — MOVE May 9 2026');
-          if (folders.hasNext()) {
-            folder = folders.next();
-          } else {
-            folder = DriveApp.createFolder('HMC Waivers — MOVE May 9 2026');
-          }
-          var file = folder.createFile(blob);
-          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-          driveUrl = file.getUrl();
-        } catch(driveErr) {
-          Logger.log('Drive save error: ' + driveErr);
-          driveUrl = 'drive-save-error';
-        }
-      } else if (p.signature && p.signature.length > SIG_SIZE_LIMIT) {
-        Logger.log('Signature skipped — payload too large: ' + p.signature.length + ' chars');
-        driveUrl = 'signature-skipped-size';
-      }
-
-      // Update the Drive URL cell in the row we just appended
-      var lastRow = wSheet.getLastRow();
-      wSheet.getRange(lastRow, 12).setValue(driveUrl || 'no-signature');
-
-      // Confirmation email removed — reminder already sent; GmailApp.sendEmail
-      // under 500-user load would hit quota and add latency to every request.
-
-      return response;
-    } catch(wErr) {
-      Logger.log('Waiver error: ' + wErr);
-      return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(wErr) }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
+    var wResult = _doSubmitWaiver(p);
+    return ContentService.createTextOutput(JSON.stringify(wResult))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 
   // ===== GET WAIVERS (admin print view) =====
@@ -505,6 +440,65 @@ function doGet(e) {
 }
 
 // ========================================
+// SHARED WAIVER HANDLER (called by doGet + doPost)
+// ========================================
+function _doSubmitWaiver(p) {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var wSheet = ss.getSheetByName('Waivers');
+    if (!wSheet) {
+      wSheet = ss.insertSheet('Waivers');
+      wSheet.appendRow(['Timestamp', 'Type', 'Event', 'Event Date', 'Signer Name', 'Email', 'Phone', 'Minor Name', 'Minor Age', 'Relationship', 'Submitted At', 'Signature Drive URL']);
+    }
+    var signerName = (p.signerFirstName || '') + ' ' + (p.signerLastName || '');
+    var minorName = p.minorFirstName ? ((p.minorFirstName || '') + ' ' + (p.minorLastName || '')) : '';
+    var ts = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
+
+    wSheet.appendRow([
+      ts, p.type || 'adult', p.eventName || '',
+      p.eventDate || '', signerName.trim(), p.email || '', p.phone || '',
+      minorName.trim(), p.minorAge || '', p.relationship || '', p.submittedAt || ts, 'pending'
+    ]);
+
+    var driveUrl = '';
+    var SIG_SIZE_LIMIT = 500 * 1024;
+    if (p.signature && p.signature.indexOf('data:image/') === 0 &&
+        p.signature.length <= SIG_SIZE_LIMIT) {
+      try {
+        var base64Data = p.signature.split(',')[1];
+        var mimeType = p.signature.split(';')[0].split(':')[1] || 'image/jpeg';
+        var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType,
+          'waiver_' + signerName.trim().replace(/\s+/g,'_') + '_' + new Date().getTime() + '.jpg');
+        var folder;
+        var folders = DriveApp.getFoldersByName('HMC Waivers');
+        if (folders.hasNext()) {
+          folder = folders.next();
+        } else {
+          folder = DriveApp.createFolder('HMC Waivers');
+        }
+        var file = folder.createFile(blob);
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        driveUrl = file.getUrl();
+      } catch(driveErr) {
+        Logger.log('Drive save error: ' + driveErr);
+        driveUrl = 'drive-save-error';
+      }
+    } else if (p.signature && p.signature.length > SIG_SIZE_LIMIT) {
+      Logger.log('Signature skipped — payload too large: ' + p.signature.length + ' chars');
+      driveUrl = 'signature-skipped-size';
+    }
+
+    var lastRow = wSheet.getLastRow();
+    wSheet.getRange(lastRow, 12).setValue(driveUrl || 'no-signature');
+
+    return { success: true };
+  } catch(wErr) {
+    Logger.log('Waiver error: ' + wErr);
+    return { success: false, error: String(wErr) };
+  }
+}
+
+// ========================================
 // doPost - handles POST requests
 // ========================================
 function doPost(e) {
@@ -556,6 +550,12 @@ function doPost(e) {
       case 'partner_request':
         handlePartnerRequest(params);
         result = { success: true };
+        break;
+      case 'checkin':
+        result = handleCheckinByTokenJSON(params.checkinToken || '');
+        break;
+      case 'submitWaiver':
+        result = _doSubmitWaiver(params);
         break;
       default:
         result = { success: false, error: 'Unknown action: ' + action };
@@ -2391,8 +2391,8 @@ function testCheckin() {
   var data  = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][14]) === 'test-token-direct') {
-      var checkin = handleCheckinByToken('test-token-direct');
-      if (!checkin.success) throw new Error('handleCheckinByToken failed: ' + JSON.stringify(checkin));
+      var checkin = handleCheckinByTokenJSON('test-token-direct');
+      if (!checkin.success) throw new Error('handleCheckinByTokenJSON failed: ' + JSON.stringify(checkin));
       Logger.log('  Checked in row ' + (i + 1));
       return;
     }

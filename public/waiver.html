@@ -732,8 +732,11 @@ var NO_WAIVER_EVENTS = ['event-1773943614235'];
 
 if (NO_WAIVER_EVENTS.indexOf(EVENT_ID) !== -1 && CHECKIN_TOKEN) {
   // Fire check-in and show confirmation immediately, no waiver needed
-  fetch(GAS_URL + '?action=checkin&checkinToken=' + encodeURIComponent(CHECKIN_TOKEN))
-    .catch(function() {});
+  fetch(GAS_URL, {
+    method: 'POST', mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'checkin', checkinToken: CHECKIN_TOKEN })
+  }).catch(function() {});
   document.addEventListener('DOMContentLoaded', function() {
     var formPage    = document.getElementById('formPage');
     var gatePage    = document.getElementById('gatePage');
@@ -958,12 +961,14 @@ function validateMinor() {
 // =============================================
 // BACKGROUND GAS SUBMIT — retry + localStorage backup
 // =============================================
-function gasSubmitWithRetry(url, backupData, attempt) {
+function gasSubmitWithRetry(payload, backupData, attempt) {
   attempt = attempt || 1;
-  fetch(url)
+  fetch(GAS_URL, {
+    method: 'POST', mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  })
     .then(function(r) {
-      // GAS returns 302 redirects that browsers follow; a non-ok status or
-      // CORS-blocked response lands in catch. Treat any response as success.
       console.log('GAS submit response (attempt ' + attempt + '):', r.status);
     })
     .catch(function(err) {
@@ -971,7 +976,7 @@ function gasSubmitWithRetry(url, backupData, attempt) {
       if (attempt < 3) {
         var delay = Math.pow(2, attempt) * 1000; // 2s, 4s
         setTimeout(function() {
-          gasSubmitWithRetry(url, backupData, attempt + 1);
+          gasSubmitWithRetry(payload, backupData, attempt + 1);
         }, delay);
       } else {
         // All 3 attempts exhausted — save to localStorage
@@ -1045,10 +1050,6 @@ function submitWaiver() {
   showConfirmation(payload, sigData);
 
   // --- 2. Fire GAS submission in background with retry ---
-  var params = new URLSearchParams(payload);
-  var url = GAS_URL + '?' + params.toString();
-
-  // Backup record excludes the large signature data URL
   var backupData = {
     name:         payload.signerFirstName + ' ' + payload.signerLastName,
     email:        payload.email,
@@ -1059,7 +1060,7 @@ function submitWaiver() {
   };
 
   // Start with attempt 1; on failure retry at 2s then 4s then save to localStorage
-  gasSubmitWithRetry(url, backupData, 1);
+  gasSubmitWithRetry(payload, backupData, 1);
 }
 
 // =============================================
@@ -1114,9 +1115,13 @@ function showConfirmation(payload, sigData) {
 
   // Mark checked-in at GAS (fire-and-forget)
   if (CHECKIN_TOKEN) {
-    var checkinParams = 'action=checkin&checkinToken=' + encodeURIComponent(CHECKIN_TOKEN);
-    if (EVENT_ID) checkinParams += '&eventId=' + encodeURIComponent(EVENT_ID);
-    fetch(GAS_URL + '?' + checkinParams).catch(function() {});
+    var checkinBody = { action: 'checkin', checkinToken: CHECKIN_TOKEN };
+    if (EVENT_ID) checkinBody.eventId = EVENT_ID;
+    fetch(GAS_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(checkinBody)
+    }).catch(function() {});
   }
 }
 
