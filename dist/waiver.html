@@ -750,15 +750,16 @@ if (NO_WAIVER_EVENTS.indexOf(EVENT_ID) !== -1 && CHECKIN_TOKEN) {
 // Per-event check-in windows: 7:15 AM – 11:00 AM PDT on event day
 // PDT = UTC-7, so 7:15 AM PDT = 14:15 UTC, 11:00 AM PDT = 18:00 UTC
 var EVENT_GATES = {
-  'event-1772063101013': { open: '2026-05-09T14:15:00Z', close: '2026-05-09T18:00:00Z', label: 'May 9' },
-  'event-1772064063990': { open: '2026-05-20T14:15:00Z', close: '2026-05-20T18:00:00Z', label: 'May 20' },
-  'event-1773943614235': { open: '2026-05-27T14:15:00Z', close: '2026-05-27T18:00:00Z', label: 'May 27' }
+  'event-1772063101013': { open: '2026-05-09T14:15:00Z', close: '2026-05-09T18:00:00Z', label: 'May 9',  openLabel: '7:15 AM' },
+  'event-1772064063990': { open: '2026-05-21T00:15:00Z', close: '2026-05-21T02:15:00Z', label: 'May 20', openLabel: '5:15 PM' },
+  'event-1773943614235': { open: '2026-05-28T00:15:00Z', close: '2026-05-28T02:15:00Z', label: 'May 27', openLabel: '5:15 PM' }
 };
 
-var _eventGate = EVENT_GATES[EVENT_ID] || EVENT_GATES['event-1772063101013'];
-var GATE_OPEN  = new Date(_eventGate.open);
-var GATE_CLOSE = new Date(_eventGate.close);
-var GATE_LABEL = _eventGate.label;
+var _eventGate  = EVENT_GATES[EVENT_ID] || EVENT_GATES['event-1772063101013'];
+var GATE_OPEN   = new Date(_eventGate.open);
+var GATE_CLOSE  = new Date(_eventGate.close);
+var GATE_LABEL  = _eventGate.label;
+var GATE_OPEN_LABEL = _eventGate.openLabel;
 
 document.addEventListener('DOMContentLoaded', function() {
   var metaHtml = _eventInfo.address
@@ -806,8 +807,8 @@ function updateGate() {
     icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="10" stroke="#233dff" stroke-width="2"/><path d="M14 9v5l3 3" stroke="#233dff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     pill.className   = 'gate-pill not-yet';
     pill.textContent = 'Not Yet Open';
-    title.textContent    = 'Check-in opens at 7:15 AM';
-    subtitle.textContent = 'Come back when you arrive at the event. Check-in activates at 7:15 AM on ' + GATE_LABEL + '.';
+    title.textContent    = 'Check-in opens at ' + GATE_OPEN_LABEL;
+    subtitle.textContent = 'Come back when you arrive at the event. Check-in activates at ' + GATE_OPEN_LABEL + ' on ' + GATE_LABEL + '.';
   } else {
     icon.className = 'gate-icon closed';
     icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M8 8l12 12M20 8L8 20" stroke="#888" stroke-width="2" stroke-linecap="round"/></svg>';
