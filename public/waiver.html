@@ -1229,6 +1229,7 @@ function showConfirmation(payload, sigData) {
 // =============================================
 var _selectedRating = 0;
 var _attendeeName = '';
+var SURVEY_URL = 'https://calmhsa.my.site.com/SAMHSAdatacollection/apex/b3f__formcomplete?id=a1kJw000008HL1qIAG&LA-PEI-TA-26=KLT';
 
 function showFeedbackPage() {
   document.getElementById('confirmPage').style.display = 'none';
@@ -1261,13 +1262,11 @@ function submitFeedbackRating() {
       comments: comment
     })
   }).catch(function() {});
-  document.getElementById('feedbackForm').style.display = 'none';
-  document.getElementById('feedbackDone').style.display = 'block';
+  window.location.href = SURVEY_URL;
 }
 
 function skipFeedback() {
-  document.getElementById('feedbackForm').style.display = 'none';
-  document.getElementById('feedbackDone').style.display = 'block';
+  window.location.href = SURVEY_URL;
 }
 
 function esc(str) {
