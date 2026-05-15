@@ -25,6 +25,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
 
   const [checkinToken, setCheckinToken] = useState<string>('');
   const [submittedEmail, setSubmittedEmail] = useState<string>('');
+  const [emailMayBeDelayed, setEmailMayBeDelayed] = useState<boolean>(false);
   const [tshirtSize, setTshirtSize] = useState<string>('');
 
   // Minor exception (allows same guardian email/phone to preregister multiple minors)
@@ -338,6 +339,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
 
       setCheckinToken(String(data.checkinToken || ''));
       setSubmittedEmail(email);
+      if (!data.checkinToken) setEmailMayBeDelayed(true);
       setState('preregistered');
     } catch (err: any) {
       setState('error');
@@ -494,6 +496,13 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                   ? 'Check your email — we sent your confirmation with a calendar invite attached.'
                   : "You're all set! We'll reach out by text with event details."}
               </p>
+              {emailMayBeDelayed && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded mt-2 px-3 py-2">
+                  {lang === 'es'
+                    ? 'Si no recibes un correo en 10 minutos, escríbenos a events@healthmatters.clinic'
+                    : "If you don't receive a confirmation email within 10 minutes, contact events@healthmatters.clinic"}
+                </p>
+              )}
               <div className="flex gap-2 mt-3 justify-center">
                 <Button variant="outline" className="h-8" onClick={downloadICS}>
                   {lang === 'es' ? 'Guardar en Calendario' : 'Save to Calendar'}

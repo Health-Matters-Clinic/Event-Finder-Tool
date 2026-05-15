@@ -966,10 +966,32 @@ function handleRSVP(payload) {
 
   SpreadsheetApp.flush();
 
+  var emailSent = false;
   try {
-    if (payload.email) sendRSVPConfirmationEmail(payload, checkinToken);
+    if (payload.email) {
+      sendRSVPConfirmationEmail(payload, checkinToken);
+      emailSent = true;
+    }
   } catch(emailErr) {
     Logger.log('Confirmation email failed (quota?): ' + emailErr);
+    // Log to EmailErrors sheet so staff can manually follow up
+    try {
+      var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      var errSheet = ss.getSheetByName('EmailErrors') || ss.insertSheet('EmailErrors');
+      if (errSheet.getLastRow() === 0) {
+        errSheet.appendRow(['Timestamp', 'Name', 'Email', 'Event', 'CheckinToken', 'Error']);
+      }
+      errSheet.appendRow([
+        Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a'),
+        payload.name,
+        payload.email,
+        payload.eventTitle,
+        checkinToken,
+        String(emailErr)
+      ]);
+    } catch(logErr) {
+      Logger.log('Could not write to EmailErrors sheet: ' + logErr);
+    }
   }
 
   try {
@@ -994,7 +1016,7 @@ function handleRSVP(payload) {
     Logger.log('Resources email failed: ' + resErr);
   }
 
-  return { success: true, checkinToken: checkinToken };
+  return { success: true, checkinToken: checkinToken, emailSent: emailSent };
 }
 
 function sendVolunteerInterestEmail(payload) {

@@ -683,6 +683,10 @@
       <img id="confirmSig" class="confirm-sig" alt="Signature">
 
       <button class="print-btn" onclick="window.print()">Print for Your Records</button>
+
+      <div id="corsNote" style="display:none;margin-top:16px;padding:12px 16px;background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;font-size:13px;color:#92400e;">
+        Your waiver was submitted. If a staff member cannot find your record, please show them this screen or email <a href="mailto:events@healthmatters.clinic" style="color:#92400e;font-weight:600;">events@healthmatters.clinic</a>.
+      </div>
     </div>
 
     <div class="confirm-footer">
@@ -964,18 +968,18 @@ function submitWaiver() {
       }
     })
     .catch(function(err) {
-      // GAS often returns CORS errors on redirect even when successful.
-      // Show confirmation optimistically if we get a network/CORS error
-      // (the submission likely went through — GAS does not set CORS headers by default).
-      console.warn('Fetch error (may be CORS on redirect — submission likely succeeded):', err);
-      showConfirmation(payload, sigData);
+      // GAS does not set CORS headers, so browser blocks reading the response even on success.
+      // The submission almost certainly went through — show confirmation, but surface a note
+      // so staff can manually verify if needed.
+      console.warn('Waiver fetch/CORS error (submission likely succeeded):', err);
+      showConfirmation(payload, sigData, true /* corsWarning */);
     });
 }
 
 // =============================================
 // CONFIRMATION
 // =============================================
-function showConfirmation(payload, sigData) {
+function showConfirmation(payload, sigData, corsWarning) {
   // Build confirm table rows
   var rows = [];
   rows.push(['Event', EVENT_NAME]);
@@ -1021,6 +1025,10 @@ function showConfirmation(payload, sigData) {
   document.getElementById('formPage').style.display = 'none';
   document.getElementById('confirmPage').style.display = 'block';
   window.scrollTo(0, 0);
+
+  // If browser blocked the response (CORS), show a soft note so staff can verify if needed
+  var corsNote = document.getElementById('corsNote');
+  if (corsWarning && corsNote) corsNote.style.display = 'block';
 
   // Mark checked-in at GAS (fire-and-forget)
   if (CHECKIN_TOKEN) {
