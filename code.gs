@@ -891,6 +891,11 @@ function saveAllEvents(events) {
 // RSVP HANDLER
 // ========================================
 function handleRSVP(payload) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(e) {
+    return { success: false, error: 'Server busy — please try again.' };
+  }
+  try {
   var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
   var sheet = ss.getSheetByName('RSVPs');
 
@@ -1017,6 +1022,9 @@ function handleRSVP(payload) {
   }
 
   return { success: true, checkinToken: checkinToken, emailSent: emailSent };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function sendVolunteerInterestEmail(payload) {
