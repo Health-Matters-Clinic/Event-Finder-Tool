@@ -15,12 +15,15 @@
 //      double-processed
 //
 // SETUP (one-time):
-//   1. Paste this file into the same Apps Script project as code.gs
-//      (or create a new project bound to the same spreadsheet)
-//   2. In Triggers → Add Trigger:
-//       Function:   processEventbriteEmails
+//   1. Add this file to the same Apps Script project as code.gs
+//      (Project Settings → Files → add eventbrite-rsvp-sync.gs)
+//   2. The trigger entry point is processEventbriteEmails() in code.gs,
+//      which delegates to _runEventbriteSync() in this file.
+//      In Triggers → the trigger should point to:
+//       Function:   processEventbriteEmails  (defined in code.gs)
 //       Event:      Time-driven → Minutes timer → Every 10 minutes
-//   3. Authorize the script — it needs Gmail + Spreadsheet access
+//   3. Create a new deployment so both files are included.
+//   4. Authorize the script — it needs Gmail + Spreadsheet access
 // ============================================================
 
 // ---- shared config (matches code.gs) -----------------------
@@ -48,9 +51,11 @@ function doGet(e) {
 }
 
 // ============================================================
-// MAIN — called by time trigger
+// MAIN — called by time trigger via processEventbriteEmails() in code.gs
+// Renamed from processEventbriteEmails to _runEventbriteSync to avoid
+// duplicate function error (the trigger entry point is now in code.gs).
 // ============================================================
-function processEventbriteEmails() {
+function _runEventbriteSync() {
   var label = getOrCreateLabel(EB_CONFIG.PROCESSED_LABEL);
 
   // Retry once on transient INTERNAL storage errors (Google-side infrastructure blips)
@@ -608,7 +613,7 @@ function reprocessFailedEmails() {
     }
   });
 
-  Logger.log('Reset ' + resetCount + ' thread(s) for reprocessing. Run processEventbriteEmails next.');
+  Logger.log('Reset ' + resetCount + ' thread(s) for reprocessing. Run processEventbriteEmails (or _runEventbriteSync) next.');
 }
 
 // ============================================================

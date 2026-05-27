@@ -2968,3 +2968,25 @@ function deleteAd(id) {
     return { success: false, error: String(err) };
   }
 }
+
+// =============================================
+// TRIGGER ENTRY POINT — processEventbriteEmails
+// The time-based trigger "processEventbriteEmails" (every 10 min) fired 145 times with
+// "Script function not found: processEventbriteEmails". Root cause: the function existed
+// only in the local eventbrite-rsvp-sync.gs file but was never deployed to the GAS
+// project, so the trigger could not find it.
+//
+// Fix: this entry point now lives in code.gs (always deployed) and delegates to
+// _runEventbriteSync() in eventbrite-rsvp-sync.gs. That file must also be added to
+// the GAS project (Project Settings > Files) and a new deployment created.
+//
+// If eventbrite-rsvp-sync.gs is not yet in the project, this stub logs a warning
+// and exits cleanly so the trigger error stops immediately.
+// =============================================
+function processEventbriteEmails() {
+  if (typeof _runEventbriteSync === 'function') {
+    _runEventbriteSync();
+  } else {
+    Logger.log('[processEventbriteEmails] WARNING: _runEventbriteSync not found. Add eventbrite-rsvp-sync.gs to the GAS project and redeploy.');
+  }
+}
