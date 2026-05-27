@@ -398,6 +398,58 @@ function doGet(e) {
     }
   }
 
+  // ===== PARTNER REQUEST QUEUE (admin) =====
+  if (action === 'get_partner_requests') {
+    var prAuth = verifyAdminRequest(p);
+    if (!prAuth.success) {
+      return ContentService.createTextOutput(JSON.stringify(prAuth))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    return ContentService.createTextOutput(JSON.stringify(getPartnerRequests()))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === 'approve_partner_request') {
+    var apAuth = verifyAdminRequest(p);
+    if (!apAuth.success) {
+      return ContentService.createTextOutput(JSON.stringify(apAuth))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    try {
+      var rowIndex = parseInt(p.rowIndex, 10);
+      var eventData = p.eventData ? JSON.parse(p.eventData) : null;
+      if (!rowIndex || !eventData) {
+        return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Missing rowIndex or eventData' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify(approvePartnerRequest(rowIndex, eventData)))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (apErr) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(apErr) }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (action === 'reject_partner_request') {
+    var rjAuth = verifyAdminRequest(p);
+    if (!rjAuth.success) {
+      return ContentService.createTextOutput(JSON.stringify(rjAuth))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    try {
+      var rjRowIndex = parseInt(p.rowIndex, 10);
+      if (!rjRowIndex) {
+        return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Missing rowIndex' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify(rejectPartnerRequest(rjRowIndex, p.reason || '')))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (rjErr) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(rjErr) }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // ===== CANCEL RSVP BY TOKEN =====
   if (action === 'cancelRSVP' && p.token) {
     var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
@@ -1136,6 +1188,177 @@ function handlePartnerRequest(payload) {
   }
 
   sendPartnerAdminNotification(payload);
+}
+
+// ========================================
+// PARTNER REQUEST QUEUE — admin actions
+// ========================================
+
+/**
+ * Returns all pending partner requests (status blank or "pending").
+ * Column map (0-indexed): 0=Timestamp, 1=Name, 2=Email, 3=Organization,
+ *   4=Event Title, 5=Event Description, 6=Proposed Date, 7=Event Time,
+ *   8=Location, 9=Flyer URL, 10=Language, 11=Status
+ */
+function getPartnerRequests() {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Partner Requests');
+    if (!sheet || sheet.getLastRow() < 2) {
+      return { success: true, requests: [] };
+    }
+    var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 12).getValues();
+    var requests = [];
+    for (var i = 0; i < data.length; i++) {
+      var row = data[i];
+      var status = String(row[11] || '').toLowerCase().trim();
+      if (status === 'approved' || status === 'rejected') continue;
+      requests.push({
+        id: i + 2, // 1-based spreadsheet row number (row 1 is header)
+        submittedAt: String(row[0] || ''),
+        name: String(row[1] || ''),
+        email: String(row[2] || ''),
+        organization: String(row[3] || ''),
+        eventTitle: String(row[4] || ''),
+        eventDescription: String(row[5] || ''),
+        proposedDate: String(row[6] || ''),
+        eventTime: String(row[7] || ''),
+        location: String(row[8] || ''),
+        flyerUrl: String(row[9] || ''),
+        lang: String(row[10] || 'en'),
+        status: status || 'pending'
+      });
+    }
+    return { success: true, requests: requests };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
+ * Approves a partner request: creates the event in the Events sheet,
+ * marks the row Approved, and emails the submitter.
+ */
+function approvePartnerRequest(rowIndex, eventData) {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var prSheet = ss.getSheetByName('Partner Requests');
+    if (!prSheet) return { success: false, error: 'Partner Requests sheet not found' };
+
+    // Read submitter info for the email
+    var rowData = prSheet.getRange(rowIndex, 1, 1, 12).getValues()[0];
+    var submitterEmail = String(rowData[2] || '');
+    var submitterName = String(rowData[1] || '');
+    var eventTitle = String(eventData.title || rowData[4] || 'Your Event');
+
+    // Save the event to the Events sheet using the same saveEvent logic
+    if (!eventData.id) {
+      eventData.id = 'event-' + Date.now();
+    }
+    var saveResult = saveEvent(eventData);
+    if (!saveResult.success) {
+      return { success: false, error: 'Failed to create event: ' + saveResult.error };
+    }
+
+    // Mark the Partner Requests row as Approved (column 12, 1-indexed)
+    prSheet.getRange(rowIndex, 12).setValue('Approved');
+
+    // Email the submitter
+    if (submitterEmail) {
+      try {
+        var subject = 'Your event has been approved | Health Matters Clinic Events';
+        var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
+          '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+          '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid #e5e5e5;">' +
+          '<div style="background:#059669;color:white;padding:24px;text-align:center;">' +
+          '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;">' +
+          '<h1 style="margin:0;font-size:22px;font-weight:700;">Health Matters Clinic</h1>' +
+          '<p style="margin:8px 0 0;opacity:0.9;font-size:14px;">Event Approved</p></div>' +
+          '<div style="padding:32px;">' +
+          '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 8px;">Great news, ' + submitterName + '!</p>' +
+          '<p style="color:#555;margin:0 0 20px;font-size:15px;">Your event has been approved and is now live on the HMC Event Finder.</p>' +
+          '<div style="background:#f0fdf4;padding:20px;border-radius:12px;margin:0 0 24px;border:1.5px solid rgba(5,150,105,0.2);">' +
+          '<h3 style="color:#059669;margin:0 0 8px;font-size:17px;font-weight:700;">' + eventTitle + '</h3>' +
+          '<p style="margin:0;color:#555;font-size:14px;">View it at: <a href="https://eventfinder.healthmatters.clinic" style="color:#059669;font-weight:600;">eventfinder.healthmatters.clinic</a></p>' +
+          '</div></div>' +
+          '<div style="background:#f5f3ef;padding:20px;border-top:1px solid #e5e5e5;text-align:center;">' +
+          '<p style="color:#666;font-size:13px;margin:0;">Questions? <a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
+          '</div></div></body></html>';
+
+        MailApp.sendEmail({
+          to: submitterEmail,
+          subject: subject,
+          htmlBody: html,
+          name: 'Health Matters Clinic Events'
+        });
+      } catch (mailErr) {
+        Logger.log('Approval email error: ' + mailErr);
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
+ * Rejects a partner request: marks the row Rejected and emails the submitter.
+ */
+function rejectPartnerRequest(rowIndex, reason) {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var prSheet = ss.getSheetByName('Partner Requests');
+    if (!prSheet) return { success: false, error: 'Partner Requests sheet not found' };
+
+    // Read submitter info for the email
+    var rowData = prSheet.getRange(rowIndex, 1, 1, 12).getValues()[0];
+    var submitterEmail = String(rowData[2] || '');
+    var submitterName = String(rowData[1] || '');
+    var eventTitle = String(rowData[4] || 'your event');
+
+    // Mark the row as Rejected
+    prSheet.getRange(rowIndex, 12).setValue('Rejected');
+
+    // Email the submitter
+    if (submitterEmail) {
+      try {
+        var subject = 'Regarding your event submission | Health Matters Clinic Events';
+        var reasonHtml = reason
+          ? '<p style="color:#555;margin:0 0 16px;font-size:15px;"><strong>Reason:</strong> ' + reason + '</p>'
+          : '';
+        var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
+          '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+          '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid #e5e5e5;">' +
+          '<div style="background:#233dff;color:white;padding:24px;text-align:center;">' +
+          '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;">' +
+          '<h1 style="margin:0;font-size:22px;font-weight:700;">Health Matters Clinic</h1>' +
+          '<p style="margin:8px 0 0;opacity:0.9;font-size:14px;">Event Submission Update</p></div>' +
+          '<div style="padding:32px;">' +
+          '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 8px;">Hi ' + submitterName + ',</p>' +
+          '<p style="color:#555;margin:0 0 16px;font-size:15px;">Thank you for your submission. After review, we\'re unable to add <strong>' + eventTitle + '</strong> to the Event Finder at this time.</p>' +
+          reasonHtml +
+          '<p style="color:#555;font-size:14px;margin:0;">We encourage you to submit again in the future. If you have questions, please reach out to us.</p>' +
+          '</div>' +
+          '<div style="background:#f5f3ef;padding:20px;border-top:1px solid #e5e5e5;text-align:center;">' +
+          '<p style="color:#666;font-size:13px;margin:0;">Questions? <a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
+          '</div></div></body></html>';
+
+        MailApp.sendEmail({
+          to: submitterEmail,
+          subject: subject,
+          htmlBody: html,
+          name: 'Health Matters Clinic Events'
+        });
+      } catch (mailErr) {
+        Logger.log('Rejection email error: ' + mailErr);
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
 }
 
 // ========================================

@@ -11,7 +11,23 @@ interface AdminModalProps {
   onEventsUpdate: (events: ClinicEvent[]) => void;
 }
 
-type AdminView = 'passcode' | 'main' | 'edit' | 'reset-request' | 'reset-confirm';
+type AdminView = 'passcode' | 'main' | 'edit' | 'reset-request' | 'reset-confirm' | 'partner-requests';
+
+interface PartnerRequest {
+  id: number;
+  submittedAt: string;
+  name: string;
+  email: string;
+  organization: string;
+  eventTitle: string;
+  eventDescription: string;
+  proposedDate: string;
+  eventTime: string;
+  location: string;
+  flyerUrl: string;
+  lang: string;
+  status: string;
+}
 
 const PROGRAM_OPTIONS = [
   'Unstoppable Workshop',
@@ -155,6 +171,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Partner requests state
+  const [partnerRequests, setPartnerRequests] = useState<PartnerRequest[]>([]);
+  const [partnerRequestsLoading, setPartnerRequestsLoading] = useState(false);
+  const [partnerRequestCount, setPartnerRequestCount] = useState<number | null>(null);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
+  const [approvingId, setApprovingId] = useState<number | null>(null);
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [approveFormData, setApproveFormData] = useState<Partial<ClinicEvent>>({});
+  const [rejectReason, setRejectReason] = useState('');
+  const [partnerActionLoading, setPartnerActionLoading] = useState(false);
+  const [partnerToast, setPartnerToast] = useState<string | null>(null);
+
   // Trust session auth within the same browser session -- passcode was already verified
   useEffect(() => {
     const auth = sessionStorage.getItem(STORAGE_KEYS.ADMIN_AUTH);
@@ -162,6 +190,151 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       setView('main');
     }
   }, []);
+
+  // Fetch partner request count when on main view
+  useEffect(() => {
+    if (view === 'main') {
+      fetchPartnerRequestCount();
+    }
+  }, [view]);
+
+  const fetchPartnerRequestCount = async () => {
+    const hash = sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '';
+    if (!hash) return;
+    try {
+      const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=get_partner_requests&hash=${encodeURIComponent(hash)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.requests)) {
+        setPartnerRequestCount(data.requests.length);
+        setPartnerRequests(data.requests);
+      }
+    } catch {
+      // silently ignore — badge just won't show
+    }
+  };
+
+  const fetchPartnerRequests = async () => {
+    const hash = sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '';
+    if (!hash) return;
+    setPartnerRequestsLoading(true);
+    try {
+      const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=get_partner_requests&hash=${encodeURIComponent(hash)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.requests)) {
+        setPartnerRequests(data.requests);
+        setPartnerRequestCount(data.requests.length);
+      }
+    } catch {
+      // keep existing list
+    } finally {
+      setPartnerRequestsLoading(false);
+    }
+  };
+
+  const showToast = (msg: string) => {
+    setPartnerToast(msg);
+    setTimeout(() => setPartnerToast(null), 3000);
+  };
+
+  const handleApprovePartnerRequest = async (req: PartnerRequest) => {
+    setPartnerActionLoading(true);
+    const hash = sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '';
+    // Build the date display string from proposedDate
+    let dateDisplay = approveFormData.dateDisplay || '';
+    if (!dateDisplay && approveFormData.date) {
+      const [year, month, day] = (approveFormData.date as string).split('-').map(Number);
+      const d = new Date(year, month - 1, day);
+      dateDisplay = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+    const eventData: Partial<ClinicEvent> = {
+      id: `event-${Date.now()}`,
+      title: approveFormData.title || req.eventTitle,
+      date: approveFormData.date || '',
+      dateDisplay,
+      time: approveFormData.time || req.eventTime,
+      location: approveFormData.location || req.location,
+      city: approveFormData.city || req.location,
+      address: approveFormData.address || req.location,
+      program: approveFormData.program || 'Partner Event',
+      description: approveFormData.description || req.eventDescription,
+      flyerUrl: req.flyerUrl || '',
+      lat: approveFormData.lat || 33.9719,
+      lng: approveFormData.lng || -118.2108,
+      isPromoted: false,
+      isSponsored: false,
+      saveTheDate: false,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      const params = new URLSearchParams({
+        action: 'approve_partner_request',
+        hash,
+        rowIndex: String(req.id),
+        eventData: JSON.stringify(eventData),
+      });
+      const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        // Also save event to portal backend
+        try {
+          await fetch(`${PORTAL_API_URL}/api/public/save-event`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'saveEvent', event: eventData, hash }),
+          });
+          fetch(`${PORTAL_API_URL}/api/public/bust-events-cache`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hash }),
+          }).catch(() => {});
+        } catch { /* non-fatal */ }
+        // Update local events list
+        const updated = [...events, eventData as ClinicEvent];
+        const safeUpdated = preserveRequiredEvents(updated);
+        onEventsUpdate(safeUpdated);
+        localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(safeUpdated));
+        setPartnerRequests((prev) => prev.filter((r) => r.id !== req.id));
+        setPartnerRequestCount((c) => (c !== null ? Math.max(0, c - 1) : null));
+        setApprovingId(null);
+        setApproveFormData({});
+        showToast('Event approved and published.');
+      } else {
+        showToast('Error: ' + (data.error || 'Approval failed'));
+      }
+    } catch {
+      showToast('Connection error. Please try again.');
+    } finally {
+      setPartnerActionLoading(false);
+    }
+  };
+
+  const handleRejectPartnerRequest = async (req: PartnerRequest) => {
+    setPartnerActionLoading(true);
+    const hash = sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '';
+    try {
+      const params = new URLSearchParams({
+        action: 'reject_partner_request',
+        hash,
+        rowIndex: String(req.id),
+        reason: rejectReason,
+      });
+      const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        setPartnerRequests((prev) => prev.filter((r) => r.id !== req.id));
+        setPartnerRequestCount((c) => (c !== null ? Math.max(0, c - 1) : null));
+        setRejectingId(null);
+        setRejectReason('');
+        showToast('Submission rejected and submitter notified.');
+      } else {
+        showToast('Error: ' + (data.error || 'Rejection failed'));
+      }
+    } catch {
+      showToast('Connection error. Please try again.');
+    } finally {
+      setPartnerActionLoading(false);
+    }
+  };
 
   // ---- Stats ----
   const today = todayStr();
@@ -606,10 +779,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         {/* ===== HEADER ===== */}
         <div className="bg-[#fafbff] border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3">
-            {/* Back arrow when in edit view */}
-            {view === 'edit' && (
+            {/* Back arrow when in edit or partner-requests view */}
+            {(view === 'edit' || view === 'partner-requests') && (
               <button
-                onClick={() => setView('main')}
+                onClick={() => {
+                  setView('main');
+                  setApprovingId(null);
+                  setRejectingId(null);
+                  setApproveFormData({});
+                  setRejectReason('');
+                }}
                 className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-[#233dff] hover:bg-blue-50 transition-all"
                 aria-label="Back"
               >
@@ -636,6 +815,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   ? editingEvent
                     ? lang === 'es' ? 'Editar Evento' : 'Edit Event'
                     : lang === 'es' ? 'Nuevo Evento' : 'New Event'
+                  : view === 'partner-requests'
+                  ? lang === 'es' ? 'Solicitudes de Socios' : 'Partner Requests'
                   : lang === 'es'
                   ? 'Panel de Operaciones de Eventos'
                   : 'Event Operations Dashboard'}
@@ -876,6 +1057,27 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   {isRefreshing
                     ? lang === 'es' ? 'Actualizando...' : 'Refreshing...'
                     : lang === 'es' ? 'Actualizar' : 'Refresh'}
+                </button>
+
+                {/* Partner Requests button */}
+                <button
+                  onClick={() => {
+                    setView('partner-requests');
+                    setApprovingId(null);
+                    setRejectingId(null);
+                    fetchPartnerRequests();
+                  }}
+                  className="relative h-10 px-4 rounded-full text-sm font-semibold border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 hover:border-amber-400 transition-all inline-flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {lang === 'es' ? 'Socios' : 'Partner Requests'}
+                  {partnerRequestCount !== null && partnerRequestCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                      {partnerRequestCount > 9 ? '9+' : partnerRequestCount}
+                    </span>
+                  )}
                 </button>
 
                 {/* Utility dropdown */}
@@ -1634,6 +1836,284 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 </Button>
               </div>
             </form>
+          )}
+          {/* ===== PARTNER REQUESTS VIEW ===== */}
+          {view === 'partner-requests' && (
+            <div className="space-y-4">
+              {/* Toast */}
+              {partnerToast && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
+                  <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm font-semibold text-emerald-700">{partnerToast}</span>
+                </div>
+              )}
+
+              {/* Header row */}
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
+                  {partnerRequests.length} {lang === 'es' ? 'solicitudes pendientes' : 'pending requests'}
+                </div>
+                <button
+                  onClick={fetchPartnerRequests}
+                  disabled={partnerRequestsLoading}
+                  className="text-xs font-semibold text-[#233dff] hover:underline disabled:opacity-50"
+                >
+                  {partnerRequestsLoading ? (lang === 'es' ? 'Cargando...' : 'Loading...') : (lang === 'es' ? 'Actualizar' : 'Refresh')}
+                </button>
+              </div>
+
+              {/* Loading state */}
+              {partnerRequestsLoading && partnerRequests.length === 0 && (
+                <div className="space-y-3">
+                  <SkeletonCard />
+                  <SkeletonCard />
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!partnerRequestsLoading && partnerRequests.length === 0 && (
+                <div className="text-center py-16 text-gray-300">
+                  <svg className="w-12 h-12 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <p className="text-sm font-medium text-gray-400">
+                    {lang === 'es' ? 'Sin solicitudes pendientes' : 'No pending partner requests'}
+                  </p>
+                </div>
+              )}
+
+              {/* Request cards */}
+              <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                {partnerRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-amber-300 transition-all"
+                  >
+                    {/* Card header */}
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-[#1a1a1a] text-[15px] leading-tight truncate">
+                            {req.eventTitle}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {req.organization} &middot; {req.name}
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 shrink-0">
+                          PENDING
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500 mt-2">
+                        {req.proposedDate && (
+                          <div><span className="font-semibold text-gray-700">Date:</span> {req.proposedDate}</div>
+                        )}
+                        {req.eventTime && (
+                          <div><span className="font-semibold text-gray-700">Time:</span> {req.eventTime}</div>
+                        )}
+                        {req.location && (
+                          <div className="col-span-2"><span className="font-semibold text-gray-700">Location:</span> {req.location}</div>
+                        )}
+                        {req.email && (
+                          <div className="col-span-2"><span className="font-semibold text-gray-700">Email:</span> {req.email}</div>
+                        )}
+                        {req.submittedAt && (
+                          <div className="col-span-2 text-gray-400">Submitted: {req.submittedAt}</div>
+                        )}
+                      </div>
+
+                      {/* Description (collapsible) */}
+                      {req.eventDescription && (
+                        <div className="mt-2">
+                          <p className={`text-xs text-gray-500 ${expandedDescriptions.has(req.id) ? '' : 'line-clamp-2'}`}>
+                            {req.eventDescription}
+                          </p>
+                          {req.eventDescription.length > 100 && (
+                            <button
+                              onClick={() => setExpandedDescriptions((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(req.id)) next.delete(req.id); else next.add(req.id);
+                                return next;
+                              })}
+                              className="text-[11px] font-semibold text-[#233dff] hover:underline mt-0.5"
+                            >
+                              {expandedDescriptions.has(req.id) ? 'Show less' : 'Show more'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      {approvingId !== req.id && rejectingId !== req.id && (
+                        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                          <button
+                            onClick={() => {
+                              setApprovingId(req.id);
+                              setRejectingId(null);
+                              // Pre-fill form from request data
+                              // Try to parse proposedDate (e.g. "5/9/2026" or "2026-05-09") into YYYY-MM-DD
+                              let isoDate = '';
+                              if (req.proposedDate) {
+                                const slash = req.proposedDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                                if (slash) {
+                                  isoDate = `${slash[3]}-${slash[1].padStart(2, '0')}-${slash[2].padStart(2, '0')}`;
+                                } else if (/^\d{4}-\d{2}-\d{2}$/.test(req.proposedDate)) {
+                                  isoDate = req.proposedDate;
+                                }
+                              }
+                              setApproveFormData({
+                                title: req.eventTitle,
+                                date: isoDate,
+                                dateDisplay: '',
+                                time: req.eventTime,
+                                location: req.location,
+                                city: req.location,
+                                address: req.location,
+                                program: 'Partner Event',
+                                description: req.eventDescription,
+                              });
+                            }}
+                            className="flex-1 py-2 rounded-full text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-all text-center"
+                          >
+                            {lang === 'es' ? 'Aprobar' : 'Approve'}
+                          </button>
+                          <button
+                            onClick={() => { setRejectingId(req.id); setApprovingId(null); setRejectReason(''); }}
+                            className="flex-1 py-2 rounded-full text-xs font-semibold border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all text-center"
+                          >
+                            {lang === 'es' ? 'Rechazar' : 'Reject'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ---- Approve form (inline) ---- */}
+                    {approvingId === req.id && (
+                      <div className="border-t border-emerald-200 bg-emerald-50 p-4 space-y-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 mb-1">
+                          {lang === 'es' ? 'Confirmar y Publicar' : 'Confirm & Publish'}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="sm:col-span-2">
+                            <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500 mb-1">Title</label>
+                            <input
+                              value={approveFormData.title as string || ''}
+                              onChange={(e) => setApproveFormData((p) => ({ ...p, title: e.target.value }))}
+                              className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-emerald-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500 mb-1">Date</label>
+                            <input
+                              type="date"
+                              value={approveFormData.date as string || ''}
+                              onChange={(e) => setApproveFormData((p) => ({ ...p, date: e.target.value, dateDisplay: '' }))}
+                              className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-emerald-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500 mb-1">Time</label>
+                            <input
+                              value={approveFormData.time as string || ''}
+                              onChange={(e) => setApproveFormData((p) => ({ ...p, time: e.target.value }))}
+                              placeholder="10:00 AM - 12:00 PM"
+                              className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-emerald-500 outline-none"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500 mb-1">Location</label>
+                            <input
+                              value={approveFormData.location as string || ''}
+                              onChange={(e) => setApproveFormData((p) => ({ ...p, location: e.target.value, city: e.target.value, address: e.target.value }))}
+                              className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-emerald-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500 mb-1">Category</label>
+                            <select
+                              value={approveFormData.program as string || 'Partner Event'}
+                              onChange={(e) => setApproveFormData((p) => ({ ...p, program: e.target.value }))}
+                              className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-emerald-500 outline-none appearance-none"
+                            >
+                              {PROGRAM_OPTIONS.map((prog) => (
+                                <option key={prog} value={prog}>{prog}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500 mb-1">Description</label>
+                            <textarea
+                              value={approveFormData.description as string || ''}
+                              onChange={(e) => setApproveFormData((p) => ({ ...p, description: e.target.value }))}
+                              rows={2}
+                              className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm focus:border-emerald-500 outline-none resize-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={() => handleApprovePartnerRequest(req)}
+                            disabled={partnerActionLoading || !approveFormData.title || !approveFormData.date}
+                            className="flex-1 py-2.5 rounded-full text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-all disabled:opacity-50"
+                          >
+                            {partnerActionLoading ? (lang === 'es' ? 'Publicando...' : 'Publishing...') : (lang === 'es' ? 'Confirmar y Publicar' : 'Confirm & Publish')}
+                          </button>
+                          <button
+                            onClick={() => { setApprovingId(null); setApproveFormData({}); }}
+                            disabled={partnerActionLoading}
+                            className="px-4 py-2.5 rounded-full text-sm font-semibold text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                          >
+                            {lang === 'es' ? 'Cancelar' : 'Cancel'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ---- Reject form (inline) ---- */}
+                    {rejectingId === req.id && (
+                      <div className="border-t border-red-200 bg-red-50 p-4 space-y-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-red-700 mb-1">
+                          {lang === 'es' ? 'Confirmar Rechazo' : 'Confirm Rejection'}
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500 mb-1">
+                            {lang === 'es' ? 'Motivo (opcional)' : 'Reason (optional)'}
+                          </label>
+                          <textarea
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            rows={2}
+                            placeholder={lang === 'es' ? 'Ej. El evento no cumple con los requisitos...' : 'e.g. The event does not meet our current criteria...'}
+                            className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm focus:border-red-400 outline-none resize-none"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleRejectPartnerRequest(req)}
+                            disabled={partnerActionLoading}
+                            className="flex-1 py-2.5 rounded-full text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-all disabled:opacity-50"
+                          >
+                            {partnerActionLoading ? (lang === 'es' ? 'Enviando...' : 'Sending...') : (lang === 'es' ? 'Confirmar Rechazo' : 'Confirm Rejection')}
+                          </button>
+                          <button
+                            onClick={() => { setRejectingId(null); setRejectReason(''); }}
+                            disabled={partnerActionLoading}
+                            className="px-4 py-2.5 rounded-full text-sm font-semibold text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                          >
+                            {lang === 'es' ? 'Cancelar' : 'Cancel'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
