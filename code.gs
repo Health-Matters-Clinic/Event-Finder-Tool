@@ -1761,7 +1761,7 @@ function sendPartnerAdminNotification(payload) {
     'Time: ' + (payload.eventTime || 'N/A') + '\n' +
     'Location: ' + (payload.location || 'N/A') + '\n' +
     'Flyer URL: ' + (payload.flyerUrl || 'Not provided') + '\n\n' +
-    'Review in your Google Sheet.';
+    'To approve or reject: Open EventOps at eventfinder.healthmatters.clinic → click the amber "Partner Requests" button in the admin dashboard.';
 
   try {
     MailApp.sendEmail({
