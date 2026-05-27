@@ -203,6 +203,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [adForm, setAdForm] = useState<AdRow>(emptyAdForm());
   const [adSaving, setAdSaving] = useState(false);
   const [adsToast, setAdsToast] = useState<string | null>(null);
+  const [adLinkMode, setAdLinkMode] = useState<'event' | 'custom'>('event');
 
   // Trust session auth within the same browser session -- passcode was already verified
   useEffect(() => {
@@ -927,6 +928,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   setRejectReason('');
                   setAdFormVisible(false);
                   setAdForm(emptyAdForm());
+                  setAdLinkMode('event');
                 }}
                 className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-[#233dff] hover:bg-blue-50 transition-all"
                 aria-label="Back"
@@ -1227,6 +1229,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     setView('ads');
                     setAdFormVisible(false);
                     setAdForm(emptyAdForm());
+                    setAdLinkMode('event');
                   }}
                   className="h-10 px-4 rounded-full text-sm font-semibold border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 hover:border-purple-300 transition-all inline-flex items-center gap-2"
                 >
@@ -2306,7 +2309,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     {adsLoading ? 'Loading...' : 'Refresh'}
                   </button>
                   <button
-                    onClick={() => { setAdForm(emptyAdForm()); setAdFormVisible(true); }}
+                    onClick={() => { setAdForm(emptyAdForm()); setAdLinkMode('event'); setAdFormVisible(true); }}
                     className="h-8 px-3 rounded-full text-xs font-semibold bg-[#233dff] text-white hover:bg-[#1a2fd0] transition-all"
                   >
                     + Add Banner
@@ -2382,16 +2385,79 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     )}
                   </div>
 
-                  <div>
+                  {/* Link URL — smart toggle */}
+                  <div className="space-y-2">
                     <label className={labelCls}>Link URL *</label>
-                    <input
-                      required
-                      type="url"
-                      value={adForm.linkUrl}
-                      onChange={e => setAdForm(f => ({ ...f, linkUrl: e.target.value }))}
-                      placeholder="https://..."
-                      className={inputCls}
-                    />
+                    {/* Mode radio */}
+                    <div className="flex items-center gap-5 text-sm font-semibold text-gray-600">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="adLinkMode"
+                          value="event"
+                          checked={adLinkMode === 'event'}
+                          onChange={() => {
+                            setAdLinkMode('event');
+                            setAdForm(f => ({ ...f, linkUrl: '' }));
+                          }}
+                          className="accent-[#233dff]"
+                        />
+                        Link to an Event
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="adLinkMode"
+                          value="custom"
+                          checked={adLinkMode === 'custom'}
+                          onChange={() => setAdLinkMode('custom')}
+                          className="accent-[#233dff]"
+                        />
+                        Custom URL
+                      </label>
+                    </div>
+
+                    {adLinkMode === 'event' ? (
+                      <div>
+                        <select
+                          required
+                          value={adForm.linkUrl}
+                          onChange={e => {
+                            const selected = events.find(ev => `https://eventfinder.healthmatters.clinic?event=${encodeURIComponent(ev.id)}` === e.target.value);
+                            setAdForm(f => ({
+                              ...f,
+                              linkUrl: e.target.value,
+                              altText: f.altText || (selected ? selected.title : f.altText),
+                            }));
+                          }}
+                          className={`${inputCls} appearance-none cursor-pointer`}
+                        >
+                          <option value="">Select an event...</option>
+                          {[...events]
+                            .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+                            .map(ev => {
+                              const url = `https://eventfinder.healthmatters.clinic?event=${encodeURIComponent(ev.id)}`;
+                              return (
+                                <option key={ev.id} value={url}>
+                                  {ev.title} — {ev.dateDisplay || ev.date}
+                                </option>
+                              );
+                            })}
+                        </select>
+                        {adForm.linkUrl && (
+                          <p className="text-[10px] text-gray-400 mt-1 font-mono truncate">{adForm.linkUrl}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        required
+                        type="url"
+                        value={adForm.linkUrl}
+                        onChange={e => setAdForm(f => ({ ...f, linkUrl: e.target.value }))}
+                        placeholder="https://..."
+                        className={inputCls}
+                      />
+                    )}
                   </div>
 
                   <div>
@@ -2438,7 +2504,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setAdFormVisible(false); setAdForm(emptyAdForm()); }}
+                      onClick={() => { setAdFormVisible(false); setAdForm(emptyAdForm()); setAdLinkMode('event'); }}
                       disabled={adSaving}
                       className="px-4 py-2.5 rounded-full text-sm font-semibold text-gray-500 hover:text-gray-700 disabled:opacity-50"
                     >
@@ -2526,7 +2592,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         </svg>
                       </button>
                       <button
-                        onClick={() => { setAdForm({ ...ad }); setAdFormVisible(true); }}
+                        onClick={() => {
+                          setAdForm({ ...ad });
+                          // Detect mode from existing linkUrl
+                          const isEventLink = ad.linkUrl.startsWith('https://eventfinder.healthmatters.clinic?event=');
+                          setAdLinkMode(isEventLink ? 'event' : 'custom');
+                          setAdFormVisible(true);
+                        }}
                         className="px-2.5 py-1 rounded-full text-xs font-semibold border border-[#233dff]/30 text-[#233dff] hover:bg-[#233dff] hover:text-white transition-all"
                       >
                         Edit
