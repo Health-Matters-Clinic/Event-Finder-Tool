@@ -1,22 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AD_BANNERS } from '../config';
+import { AdBanner } from '../config';
 
 interface AdBannerProps {
+  banners: AdBanner[];
   className?: string;
 }
 
-const AdBannerComponent: React.FC<AdBannerProps> = ({ className = '' }) => {
-  const activeBanners = AD_BANNERS.filter(b => b.isActive);
+const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' }) => {
+  const activeBanners = banners.filter(b => b.isActive);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visible, setVisible] = useState(true);
+  // Track which banner indices have broken images
+  const [erroredIndices, setErroredIndices] = useState<Set<number>>(new Set());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hovered = useRef(false);
+
+  // Advance to the next banner that hasn't errored; returns true if we found one
+  const advanceToNextValid = (fromIndex: number, total: number, errored: Set<number>): number | null => {
+    for (let i = 1; i < total; i++) {
+      const next = (fromIndex + i) % total;
+      if (!errored.has(next)) return next;
+    }
+    return null; // all errored
+  };
 
   const rotateBanner = () => {
     if (hovered.current || activeBanners.length <= 1) return;
     setVisible(false);
     setTimeout(() => {
-      setCurrentIndex(i => (i + 1) % activeBanners.length);
+      setCurrentIndex(i => {
+        // Skip errored banners during rotation
+        for (let step = 1; step < activeBanners.length; step++) {
+          const next = (i + step) % activeBanners.length;
+          if (!erroredIndices.has(next)) return next;
+        }
+        return i; // all errored — stay
+      });
       setVisible(true);
     }, 300);
   };
@@ -26,11 +45,28 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ className = '' }) => {
     intervalRef.current = setInterval(rotateBanner, 7000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBanners.length]);
+  }, [activeBanners.length, erroredIndices]);
 
+  // Reset state when banners prop changes
+  useEffect(() => {
+    setCurrentIndex(0);
+    setErroredIndices(new Set());
+    setVisible(true);
+  }, [banners]);
+
+  // Hide entirely if no banners or all images errored
   if (activeBanners.length === 0) return null;
+  if (erroredIndices.size >= activeBanners.length) return null;
 
-  const banner = activeBanners[currentIndex];
+  // If the current banner has errored, skip to a valid one
+  const displayIndex = erroredIndices.has(currentIndex)
+    ? (advanceToNextValid(currentIndex, activeBanners.length, erroredIndices) ?? currentIndex)
+    : currentIndex;
+
+  const banner = activeBanners[displayIndex];
+
+  // Non-errored banners for dot nav
+  const visibleBanners = activeBanners.filter((_, i) => !erroredIndices.has(i));
 
   return (
     <div
@@ -47,6 +83,7 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ className = '' }) => {
         style={{ display: 'inline-block' }}
       >
         <img
+          key={displayIndex}
           src={banner.imageUrl}
           alt={banner.altText}
           style={{
@@ -57,27 +94,47 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ className = '' }) => {
             display: 'block',
             borderRadius: '4px',
           }}
-          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          onError={() => {
+            setErroredIndices(prev => {
+              const next = new Set(prev);
+              next.add(displayIndex);
+              return next;
+            });
+            // Auto-advance to next valid banner
+            setVisible(false);
+            setTimeout(() => {
+              setCurrentIndex(ci => {
+                const newErrored = new Set(erroredIndices);
+                newErrored.add(displayIndex);
+                const next = advanceToNextValid(ci, activeBanners.length, newErrored);
+                return next !== null ? next : ci;
+              });
+              setVisible(true);
+            }, 300);
+          }}
         />
       </a>
-      {activeBanners.length > 1 && (
+      {visibleBanners.length > 1 && (
         <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginTop: '4px' }}>
-          {activeBanners.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                setVisible(false);
-                setTimeout(() => { setCurrentIndex(i); setVisible(true); }, 300);
-              }}
-              aria-label={`Show banner ${i + 1}`}
-              style={{
-                width: '6px', height: '6px', borderRadius: '50%',
-                border: 'none', cursor: 'pointer', padding: 0,
-                background: i === currentIndex ? '#233dff' : '#d1d5db',
-                transition: 'background 0.2s',
-              }}
-            />
-          ))}
+          {activeBanners.map((_, i) => {
+            if (erroredIndices.has(i)) return null;
+            return (
+              <button
+                key={i}
+                onClick={() => {
+                  setVisible(false);
+                  setTimeout(() => { setCurrentIndex(i); setVisible(true); }, 300);
+                }}
+                aria-label={`Show banner ${i + 1}`}
+                style={{
+                  width: '6px', height: '6px', borderRadius: '50%',
+                  border: 'none', cursor: 'pointer', padding: 0,
+                  background: i === displayIndex ? '#233dff' : '#d1d5db',
+                  transition: 'background 0.2s',
+                }}
+              />
+            );
+          })}
         </div>
       )}
       <p style={{ fontSize: '9px', color: '#9ca3af', margin: '2px 0 0', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Sponsored</p>

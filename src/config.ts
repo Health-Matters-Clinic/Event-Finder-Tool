@@ -7,31 +7,34 @@ export interface AdBanner {
   linkUrl: string;        // Where clicking takes you
   altText: string;        // Accessibility + display fallback
   isActive: boolean;
+  order?: number;
 }
 
-export const AD_BANNERS: AdBanner[] = [
-  {
-    id: 'lacdmh-take-action',
-    imageUrl: 'https://teamhmc.github.io/Event-Finder-Tool/ads/lacdmh-banner.png',
-    linkUrl: 'https://healthmatters.clinic/takeactionla',
-    altText: 'Take Action LA — Free Mental Health Events this May',
-    isActive: true,
-  },
-  {
-    id: 'hmc-calmkit',
-    imageUrl: 'https://teamhmc.github.io/Event-Finder-Tool/ads/calmkit-banner.png',
-    linkUrl: 'https://healthmatters.clinic',
-    altText: 'CalmKit — Free Mental Wellness App by Health Matters Clinic',
-    isActive: true,
-  },
-  {
-    id: 'hmc-volunteer',
-    imageUrl: 'https://teamhmc.github.io/Event-Finder-Tool/ads/volunteer-banner.png',
-    linkUrl: 'https://volunteer.healthmatters.clinic',
-    altText: 'Join the HMC Volunteer Team — Apply Today',
-    isActive: true,
-  },
-];
+// Default empty — banners are fetched dynamically from Google Sheet
+export const AD_BANNERS: AdBanner[] = [];
+
+// Fetch active ad banners from GAS (Ads sheet)
+export async function fetchAdBanners(): Promise<AdBanner[]> {
+  try {
+    const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=get_ads`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data.success || !Array.isArray(data.ads)) return [];
+    const active = data.ads
+      .filter((ad: any) => ad.active === true || ad.active === 'TRUE')
+      .sort((a: any, b: any) => (Number(a.order) || 0) - (Number(b.order) || 0));
+    return active.map((ad: any): AdBanner => ({
+      id: String(ad.id || ''),
+      imageUrl: String(ad.imageUrl || ''),
+      linkUrl: String(ad.linkUrl || ''),
+      altText: String(ad.altText || ''),
+      isActive: true,
+      order: Number(ad.order) || 0,
+    }));
+  } catch {
+    return [];
+  }
+}
 
 // Google Apps Script URL - Backend for events, RSVPs, and partner requests
 export const GOOGLE_APPS_SCRIPT_URL =

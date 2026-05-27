@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from './Button';
 import { ClinicEvent, EventSession, Language } from '../types';
-import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, hashPasscode, postGasJson } from '../config';
+import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, hashPasscode, postGasJson, AdBanner } from '../config';
 import { EVENTS } from '../constants';
 
 interface AdminModalProps {
@@ -11,7 +11,18 @@ interface AdminModalProps {
   onEventsUpdate: (events: ClinicEvent[]) => void;
 }
 
-type AdminView = 'passcode' | 'main' | 'edit' | 'reset-request' | 'reset-confirm' | 'partner-requests';
+type AdminView = 'passcode' | 'main' | 'edit' | 'reset-request' | 'reset-confirm' | 'partner-requests' | 'ads';
+
+interface AdRow {
+  id: string;       // row number as string
+  imageUrl: string;
+  linkUrl: string;
+  altText: string;
+  active: boolean;
+  order: number;
+}
+
+const emptyAdForm = (): AdRow => ({ id: '', imageUrl: '', linkUrl: '', altText: '', active: true, order: 0 });
 
 interface PartnerRequest {
   id: number;
@@ -183,6 +194,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [partnerActionLoading, setPartnerActionLoading] = useState(false);
   const [partnerToast, setPartnerToast] = useState<string | null>(null);
 
+  // Ads state
+  const [ads, setAds] = useState<AdRow[]>([]);
+  const [adsLoading, setAdsLoading] = useState(false);
+  const [adsError, setAdsError] = useState('');
+  const [adFormVisible, setAdFormVisible] = useState(false);
+  const [adForm, setAdForm] = useState<AdRow>(emptyAdForm());
+  const [adSaving, setAdSaving] = useState(false);
+  const [adsToast, setAdsToast] = useState<string | null>(null);
+
   // Trust session auth within the same browser session -- passcode was already verified
   useEffect(() => {
     const auth = sessionStorage.getItem(STORAGE_KEYS.ADMIN_AUTH);
@@ -195,6 +215,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   useEffect(() => {
     if (view === 'main') {
       fetchPartnerRequestCount();
+    }
+    if (view === 'ads') {
+      fetchAds();
     }
   }, [view]);
 
@@ -234,6 +257,116 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const showToast = (msg: string) => {
     setPartnerToast(msg);
     setTimeout(() => setPartnerToast(null), 3000);
+  };
+
+  // ---- Ads helpers ----
+  const showAdsToast = (msg: string) => {
+    setAdsToast(msg);
+    setTimeout(() => setAdsToast(null), 3000);
+  };
+
+  const fetchAds = async () => {
+    setAdsLoading(true);
+    setAdsError('');
+    try {
+      const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=get_ads`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.ads)) {
+        setAds(data.ads.map((ad: any): AdRow => ({
+          id: String(ad.id || ''),
+          imageUrl: String(ad.imageUrl || ''),
+          linkUrl: String(ad.linkUrl || ''),
+          altText: String(ad.altText || ''),
+          active: ad.active === true || ad.active === 'TRUE',
+          order: Number(ad.order) || 0,
+        })));
+      } else {
+        setAdsError(data.error || 'Failed to load ads');
+      }
+    } catch {
+      setAdsError('Connection error');
+    } finally {
+      setAdsLoading(false);
+    }
+  };
+
+  const handleSaveAd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdSaving(true);
+    setAdsError('');
+    try {
+      const params = new URLSearchParams({
+        action: 'save_ad',
+        hash: sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '',
+        id: adForm.id,
+        imageUrl: adForm.imageUrl,
+        linkUrl: adForm.linkUrl,
+        altText: adForm.altText,
+        active: adForm.active ? 'TRUE' : 'FALSE',
+        order: String(adForm.order),
+      });
+      const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        showAdsToast(adForm.id ? 'Ad updated.' : 'Ad created.');
+        setAdFormVisible(false);
+        setAdForm(emptyAdForm());
+        await fetchAds();
+      } else {
+        setAdsError(data.error || 'Save failed');
+      }
+    } catch {
+      setAdsError('Connection error');
+    } finally {
+      setAdSaving(false);
+    }
+  };
+
+  const handleDeleteAd = async (id: string) => {
+    if (!window.confirm('Deactivate this ad?')) return;
+    setAdsError('');
+    try {
+      const params = new URLSearchParams({
+        action: 'delete_ad',
+        hash: sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '',
+        id,
+      });
+      const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        showAdsToast('Ad deactivated.');
+        await fetchAds();
+      } else {
+        setAdsError(data.error || 'Delete failed');
+      }
+    } catch {
+      setAdsError('Connection error');
+    }
+  };
+
+  const handleToggleAdActive = async (ad: AdRow) => {
+    setAdsError('');
+    try {
+      const params = new URLSearchParams({
+        action: 'save_ad',
+        hash: sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '',
+        id: ad.id,
+        imageUrl: ad.imageUrl,
+        linkUrl: ad.linkUrl,
+        altText: ad.altText,
+        active: ad.active ? 'FALSE' : 'TRUE',
+        order: String(ad.order),
+      });
+      const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        await fetchAds();
+      } else {
+        setAdsError(data.error || 'Toggle failed');
+      }
+    } catch {
+      setAdsError('Connection error');
+    }
   };
 
   const handleApprovePartnerRequest = async (req: PartnerRequest) => {
@@ -779,8 +912,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         {/* ===== HEADER ===== */}
         <div className="bg-[#fafbff] border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3">
-            {/* Back arrow when in edit or partner-requests view */}
-            {(view === 'edit' || view === 'partner-requests') && (
+            {/* Back arrow when in edit, partner-requests, or ads view */}
+            {(view === 'edit' || view === 'partner-requests' || view === 'ads') && (
               <button
                 onClick={() => {
                   setView('main');
@@ -788,6 +921,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   setRejectingId(null);
                   setApproveFormData({});
                   setRejectReason('');
+                  setAdFormVisible(false);
+                  setAdForm(emptyAdForm());
                 }}
                 className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-[#233dff] hover:bg-blue-50 transition-all"
                 aria-label="Back"
@@ -817,6 +952,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     : lang === 'es' ? 'Nuevo Evento' : 'New Event'
                   : view === 'partner-requests'
                   ? lang === 'es' ? 'Solicitudes de Socios' : 'Partner Requests'
+                  : view === 'ads'
+                  ? 'Ad Banners'
                   : lang === 'es'
                   ? 'Panel de Operaciones de Eventos'
                   : 'Event Operations Dashboard'}
@@ -1078,6 +1215,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       {partnerRequestCount > 9 ? '9+' : partnerRequestCount}
                     </span>
                   )}
+                </button>
+
+                {/* Ads management button */}
+                <button
+                  onClick={() => {
+                    setView('ads');
+                    setAdFormVisible(false);
+                    setAdForm(emptyAdForm());
+                  }}
+                  className="h-10 px-4 rounded-full text-sm font-semibold border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 hover:border-purple-300 transition-all inline-flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Ads
                 </button>
 
                 {/* Utility dropdown */}
@@ -2110,6 +2262,222 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         </div>
                       </div>
                     )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* ===== ADS VIEW ===== */}
+          {view === 'ads' && (
+            <div className="space-y-4">
+              {/* Toast */}
+              {adsToast && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
+                  <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm font-semibold text-emerald-700">{adsToast}</span>
+                </div>
+              )}
+
+              {/* Error */}
+              {adsError && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-yellow-800">{adsError}</span>
+                  <button onClick={() => setAdsError('')} className="text-yellow-600 hover:text-yellow-800 text-xs font-bold">Dismiss</button>
+                </div>
+              )}
+
+              {/* Header row */}
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
+                  {ads.length} banners
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={fetchAds}
+                    disabled={adsLoading}
+                    className="text-xs font-semibold text-[#233dff] hover:underline disabled:opacity-50"
+                  >
+                    {adsLoading ? 'Loading...' : 'Refresh'}
+                  </button>
+                  <button
+                    onClick={() => { setAdForm(emptyAdForm()); setAdFormVisible(true); }}
+                    className="h-8 px-3 rounded-full text-xs font-semibold bg-[#233dff] text-white hover:bg-[#1a2fd0] transition-all"
+                  >
+                    + Add Banner
+                  </button>
+                </div>
+              </div>
+
+              {/* Add / Edit form */}
+              {adFormVisible && (
+                <form onSubmit={handleSaveAd} className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">
+                    {adForm.id ? 'Edit Banner' : 'New Banner'}
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>Image URL *</label>
+                    <input
+                      required
+                      type="url"
+                      value={adForm.imageUrl}
+                      onChange={e => setAdForm(f => ({ ...f, imageUrl: e.target.value }))}
+                      placeholder="https://..."
+                      className={inputCls}
+                    />
+                  </div>
+
+                  {adForm.imageUrl && (
+                    <img
+                      src={adForm.imageUrl}
+                      alt="Preview"
+                      style={{ maxHeight: 80, borderRadius: 6, border: '1px solid #e5e7eb' }}
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  )}
+
+                  <div>
+                    <label className={labelCls}>Link URL *</label>
+                    <input
+                      required
+                      type="url"
+                      value={adForm.linkUrl}
+                      onChange={e => setAdForm(f => ({ ...f, linkUrl: e.target.value }))}
+                      placeholder="https://..."
+                      className={inputCls}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>Alt Text *</label>
+                    <input
+                      required
+                      value={adForm.altText}
+                      onChange={e => setAdForm(f => ({ ...f, altText: e.target.value }))}
+                      placeholder="Describe the banner for accessibility"
+                      className={inputCls}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Order</label>
+                      <input
+                        type="number"
+                        value={adForm.order}
+                        onChange={e => setAdForm(f => ({ ...f, order: Number(e.target.value) }))}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div className="flex items-end pb-1">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={adForm.active}
+                          onChange={e => setAdForm(f => ({ ...f, active: e.target.checked }))}
+                          className="w-5 h-5 rounded border-2 border-gray-300 text-[#233dff]"
+                        />
+                        <span className="text-sm font-semibold text-gray-700">Active</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="submit"
+                      disabled={adSaving}
+                      className="flex-1 py-2.5 rounded-full text-sm font-semibold bg-[#233dff] text-white hover:bg-[#1a2fd0] transition-all disabled:opacity-50"
+                    >
+                      {adSaving ? 'Saving...' : (adForm.id ? 'Save Changes' : 'Create Banner')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAdFormVisible(false); setAdForm(emptyAdForm()); }}
+                      disabled={adSaving}
+                      className="px-4 py-2.5 rounded-full text-sm font-semibold text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Loading skeleton */}
+              {adsLoading && ads.length === 0 && (
+                <div className="space-y-3">
+                  <SkeletonCard />
+                  <SkeletonCard />
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!adsLoading && ads.length === 0 && !adFormVisible && (
+                <div className="text-center py-12 text-gray-300">
+                  <svg className="w-10 h-10 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-sm font-medium text-gray-400">No banners yet. Add one above.</p>
+                </div>
+              )}
+
+              {/* Ad cards */}
+              <div className="space-y-2 max-h-[440px] overflow-y-auto pr-1">
+                {ads.map(ad => (
+                  <div key={ad.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 hover:border-purple-300 transition-all">
+                    {/* Thumbnail */}
+                    <div className="shrink-0 w-16 h-10 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
+                      {ad.imageUrl ? (
+                        <img
+                          src={ad.imageUrl}
+                          alt={ad.altText}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-gray-800 truncate">{ad.altText || 'Untitled'}</div>
+                      <div className="text-xs text-gray-400 truncate">{ad.linkUrl}</div>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[10px] font-semibold text-gray-400">Order: {ad.order}</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${ad.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                          {ad.active ? 'ACTIVE' : 'INACTIVE'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleToggleAdActive(ad)}
+                        title={ad.active ? 'Deactivate' : 'Activate'}
+                        className="p-1.5 rounded-full text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={ad.active ? 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z' : 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'} />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => { setAdForm({ ...ad }); setAdFormVisible(true); }}
+                        className="px-2.5 py-1 rounded-full text-xs font-semibold border border-[#233dff]/30 text-[#233dff] hover:bg-[#233dff] hover:text-white transition-all"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAd(ad.id)}
+                        className="px-2.5 py-1 rounded-full text-xs font-semibold border border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

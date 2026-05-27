@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { EVENTS, I18N } from './constants';
-import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, STORAGE_KEYS } from './config';
+import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, STORAGE_KEYS, fetchAdBanners, AdBanner } from './config';
 import { ClinicEvent, Language } from './types';
 import { Button } from './components/Button';
 import { translateEventTitle, translateProgram } from './utils/translation';
@@ -222,6 +222,8 @@ const App: React.FC = () => {
   const [pendingEventSlug, setPendingEventSlug] = useState<string | null>(null);
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [pendingCheckinToken, setPendingCheckinToken] = useState<string | null>(null);
+  const [adBanners, setAdBanners] = useState<AdBanner[]>([]);
+
   const [checkinResult, setCheckinResult] = useState<{
     state: 'pending' | 'success' | 'already' | 'error' | 'notyet';
     name?: string;
@@ -469,6 +471,11 @@ const App: React.FC = () => {
       })
       .catch(() => setCheckinResult({ state: 'error', message: 'Could not connect. Please try again.' }));
   }, [pendingCheckinToken]);
+
+  // Fetch ad banners from Google Sheet on mount
+  useEffect(() => {
+    fetchAdBanners().then(setAdBanners).catch(() => {});
+  }, []);
 
   const filteredEvents = useMemo(() => {
     return events
@@ -1251,7 +1258,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="px-4 sm:px-4 pt-3 pb-1 bg-white">
-            <AdBannerComponent />
+            <AdBannerComponent banners={adBanners} />
           </div>
 
           <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-4 space-y-3 bg-white">
@@ -1350,7 +1357,7 @@ const App: React.FC = () => {
                 if ((index + 1) % 6 === 0 && index < filteredEvents.length - 1) {
                   acc.push(
                     <div key={`ad-${index}`} style={{ margin: '4px 0' }}>
-                      <AdBannerComponent />
+                      <AdBannerComponent banners={adBanners} />
                     </div>
                   );
                 }

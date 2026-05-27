@@ -450,6 +450,38 @@ function doGet(e) {
     }
   }
 
+  // ===== ADS ACTIONS =====
+  if (action === 'get_ads') {
+    return ContentService.createTextOutput(JSON.stringify(getAds()))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === 'save_ad') {
+    var adAuth = verifyAdminRequest(p);
+    if (!adAuth.success) {
+      return ContentService.createTextOutput(JSON.stringify(adAuth))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    return ContentService.createTextOutput(JSON.stringify(saveAd(p)))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === 'delete_ad') {
+    var delAdAuth = verifyAdminRequest(p);
+    if (!delAdAuth.success) {
+      return ContentService.createTextOutput(JSON.stringify(delAdAuth))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    return ContentService.createTextOutput(JSON.stringify(deleteAd(p.id)))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === 'init_ads_sheet') {
+    initAdsSheet();
+    return ContentService.createTextOutput(JSON.stringify({ success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // ===== CANCEL RSVP BY TOKEN =====
   if (action === 'cancelRSVP' && p.token) {
     var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
@@ -608,6 +640,21 @@ function doPost(e) {
         break;
       case 'submitWaiver':
         result = _doSubmitWaiver(params);
+        break;
+      case 'get_ads':
+        result = getAds();
+        break;
+      case 'save_ad':
+        result = verifyAdminRequest(params);
+        if (result.success) result = saveAd(params);
+        break;
+      case 'delete_ad':
+        result = verifyAdminRequest(params);
+        if (result.success) result = deleteAd(params.id);
+        break;
+      case 'init_ads_sheet':
+        initAdsSheet();
+        result = { success: true };
         break;
       default:
         result = { success: false, error: 'Unknown action: ' + action };
@@ -2808,4 +2855,116 @@ function sendCorrectionEmails() {
   }
 
   Logger.log('Done. Sent: ' + sent + ', Skipped: ' + skipped);
+}
+
+// ========================================
+// ADS SHEET FUNCTIONS
+// ========================================
+
+/**
+ * Returns or creates the Ads sheet and returns a reference to it.
+ * Columns: ID | Image URL | Link URL | Alt Text | Active | Order
+ */
+function initAdsSheet() {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Ads');
+  if (!sheet) {
+    sheet = ss.insertSheet('Ads');
+    sheet.appendRow(['ID', 'Image URL', 'Link URL', 'Alt Text', 'Active', 'Order']);
+    sheet.getRange(1, 1, 1, 6).setFontWeight('bold');
+    sheet.setColumnWidth(1, 60);
+    sheet.setColumnWidth(2, 300);
+    sheet.setColumnWidth(3, 250);
+    sheet.setColumnWidth(4, 250);
+    sheet.setColumnWidth(5, 80);
+    sheet.setColumnWidth(6, 70);
+  }
+  return sheet;
+}
+
+/**
+ * Returns all ad rows from the Ads sheet (including inactive ones — UI filters).
+ * Returns: { success: true, ads: [{ id, imageUrl, linkUrl, altText, active, order }] }
+ */
+function getAds() {
+  try {
+    var sheet = initAdsSheet();
+    var lastRow = sheet.getLastRow();
+    if (lastRow <= 1) {
+      return { success: true, ads: [] };
+    }
+    var data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+    var ads = [];
+    for (var i = 0; i < data.length; i++) {
+      var row = data[i];
+      // Skip blank rows (no image URL)
+      if (!row[1] && !row[2]) continue;
+      var activeVal = row[4];
+      var isActive = (activeVal === true || String(activeVal).toUpperCase() === 'TRUE');
+      ads.push({
+        id: String(i + 2), // row number (1-based, +1 for header)
+        imageUrl: String(row[1] || ''),
+        linkUrl:  String(row[2] || ''),
+        altText:  String(row[3] || ''),
+        active:   isActive,
+        order:    Number(row[5]) || 0
+      });
+    }
+    return { success: true, ads: ads };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
+ * Creates or updates an ad row.
+ * params: { id (row number or empty), imageUrl, linkUrl, altText, active ('TRUE'/'FALSE'), order }
+ */
+function saveAd(params) {
+  try {
+    var sheet = initAdsSheet();
+    var imageUrl = String(params.imageUrl || '');
+    var linkUrl  = String(params.linkUrl  || '');
+    var altText  = String(params.altText  || '');
+    var active   = String(params.active || 'TRUE').toUpperCase() === 'TRUE';
+    var order    = Number(params.order) || 0;
+
+    var rowNum = parseInt(params.id, 10);
+    if (rowNum && rowNum > 1) {
+      // Update existing row
+      sheet.getRange(rowNum, 2, 1, 5).setValues([[imageUrl, linkUrl, altText, active ? 'TRUE' : 'FALSE', order]]);
+    } else {
+      // New row — use next available row number as ID
+      var newRow = [sheet.getLastRow() + 1, imageUrl, linkUrl, altText, active ? 'TRUE' : 'FALSE', order];
+      // Overwrite the ID cell with the actual row number after appending
+      sheet.appendRow(['', imageUrl, linkUrl, altText, active ? 'TRUE' : 'FALSE', order]);
+      var newRowNum = sheet.getLastRow();
+      sheet.getRange(newRowNum, 1).setValue(newRowNum);
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
+ * Soft-deletes an ad by setting Active to FALSE.
+ * params.id: row number (string)
+ */
+function deleteAd(id) {
+  try {
+    var rowNum = parseInt(id, 10);
+    if (!rowNum || rowNum <= 1) {
+      return { success: false, error: 'Invalid ad ID' };
+    }
+    var sheet = initAdsSheet();
+    if (rowNum > sheet.getLastRow()) {
+      return { success: false, error: 'Row not found' };
+    }
+    // Set Active column (col 5) to FALSE
+    sheet.getRange(rowNum, 5).setValue('FALSE');
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
 }
