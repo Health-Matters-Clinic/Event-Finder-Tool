@@ -2322,8 +2322,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </div>
 
                   {/* Helper text */}
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700 leading-relaxed">
-                    Upload your images to Google Drive, Canva, or Dropbox and paste the public link. Desktop banners must be 728x90px. Mobile banners should be 320x50px.
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700 leading-relaxed space-y-1">
+                    <p><strong>Link only — no file upload.</strong> Host your image on Canva, Google Drive, or Dropbox, then paste the public share link here.</p>
+                    <p><strong>Accepted formats:</strong> PNG, JPG, GIF, WebP</p>
+                    <p><strong>Hosting tips:</strong> In Canva, use Share → Copy link (set to "Anyone with link"). In Google Drive, right-click → Share → Anyone with the link → Copy. In Dropbox, share link and change <code>dl=0</code> to <code>raw=1</code> at the end of the URL.</p>
+                    <p><strong>Sizes:</strong> Desktop 728×90px · Mobile 320×50px</p>
                   </div>
 
                   {/* Desktop image URL */}
