@@ -33,31 +33,37 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError('');
 
-    const payload = {
+    const params = new URLSearchParams({
       action: 'partner_request',
-      ...formData,
-      submittedAt: new Date().toISOString(),
+      name: formData.name,
+      email: formData.email,
+      organization: formData.organization,
+      eventTitle: formData.eventTitle,
+      eventDescription: formData.eventDescription,
+      proposedDate: formData.proposedDate,
+      eventTime: formData.eventTime,
+      location: formData.location,
+      flyerUrl: formData.flyerUrl || '',
       lang,
-    };
+      timestamp: new Date().toISOString(),
+    });
 
     try {
-      // Send as individual URL params via GET (Apps Script handles partner_request via doGet)
-      const params = new URLSearchParams();
-      Object.entries(payload).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          params.append(key, String(value));
-        }
+      // GAS always throws a CORS error even on success — use no-cors to bypass.
+      // The browser sends the request without reading the response, so GAS receives
+      // and processes it normally. Show success optimistically after fetch resolves.
+      await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`, {
+        method: 'GET',
+        mode: 'no-cors',
       });
-
-      // Single fetch — no image-ping fallback (that fallback caused duplicate admin notifications
-      // by firing a second identical request even when the first fetch already reached GAS)
-      await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
-
+      // Can't read the response body with no-cors — optimistically show success
       setSubmitted(true);
     } catch {
+      // no-cors can still fail on genuine network errors (offline, DNS failure)
       setError(lang === 'es' ? 'Error al enviar. Intente de nuevo.' : 'Failed to submit. Please try again.');
     } finally {
       setLoading(false);
