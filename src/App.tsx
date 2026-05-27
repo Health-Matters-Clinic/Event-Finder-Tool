@@ -4,6 +4,7 @@ import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, STORAGE_KEYS } from './config';
 import { ClinicEvent, Language } from './types';
 import { Button } from './components/Button';
 import { translateEventTitle, translateProgram } from './utils/translation';
+import AdBannerComponent from './components/AdBanner';
 
 const RSVPModal = lazy(() => import('./components/RSVPModal').then(m => ({ default: m.RSVPModal })));
 const AdminModal = lazy(() => import('./components/AdminModal').then(m => ({ default: m.AdminModal })));
@@ -1249,6 +1250,10 @@ const App: React.FC = () => {
             )}
           </div>
 
+          <div className="px-4 sm:px-4 pt-3 pb-1 bg-white">
+            <AdBannerComponent />
+          </div>
+
           <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-4 space-y-3 bg-white">
             {eventsLoading && filteredEvents.length === 0 ? (
               <div className="space-y-3">
@@ -1261,7 +1266,8 @@ const App: React.FC = () => {
                 ))}
               </div>
             ) : filteredEvents.length > 0 ? (
-              filteredEvents.map((event) => (
+              filteredEvents.reduce<React.ReactNode[]>((acc, event, index) => {
+                acc.push(
                 <div
                   key={event.id}
                   ref={(el) => {
@@ -1339,7 +1345,17 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ))
+                );
+                // Inject an ad banner after every 6th event card (0-indexed: after index 5, 11, 17, ...)
+                if ((index + 1) % 6 === 0 && index < filteredEvents.length - 1) {
+                  acc.push(
+                    <div key={`ad-${index}`} style={{ margin: '4px 0' }}>
+                      <AdBannerComponent />
+                    </div>
+                  );
+                }
+                return acc;
+              }, [])
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center p-16 opacity-30">
                 <p className="text-base font-semibold text-gray-500 uppercase tracking-wide">

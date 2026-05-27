@@ -1,5 +1,38 @@
 // Configuration for Event Finder Tool
 
+// Ad/sponsor banner configuration
+export interface AdBanner {
+  id: string;
+  imageUrl: string;       // URL to the banner image
+  linkUrl: string;        // Where clicking takes you
+  altText: string;        // Accessibility + display fallback
+  isActive: boolean;
+}
+
+export const AD_BANNERS: AdBanner[] = [
+  {
+    id: 'lacdmh-take-action',
+    imageUrl: 'https://teamhmc.github.io/Event-Finder-Tool/ads/lacdmh-banner.png',
+    linkUrl: 'https://healthmatters.clinic/takeactionla',
+    altText: 'Take Action LA — Free Mental Health Events this May',
+    isActive: true,
+  },
+  {
+    id: 'hmc-calmkit',
+    imageUrl: 'https://teamhmc.github.io/Event-Finder-Tool/ads/calmkit-banner.png',
+    linkUrl: 'https://healthmatters.clinic',
+    altText: 'CalmKit — Free Mental Wellness App by Health Matters Clinic',
+    isActive: true,
+  },
+  {
+    id: 'hmc-volunteer',
+    imageUrl: 'https://teamhmc.github.io/Event-Finder-Tool/ads/volunteer-banner.png',
+    linkUrl: 'https://volunteer.healthmatters.clinic',
+    altText: 'Join the HMC Volunteer Team — Apply Today',
+    isActive: true,
+  },
+];
+
 // Google Apps Script URL - Backend for events, RSVPs, and partner requests
 export const GOOGLE_APPS_SCRIPT_URL =
   import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL ||
