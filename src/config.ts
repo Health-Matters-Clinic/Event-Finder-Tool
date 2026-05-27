@@ -41,7 +41,7 @@ export async function fetchAdBanners(): Promise<AdBanner[]> {
 // Google Apps Script URL - Backend for events, RSVPs, and partner requests
 export const GOOGLE_APPS_SCRIPT_URL =
   import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL ||
-  'https://script.google.com/macros/s/AKfycbz98ofEpj4SyQPXPer7qY8F04IFweCIv3s_MtGuHtU5OhmSUURgfEuBlQ5I-D8tily1TA/exec';
+  'https://script.google.com/macros/s/AKfycbzPUzjEIQhwEO5uD55EK1IHKKHh3RabUtAGyNcNkx_1KpefWm21_FOuRrZknDWyGU1J1g/exec';
 
 // Volunteer Portal API - dual-write RSVPs for volunteer matching
 export const PORTAL_API_URL =
