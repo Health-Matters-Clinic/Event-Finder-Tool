@@ -240,7 +240,8 @@ function doGet(e) {
       eventTime: p.eventTime || '',
       location: p.location || '',
       flyerUrl: p.flyerUrl || '',
-      lang: p.lang || 'en'
+      lang: p.lang || 'en',
+      notificationEmail: p.notificationEmail || ''
     };
     handlePartnerRequest(payload);
     return HtmlService.createHtmlOutput('OK');
@@ -632,7 +633,19 @@ function doPost(e) {
         result = handleRSVP(params);
         break;
       case 'partner_request':
-        handlePartnerRequest(params);
+        handlePartnerRequest({
+          name: params.name || '',
+          email: params.email || '',
+          organization: params.organization || '',
+          eventTitle: params.eventTitle || '',
+          eventDescription: params.eventDescription || '',
+          proposedDate: params.proposedDate || '',
+          eventTime: params.eventTime || '',
+          location: params.location || '',
+          flyerUrl: params.flyerUrl || '',
+          lang: params.lang || 'en',
+          notificationEmail: params.notificationEmail || ''
+        });
         result = { success: true };
         break;
       case 'checkin':
@@ -697,9 +710,10 @@ function getEvents() {
       return { success: true, events: [] };
     }
 
-    // Read all 19 columns explicitly — getDataRange() can miss trailing empty columns
-    var headers = sheet.getRange(1, 1, 1, 19).getValues()[0];
-    var data = sheet.getRange(1, 1, lastRow, 19).getValues();
+    // Read all columns explicitly — getDataRange() can miss trailing empty columns
+    var numEventCols = Math.max(sheet.getLastColumn(), 19);
+    var headers = sheet.getRange(1, 1, 1, numEventCols).getValues()[0];
+    var data = sheet.getRange(1, 1, lastRow, numEventCols).getValues();
     var events = [];
 
     for (var i = 1; i < data.length; i++) {
@@ -805,21 +819,27 @@ function saveEvent(event) {
       sheet.appendRow([
         'id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
         'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-        'isPromoted', 'isSponsored', 'createdAt', 'sessions'
+        'isPromoted', 'isSponsored', 'createdAt', 'sessions', 'notificationEmail'
       ]);
     }
 
     // Ensure sessions column header exists (migration for existing sheets)
     var headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     if (headerRow.indexOf('sessions') === -1) {
-      var nextCol = sheet.getLastColumn() + 1;
-      sheet.getRange(1, nextCol).setValue('sessions');
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue('sessions');
     }
 
-    // Read all 19 columns explicitly — getDataRange() can miss trailing empty columns
+    // Ensure notificationEmail column header exists (migration for existing sheets)
+    headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    if (headerRow.indexOf('notificationEmail') === -1) {
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue('notificationEmail');
+    }
+
+    // Read all columns explicitly — getDataRange() can miss trailing empty columns
     var lastRow = sheet.getLastRow();
-    var headers = sheet.getRange(1, 1, 1, 19).getValues()[0];
-    var data = sheet.getRange(1, 1, lastRow, 19).getValues();
+    var numEventCols = Math.max(sheet.getLastColumn(), 19);
+    var headers = sheet.getRange(1, 1, 1, numEventCols).getValues()[0];
+    var data = sheet.getRange(1, 1, lastRow, numEventCols).getValues();
 
     // Normalize incoming event ID for comparison
     var eventIdNorm = normalizeId(event.id);
@@ -937,11 +957,11 @@ function saveAllEvents(events) {
       sheet.appendRow([
         'id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
         'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-        'isPromoted', 'isSponsored', 'createdAt', 'sessions'
+        'isPromoted', 'isSponsored', 'createdAt', 'sessions', 'notificationEmail'
       ]);
     }
 
-    var headers = sheet.getRange(1, 1, 1, 19).getValues()[0];
+    var headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 19)).getValues()[0];
 
     // Clear existing data (keep headers)
     var lastRow = sheet.getLastRow();
@@ -1120,6 +1140,13 @@ function handleRSVP(payload) {
     Logger.log('Resources email failed: ' + resErr);
   }
 
+  // Send RSVP notification to partner event host if they opted in
+  try {
+    sendPartnerRSVPNotification(payload);
+  } catch(pnErr) {
+    Logger.log('Partner RSVP notification failed: ' + pnErr);
+  }
+
   return { success: true, checkinToken: checkinToken, emailSent: emailSent };
   } finally {
     lock.releaseLock();
@@ -1197,6 +1224,70 @@ function sendResourcesEmail(payload) {
   });
 }
 
+/**
+ * Looks up the event from the Events sheet and, if it has a notificationEmail,
+ * sends a plain-text notification to the partner letting them know someone RSVP'd.
+ */
+function sendPartnerRSVPNotification(payload) {
+  if (!payload.eventId) return;
+
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var evSheet = ss.getSheetByName('Events');
+  if (!evSheet || evSheet.getLastRow() < 2) return;
+
+  var numCols = Math.max(evSheet.getLastColumn(), 19);
+  var headers = evSheet.getRange(1, 1, 1, numCols).getValues()[0];
+  var notifCol = headers.indexOf('notificationEmail');
+  if (notifCol === -1) return; // Column not present yet — nothing to do
+
+  var idCol = headers.indexOf('id');
+  var titleCol = headers.indexOf('title');
+  var dateCol = headers.indexOf('dateDisplay');
+  if (idCol === -1) return;
+
+  var data = evSheet.getRange(2, 1, evSheet.getLastRow() - 1, numCols).getValues();
+  var notificationEmail = '';
+  var evTitle = payload.eventTitle || '';
+  var evDate = payload.eventDate || '';
+
+  for (var i = 0; i < data.length; i++) {
+    var rowId = normalizeId(data[i][idCol]);
+    var payloadId = normalizeId(payload.eventId);
+    if (rowId === payloadId || rowId.toLowerCase() === payloadId.toLowerCase()) {
+      notificationEmail = String(data[i][notifCol] || '').trim();
+      if (titleCol !== -1 && data[i][titleCol]) evTitle = String(data[i][titleCol]);
+      if (dateCol !== -1 && data[i][dateCol]) evDate = String(data[i][dateCol]);
+      break;
+    }
+  }
+
+  if (!notificationEmail) return;
+
+  var attendeeName = String(payload.name || '').trim();
+  var attendeeEmail = String(payload.email || '').trim();
+  var subject = 'New RSVP: ' + evTitle;
+
+  var body =
+    'Someone just registered for your event through the HMC Event Finder.\n\n' +
+    'Event: ' + evTitle + '\n' +
+    'Date: ' + evDate + '\n' +
+    'Attendee: ' + attendeeName + '\n' +
+    'Email: ' + (attendeeEmail || 'not provided') + '\n\n' +
+    'This notification was sent because you opted into RSVP notifications for this event.\n' +
+    'View all attendees at eventfinder.healthmatters.clinic (requires EventOps access)\n' +
+    'or manage your partner account at partner.healthmatters.clinic.\n\n' +
+    '— Health Matters Clinic Event Finder';
+
+  MailApp.sendEmail({
+    to: notificationEmail,
+    subject: subject,
+    body: body,
+    name: 'Health Matters Clinic Event Finder'
+  });
+
+  Logger.log('Partner RSVP notification sent to ' + notificationEmail + ' for event ' + evTitle);
+}
+
 // ========================================
 // PARTNER REQUEST HANDLER
 // ========================================
@@ -1219,8 +1310,14 @@ function handlePartnerRequest(payload) {
       sheet.appendRow([
         'Timestamp', 'Name', 'Email', 'Organization', 'Event Title',
         'Event Description', 'Proposed Date', 'Event Time', 'Location',
-        'Flyer URL', 'Language', 'Status'
+        'Flyer URL', 'Language', 'Status', 'Notification Email'
       ]);
+    } else {
+      // Migration: add Notification Email column if it doesn't exist yet
+      var prHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      if (prHeaders.indexOf('Notification Email') === -1) {
+        sheet.getRange(1, sheet.getLastColumn() + 1).setValue('Notification Email');
+      }
     }
 
     // Check for a duplicate submission in the last 60 seconds
@@ -1262,7 +1359,8 @@ function handlePartnerRequest(payload) {
       payload.location,
       payload.flyerUrl || '',
       payload.lang,
-      'pending'
+      'pending',
+      payload.notificationEmail || ''
     ]);
 
     SpreadsheetApp.flush();
@@ -1286,7 +1384,7 @@ function handlePartnerRequest(payload) {
  * Returns all pending partner requests (status blank or "pending").
  * Column map (0-indexed): 0=Timestamp, 1=Name, 2=Email, 3=Organization,
  *   4=Event Title, 5=Event Description, 6=Proposed Date, 7=Event Time,
- *   8=Location, 9=Flyer URL, 10=Language, 11=Status
+ *   8=Location, 9=Flyer URL, 10=Language, 11=Status, 12=Notification Email
  */
 function getPartnerRequests() {
   try {
@@ -1295,7 +1393,9 @@ function getPartnerRequests() {
     if (!sheet || sheet.getLastRow() < 2) {
       return { success: true, requests: [] };
     }
-    var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 12).getValues();
+    // Read up to 13 columns; if sheet only has 12 (pre-migration), the 13th will be empty string
+    var numCols = Math.min(sheet.getLastColumn(), 13);
+    var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, numCols).getValues();
     var requests = [];
     for (var i = 0; i < data.length; i++) {
       var row = data[i];
@@ -1314,7 +1414,8 @@ function getPartnerRequests() {
         location: String(row[8] || ''),
         flyerUrl: String(row[9] || ''),
         lang: String(row[10] || 'en'),
-        status: status || 'pending'
+        status: status || 'pending',
+        notificationEmail: String(row[12] || '')
       });
     }
     return { success: true, requests: requests };
@@ -1333,11 +1434,27 @@ function approvePartnerRequest(rowIndex, eventData) {
     var prSheet = ss.getSheetByName('Partner Requests');
     if (!prSheet) return { success: false, error: 'Partner Requests sheet not found' };
 
-    // Read submitter info for the email
-    var rowData = prSheet.getRange(rowIndex, 1, 1, 12).getValues()[0];
+    // Read submitter info for the email (read up to 13 columns to capture notificationEmail)
+    var prNumCols = Math.min(prSheet.getLastColumn(), 13);
+    var rowData = prSheet.getRange(rowIndex, 1, 1, prNumCols).getValues()[0];
     var submitterEmail = String(rowData[2] || '');
     var submitterName = String(rowData[1] || '');
     var eventTitle = String(eventData.title || rowData[4] || 'Your Event');
+    var notificationEmail = String(rowData[12] || '');
+
+    // Ensure Events sheet has a notificationEmail column
+    var eventsSheet = ss.getSheetByName('Events');
+    if (eventsSheet) {
+      var evHeaders = eventsSheet.getRange(1, 1, 1, eventsSheet.getLastColumn()).getValues()[0];
+      if (evHeaders.indexOf('notificationEmail') === -1) {
+        eventsSheet.getRange(1, eventsSheet.getLastColumn() + 1).setValue('notificationEmail');
+      }
+    }
+
+    // Carry notificationEmail into the event data so saveEvent writes it
+    if (notificationEmail) {
+      eventData.notificationEmail = notificationEmail;
+    }
 
     // Save the event to the Events sheet using the same saveEvent logic
     if (!eventData.id) {
@@ -2076,7 +2193,7 @@ function setupSheets() {
     eventsSheet.appendRow([
       'id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
       'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-      'isPromoted', 'isSponsored', 'createdAt'
+      'isPromoted', 'isSponsored', 'createdAt', 'sessions', 'notificationEmail'
     ]);
     Logger.log('Created Events sheet with headers');
   } else {
@@ -2105,7 +2222,7 @@ function setupSheets() {
     partnersSheet.appendRow([
       'Timestamp', 'Name', 'Email', 'Organization', 'Event Title',
       'Event Description', 'Proposed Date', 'Event Time', 'Location',
-      'Flyer URL', 'Language', 'Status'
+      'Flyer URL', 'Language', 'Status', 'Notification Email'
     ]);
     Logger.log('Created Partner Requests sheet with headers');
   } else {
