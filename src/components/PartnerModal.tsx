@@ -44,7 +44,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
     };
 
     try {
-      // Send as individual URL params
+      // Send as individual URL params via GET (Apps Script handles partner_request via doGet)
       const params = new URLSearchParams();
       Object.entries(payload).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
@@ -52,15 +52,9 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
         }
       });
 
-      try {
-        const response = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
-        if (response.ok) await response.json();
-      } catch {
-        // Apps Script redirects can fail fetch — fall back to image ping
-        const img = new Image();
-        img.src = `${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`;
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
+      // Single fetch — no image-ping fallback (that fallback caused duplicate admin notifications
+      // by firing a second identical request even when the first fetch already reached GAS)
+      await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
 
       setSubmitted(true);
     } catch {

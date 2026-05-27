@@ -1154,40 +1154,81 @@ function sendResourcesEmail(payload) {
 // PARTNER REQUEST HANDLER
 // ========================================
 function handlePartnerRequest(payload) {
-  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  var sheet = ss.getSheetByName('Partner Requests');
+  // Dedup guard: use a script lock to prevent concurrent duplicate submissions,
+  // then check if an identical request (same email + eventTitle) was already
+  // recorded in the last 60 seconds before writing or sending any emails.
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); } catch(e) {
+    Logger.log('Partner request lock timeout — skipping duplicate');
+    return;
+  }
 
-  if (!sheet) {
-    sheet = ss.insertSheet('Partner Requests');
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Partner Requests');
+
+    if (!sheet) {
+      sheet = ss.insertSheet('Partner Requests');
+      sheet.appendRow([
+        'Timestamp', 'Name', 'Email', 'Organization', 'Event Title',
+        'Event Description', 'Proposed Date', 'Event Time', 'Location',
+        'Flyer URL', 'Language', 'Status'
+      ]);
+    }
+
+    // Check for a duplicate submission in the last 60 seconds
+    var normalizedEmail = (payload.email || '').toLowerCase().trim();
+    var normalizedTitle = (payload.eventTitle || '').toLowerCase().trim();
+    var now = Date.now();
+    var DEDUP_WINDOW_MS = 60000; // 60 seconds
+
+    if (sheet.getLastRow() > 1) {
+      var existingData = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+      for (var i = existingData.length - 1; i >= 0; i--) {
+        var rowTs = existingData[i][0]; // column A: Timestamp (Date or string)
+        var rowEmail = String(existingData[i][2] || '').toLowerCase().trim();
+        var rowTitle = String(existingData[i][4] || '').toLowerCase().trim();
+
+        var rowTime = rowTs instanceof Date ? rowTs.getTime() : new Date(rowTs).getTime();
+        if (isNaN(rowTime)) continue;
+
+        if ((now - rowTime) <= DEDUP_WINDOW_MS &&
+            rowEmail === normalizedEmail &&
+            rowTitle === normalizedTitle) {
+          Logger.log('Duplicate partner request suppressed (same email+title within 60s): ' + normalizedEmail);
+          return; // Already processed — do not write row or send emails
+        }
+      }
+    }
+
+    var timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
+
     sheet.appendRow([
-      'Timestamp', 'Name', 'Email', 'Organization', 'Event Title',
-      'Event Description', 'Proposed Date', 'Event Time', 'Location',
-      'Flyer URL', 'Language', 'Status'
+      timestamp,
+      payload.name,
+      payload.email,
+      payload.organization,
+      payload.eventTitle,
+      payload.eventDescription,
+      payload.proposedDate,
+      payload.eventTime || '',
+      payload.location,
+      payload.flyerUrl || '',
+      payload.lang,
+      'pending'
     ]);
+
+    SpreadsheetApp.flush();
+
+    if (payload.email) {
+      sendPartnerConfirmationEmail(payload);
+    }
+
+    sendPartnerAdminNotification(payload);
+
+  } finally {
+    lock.releaseLock();
   }
-
-  var timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
-
-  sheet.appendRow([
-    timestamp,
-    payload.name,
-    payload.email,
-    payload.organization,
-    payload.eventTitle,
-    payload.eventDescription,
-    payload.proposedDate,
-    payload.eventTime || '',
-    payload.location,
-    payload.flyerUrl || '',
-    payload.lang,
-    'pending'
-  ]);
-
-  if (payload.email) {
-    sendPartnerConfirmationEmail(payload);
-  }
-
-  sendPartnerAdminNotification(payload);
 }
 
 // ========================================
