@@ -2870,21 +2870,32 @@ function initAdsSheet() {
   var sheet = ss.getSheetByName('Ads');
   if (!sheet) {
     sheet = ss.insertSheet('Ads');
-    sheet.appendRow(['ID', 'Image URL', 'Link URL', 'Alt Text', 'Active', 'Order']);
-    sheet.getRange(1, 1, 1, 6).setFontWeight('bold');
+    sheet.appendRow(['ID', 'Image URL (Desktop)', 'Mobile Image URL', 'Link URL', 'Alt Text', 'Active', 'Order']);
+    sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
     sheet.setColumnWidth(1, 60);
-    sheet.setColumnWidth(2, 300);
-    sheet.setColumnWidth(3, 250);
-    sheet.setColumnWidth(4, 250);
-    sheet.setColumnWidth(5, 80);
-    sheet.setColumnWidth(6, 70);
+    sheet.setColumnWidth(2, 280);
+    sheet.setColumnWidth(3, 280);
+    sheet.setColumnWidth(4, 220);
+    sheet.setColumnWidth(5, 200);
+    sheet.setColumnWidth(6, 80);
+    sheet.setColumnWidth(7, 70);
+  } else {
+    // Migration: add Mobile Image URL column if it doesn't exist yet
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    if (headers.indexOf('Mobile Image URL') === -1) {
+      // Insert the new column after column 2 (Image URL)
+      sheet.insertColumnAfter(2);
+      sheet.getRange(1, 3).setValue('Mobile Image URL').setFontWeight('bold');
+      sheet.setColumnWidth(3, 280);
+    }
   }
   return sheet;
 }
 
 /**
  * Returns all ad rows from the Ads sheet (including inactive ones — UI filters).
- * Returns: { success: true, ads: [{ id, imageUrl, linkUrl, altText, active, order }] }
+ * Sheet columns: ID | Image URL (Desktop) | Mobile Image URL | Link URL | Alt Text | Active | Order
+ * Returns: { success: true, ads: [{ id, imageUrl, mobileImageUrl, linkUrl, altText, active, order }] }
  */
 function getAds() {
   try {
@@ -2893,21 +2904,43 @@ function getAds() {
     if (lastRow <= 1) {
       return { success: true, ads: [] };
     }
-    var data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+    var numCols = sheet.getLastColumn();
+    var data = sheet.getRange(2, 1, lastRow - 1, numCols).getValues();
+    var headers = sheet.getRange(1, 1, 1, numCols).getValues()[0];
+
+    // Determine column indices by header name for forward compatibility
+    var colImageUrl     = headers.indexOf('Image URL (Desktop)');
+    var colMobileUrl    = headers.indexOf('Mobile Image URL');
+    var colLinkUrl      = headers.indexOf('Link URL');
+    var colAltText      = headers.indexOf('Alt Text');
+    var colActive       = headers.indexOf('Active');
+    var colOrder        = headers.indexOf('Order');
+
+    // Fallback to positional if headers are missing (legacy sheet)
+    if (colImageUrl < 0) colImageUrl = 1;
+    if (colMobileUrl < 0) colMobileUrl = -1; // not present — treat as empty
+    if (colLinkUrl < 0) colLinkUrl = colMobileUrl >= 0 ? 3 : 2;
+    if (colAltText < 0) colAltText = colMobileUrl >= 0 ? 4 : 3;
+    if (colActive < 0) colActive = colMobileUrl >= 0 ? 5 : 4;
+    if (colOrder < 0) colOrder = colMobileUrl >= 0 ? 6 : 5;
+
     var ads = [];
     for (var i = 0; i < data.length; i++) {
       var row = data[i];
-      // Skip blank rows (no image URL)
-      if (!row[1] && !row[2]) continue;
-      var activeVal = row[4];
+      var imageUrl = String(row[colImageUrl] || '');
+      var linkUrl  = String(colLinkUrl >= 0 && colLinkUrl < row.length ? row[colLinkUrl] : '');
+      // Skip blank rows (no image URL and no link URL)
+      if (!imageUrl && !linkUrl) continue;
+      var activeVal = colActive >= 0 && colActive < row.length ? row[colActive] : true;
       var isActive = (activeVal === true || String(activeVal).toUpperCase() === 'TRUE');
       ads.push({
         id: String(i + 2), // row number (1-based, +1 for header)
-        imageUrl: String(row[1] || ''),
-        linkUrl:  String(row[2] || ''),
-        altText:  String(row[3] || ''),
-        active:   isActive,
-        order:    Number(row[5]) || 0
+        imageUrl:      imageUrl,
+        mobileImageUrl: colMobileUrl >= 0 && colMobileUrl < row.length ? String(row[colMobileUrl] || '') : '',
+        linkUrl:       linkUrl,
+        altText:       String(colAltText >= 0 && colAltText < row.length ? row[colAltText] : ''),
+        active:        isActive,
+        order:         Number(colOrder >= 0 && colOrder < row.length ? row[colOrder] : 0) || 0
       });
     }
     return { success: true, ads: ads };
@@ -2918,26 +2951,27 @@ function getAds() {
 
 /**
  * Creates or updates an ad row.
- * params: { id (row number or empty), imageUrl, linkUrl, altText, active ('TRUE'/'FALSE'), order }
+ * Sheet columns: ID | Image URL (Desktop) | Mobile Image URL | Link URL | Alt Text | Active | Order
+ * params: { id (row number or empty), imageUrl, mobileImageUrl, linkUrl, altText, active ('TRUE'/'FALSE'), order }
  */
 function saveAd(params) {
   try {
     var sheet = initAdsSheet();
-    var imageUrl = String(params.imageUrl || '');
-    var linkUrl  = String(params.linkUrl  || '');
-    var altText  = String(params.altText  || '');
-    var active   = String(params.active || 'TRUE').toUpperCase() === 'TRUE';
-    var order    = Number(params.order) || 0;
+    var imageUrl      = String(params.imageUrl      || '');
+    var mobileImageUrl = String(params.mobileImageUrl || '');
+    var linkUrl       = String(params.linkUrl       || '');
+    var altText       = String(params.altText       || '');
+    var active        = String(params.active || 'TRUE').toUpperCase() === 'TRUE';
+    var order         = Number(params.order) || 0;
 
+    // col 2=imageUrl, 3=mobileImageUrl, 4=linkUrl, 5=altText, 6=active, 7=order
     var rowNum = parseInt(params.id, 10);
     if (rowNum && rowNum > 1) {
-      // Update existing row
-      sheet.getRange(rowNum, 2, 1, 5).setValues([[imageUrl, linkUrl, altText, active ? 'TRUE' : 'FALSE', order]]);
+      // Update existing row (6 data columns starting at col 2)
+      sheet.getRange(rowNum, 2, 1, 6).setValues([[imageUrl, mobileImageUrl, linkUrl, altText, active ? 'TRUE' : 'FALSE', order]]);
     } else {
-      // New row — use next available row number as ID
-      var newRow = [sheet.getLastRow() + 1, imageUrl, linkUrl, altText, active ? 'TRUE' : 'FALSE', order];
-      // Overwrite the ID cell with the actual row number after appending
-      sheet.appendRow(['', imageUrl, linkUrl, altText, active ? 'TRUE' : 'FALSE', order]);
+      // New row — append and then write the actual row number as ID
+      sheet.appendRow(['', imageUrl, mobileImageUrl, linkUrl, altText, active ? 'TRUE' : 'FALSE', order]);
       var newRowNum = sheet.getLastRow();
       sheet.getRange(newRowNum, 1).setValue(newRowNum);
     }

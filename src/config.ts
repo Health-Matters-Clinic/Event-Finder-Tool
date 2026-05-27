@@ -3,9 +3,10 @@
 // Ad/sponsor banner configuration
 export interface AdBanner {
   id: string;
-  imageUrl: string;       // URL to the banner image
-  linkUrl: string;        // Where clicking takes you
-  altText: string;        // Accessibility + display fallback
+  imageUrl: string;         // Desktop: 728×90 pixels (leaderboard)
+  mobileImageUrl?: string;  // Mobile: 320×50 pixels (optional — falls back to imageUrl scaled)
+  linkUrl: string;          // Where clicking takes you
+  altText: string;          // Accessibility + display fallback
   isActive: boolean;
   order?: number;
 }
@@ -26,6 +27,7 @@ export async function fetchAdBanners(): Promise<AdBanner[]> {
     return active.map((ad: any): AdBanner => ({
       id: String(ad.id || ''),
       imageUrl: String(ad.imageUrl || ''),
+      mobileImageUrl: ad.mobileImageUrl ? String(ad.mobileImageUrl) : undefined,
       linkUrl: String(ad.linkUrl || ''),
       altText: String(ad.altText || ''),
       isActive: true,

@@ -14,15 +14,16 @@ interface AdminModalProps {
 type AdminView = 'passcode' | 'main' | 'edit' | 'reset-request' | 'reset-confirm' | 'partner-requests' | 'ads';
 
 interface AdRow {
-  id: string;       // row number as string
-  imageUrl: string;
+  id: string;            // row number as string
+  imageUrl: string;      // Desktop: 728×90
+  mobileImageUrl: string; // Mobile: 320×50 (empty string if not provided)
   linkUrl: string;
   altText: string;
   active: boolean;
   order: number;
 }
 
-const emptyAdForm = (): AdRow => ({ id: '', imageUrl: '', linkUrl: '', altText: '', active: true, order: 0 });
+const emptyAdForm = (): AdRow => ({ id: '', imageUrl: '', mobileImageUrl: '', linkUrl: '', altText: '', active: true, order: 0 });
 
 interface PartnerRequest {
   id: number;
@@ -275,6 +276,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         setAds(data.ads.map((ad: any): AdRow => ({
           id: String(ad.id || ''),
           imageUrl: String(ad.imageUrl || ''),
+          mobileImageUrl: String(ad.mobileImageUrl || ''),
           linkUrl: String(ad.linkUrl || ''),
           altText: String(ad.altText || ''),
           active: ad.active === true || ad.active === 'TRUE',
@@ -300,6 +302,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         hash: sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '',
         id: adForm.id,
         imageUrl: adForm.imageUrl,
+        mobileImageUrl: adForm.mobileImageUrl,
         linkUrl: adForm.linkUrl,
         altText: adForm.altText,
         active: adForm.active ? 'TRUE' : 'FALSE',
@@ -352,6 +355,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         hash: sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '',
         id: ad.id,
         imageUrl: ad.imageUrl,
+        mobileImageUrl: ad.mobileImageUrl,
         linkUrl: ad.linkUrl,
         altText: ad.altText,
         active: ad.active ? 'FALSE' : 'TRUE',
@@ -2317,8 +2321,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     {adForm.id ? 'Edit Banner' : 'New Banner'}
                   </div>
 
+                  {/* Helper text */}
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700 leading-relaxed">
+                    Upload your images to Google Drive, Canva, or Dropbox and paste the public link. Desktop banners must be 728x90px. Mobile banners should be 320x50px.
+                  </div>
+
+                  {/* Desktop image URL */}
                   <div>
-                    <label className={labelCls}>Image URL *</label>
+                    <label className={labelCls}>
+                      DESKTOP IMAGE URL *
+                      <span className="ml-2 font-normal normal-case text-gray-400">728 x 90 pixels (leaderboard)</span>
+                    </label>
                     <input
                       required
                       type="url"
@@ -2327,16 +2340,44 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       placeholder="https://..."
                       className={inputCls}
                     />
+                    {adForm.imageUrl && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-[9px] font-bold uppercase tracking-widest bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">D</span>
+                        <img
+                          src={adForm.imageUrl}
+                          alt="Desktop preview"
+                          style={{ maxHeight: 45, maxWidth: 364, borderRadius: 4, border: '1px solid #e5e7eb' }}
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </div>
+                    )}
                   </div>
 
-                  {adForm.imageUrl && (
-                    <img
-                      src={adForm.imageUrl}
-                      alt="Preview"
-                      style={{ maxHeight: 80, borderRadius: 6, border: '1px solid #e5e7eb' }}
-                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  {/* Mobile image URL */}
+                  <div>
+                    <label className={labelCls}>
+                      MOBILE IMAGE URL
+                      <span className="ml-2 font-normal normal-case text-gray-400">320 x 50 pixels (optional — desktop image will scale if not provided)</span>
+                    </label>
+                    <input
+                      type="url"
+                      value={adForm.mobileImageUrl}
+                      onChange={e => setAdForm(f => ({ ...f, mobileImageUrl: e.target.value }))}
+                      placeholder="https://..."
+                      className={inputCls}
                     />
-                  )}
+                    {adForm.mobileImageUrl && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-[9px] font-bold uppercase tracking-widest bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">M</span>
+                        <img
+                          src={adForm.mobileImageUrl}
+                          alt="Mobile preview"
+                          style={{ maxHeight: 25, maxWidth: 160, borderRadius: 4, border: '1px solid #e5e7eb' }}
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </div>
+                    )}
+                  </div>
 
                   <div>
                     <label className={labelCls}>Link URL *</label>
@@ -2426,19 +2467,35 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               <div className="space-y-2 max-h-[440px] overflow-y-auto pr-1">
                 {ads.map(ad => (
                   <div key={ad.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 hover:border-purple-300 transition-all">
-                    {/* Thumbnail */}
-                    <div className="shrink-0 w-16 h-10 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
-                      {ad.imageUrl ? (
-                        <img
-                          src={ad.imageUrl}
-                          alt={ad.altText}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      ) : (
-                        <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
+                    {/* Thumbnail(s) */}
+                    <div className="shrink-0 flex flex-col gap-1">
+                      {/* Desktop thumbnail */}
+                      <div className="relative w-16 h-10 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
+                        {ad.imageUrl ? (
+                          <img
+                            src={ad.imageUrl}
+                            alt={ad.altText}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        ) : (
+                          <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                        <span className="absolute top-0.5 left-0.5 text-[8px] font-bold bg-gray-700/70 text-white px-1 rounded leading-tight">D</span>
+                      </div>
+                      {/* Mobile thumbnail — only shown if mobileImageUrl exists */}
+                      {ad.mobileImageUrl && (
+                        <div className="relative w-16 h-5 rounded overflow-hidden bg-purple-50 border border-purple-200 flex items-center justify-center">
+                          <img
+                            src={ad.mobileImageUrl}
+                            alt={`${ad.altText} (mobile)`}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                          <span className="absolute top-0 left-0.5 text-[8px] font-bold bg-purple-600/70 text-white px-1 rounded leading-tight">M</span>
+                        </div>
                       )}
                     </div>
 

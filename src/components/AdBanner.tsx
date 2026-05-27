@@ -12,6 +12,13 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
   const [visible, setVisible] = useState(true);
   // Track which banner indices have broken images
   const [erroredIndices, setErroredIndices] = useState<Set<number>>(new Set());
+  // Responsive: track whether we are in mobile viewport
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hovered = useRef(false);
 
@@ -68,6 +75,12 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
   // Non-errored banners for dot nav
   const visibleBanners = activeBanners.filter((_, i) => !erroredIndices.has(i));
 
+  // Pick the correct image source and dimensions based on viewport
+  const imgSrc = isMobile && banner.mobileImageUrl ? banner.mobileImageUrl : banner.imageUrl;
+  const imgStyle = isMobile
+    ? { maxWidth: '320px', height: '50px', width: '100%', display: 'block' as const }
+    : { maxWidth: '728px', height: '90px', width: '100%', display: 'block' as const };
+
   return (
     <div
       className={`ad-banner-wrap ${className}`}
@@ -83,16 +96,14 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
         style={{ display: 'inline-block' }}
       >
         <img
-          key={displayIndex}
-          src={banner.imageUrl}
+          key={`${displayIndex}-${isMobile ? 'm' : 'd'}`}
+          src={imgSrc}
           alt={banner.altText}
           style={{
             opacity: visible ? 1 : 0,
             transition: 'opacity 0.3s ease',
-            maxWidth: '100%',
-            height: 'auto',
-            display: 'block',
             borderRadius: '4px',
+            ...imgStyle,
           }}
           onError={() => {
             setErroredIndices(prev => {
