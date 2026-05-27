@@ -22,6 +22,8 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
     location: '',
     flyerUrl: '',
   });
+  const [notifyOnRsvp, setNotifyOnRsvp] = useState(false);
+  const [notificationEmail, setNotificationEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -48,6 +50,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
       eventTime: formData.eventTime,
       location: formData.location,
       flyerUrl: formData.flyerUrl || '',
+      ...(notifyOnRsvp && notificationEmail ? { notificationEmail } : {}),
       lang,
       timestamp: new Date().toISOString(),
     });
@@ -239,9 +242,72 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                 />
                 <p className="text-[9px] text-gray-400 mt-1">
                   {lang === 'es'
-                    ? 'Suba su flyer a Google Drive, Dropbox o Canva y pegue el enlace publico'
-                    : 'Upload your flyer to Google Drive, Dropbox, or Canva and paste the public link'}
+                    ? 'Suba su flyer a Google Drive, Dropbox o Canva y pegue el enlace publico. Las notificaciones de RSVP estan disponibles con una cuenta de socio HMC.'
+                    : 'Upload your flyer to Google Drive, Dropbox, or Canva and paste the public link. RSVP notifications are available with a free HMC Partner account.'}
                 </p>
+              </div>
+
+              {/* RSVP Notifications */}
+              <div className="border-t border-gray-100 pt-3">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={notifyOnRsvp}
+                    onChange={(e) => setNotifyOnRsvp(e.target.checked)}
+                    className="w-4 h-4 rounded border-2 border-gray-300 accent-[#233dff] cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-gray-700">
+                    {lang === 'es'
+                      ? 'Recibir notificaciones cuando alguien confirme asistencia a tu evento'
+                      : 'Get notified when someone RSVPs to your event'}
+                  </span>
+                </label>
+
+                {notifyOnRsvp && (
+                  <div className="mt-2.5 space-y-2">
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                        {lang === 'es' ? 'Email de notificacion' : 'Notification email'}
+                      </label>
+                      <input
+                        type="email"
+                        value={notificationEmail}
+                        onChange={(e) => setNotificationEmail(e.target.value)}
+                        placeholder="you@organization.org"
+                        className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] focus:outline-none focus:ring-2 focus:ring-[#233dff]/30 transition-all placeholder:text-gray-400 placeholder:font-normal"
+                      />
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 text-[10px] leading-relaxed text-blue-800">
+                      {lang === 'es' ? (
+                        <>
+                          Para recibir notificaciones de RSVP necesitas una cuenta gratuita de socio HMC.{' '}
+                          <a
+                            href="https://partner.healthmatters.clinic"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold underline hover:text-blue-900"
+                          >
+                            Crea una cuenta en partner.healthmatters.clinic &rarr;
+                          </a>{' '}
+                          Ya eres socio? Ingresa el correo de tu cuenta de socio arriba.
+                        </>
+                      ) : (
+                        <>
+                          To receive RSVP notifications, you need a free HMC Partner account.{' '}
+                          <a
+                            href="https://partner.healthmatters.clinic"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold underline hover:text-blue-900"
+                          >
+                            Create an account at partner.healthmatters.clinic &rarr;
+                          </a>{' '}
+                          Already a partner? Enter your partner account email above.
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <Button type="submit" className="w-full justify-center h-9 mt-1" disabled={loading}>
