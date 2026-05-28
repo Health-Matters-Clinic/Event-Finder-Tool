@@ -669,6 +669,9 @@ function doPost(e) {
         initAdsSheet();
         result = { success: true };
         break;
+      case 'submit_giveaway_entry':
+        result = handleGiveawayEntry(params);
+        break;
       default:
         result = { success: false, error: 'Unknown action: ' + action };
     }
@@ -3140,4 +3143,224 @@ function processEventbriteEmails() {
   } else {
     Logger.log('[processEventbriteEmails] WARNING: _runEventbriteSync not found. Add eventbrite-rsvp-sync.gs to the GAS project and redeploy.');
   }
+}
+
+// ========================================
+// GIVEAWAY ENTRY HANDLER
+// ========================================
+
+/**
+ * Writes a giveaway entry to the "Giveaway" sheet.
+ * Deduplicates by email: if the email already exists, updates the row.
+ * Required: name, email
+ * Optional: eventsAttended, calMHSASurveyCompleted, starRating, comment
+ */
+function handleGiveawayEntry(params) {
+  try {
+    var name  = String(params.name  || '').trim();
+    var email = String(params.email || '').trim().toLowerCase();
+    if (!name || !email) {
+      return { success: false, error: 'Name and email are required.' };
+    }
+
+    var ss    = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Giveaway');
+    if (!sheet) {
+      sheet = ss.insertSheet('Giveaway');
+      sheet.appendRow(['Timestamp', 'Name', 'Email', 'Events Attended', 'CalMHSA Survey', 'Star Rating', 'Comment']);
+    }
+
+    var ts = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
+    var eventsAttended       = String(params.eventsAttended       || '');
+    var calMHSASurveyCompleted = String(params.calMHSASurveyCompleted || '');
+    var starRating           = String(params.starRating           || '');
+    var comment              = String(params.comment              || '');
+
+    // Dedup: scan existing rows for matching email
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      var data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+      for (var i = 0; i < data.length; i++) {
+        if (String(data[i][2]).trim().toLowerCase() === email) {
+          // Update existing row (row index is i+2 because data starts at row 2)
+          var rowNum = i + 2;
+          sheet.getRange(rowNum, 1, 1, 7).setValues([[ts, name, email, eventsAttended, calMHSASurveyCompleted, starRating, comment]]);
+          SpreadsheetApp.flush();
+          return { success: true, updated: true };
+        }
+      }
+    }
+
+    // New entry
+    sheet.appendRow([ts, name, email, eventsAttended, calMHSASurveyCompleted, starRating, comment]);
+    SpreadsheetApp.flush();
+    return { success: true };
+  } catch (err) {
+    Logger.log('Giveaway entry error: ' + err);
+    return { success: false, error: String(err) };
+  }
+}
+
+// ========================================
+// GIVEAWAY EMAIL BLAST
+// ========================================
+
+/**
+ * Sends one giveaway invitation email per unique attendee email across all three
+ * Unstoppable Season event IDs. Run manually from the GAS editor.
+ *
+ * Event IDs:
+ *   MOVE      event-1772063101013
+ *   HEAL      event-1772064063990
+ *   TRANSFORM event-1773943614235
+ *
+ * Marks each sent RSVPs row with 'giveaway-sent' in column 18 to prevent re-sending.
+ * Logs the total count when done.
+ */
+function sendGiveawayFormToAllRSVPs() {
+  var TARGET_EVENT_IDS = [
+    'event-1772063101013',
+    'event-1772064063990',
+    'event-1773943614235'
+  ];
+  var GIVEAWAY_URL = 'https://teamhmc.github.io/take-action-la/#giveaway';
+  var GIVEAWAY_SENT_MARKER = 'giveaway-sent';
+  var SKIP_STATUSES = ['cancelled'];
+
+  var ss    = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('RSVPs');
+  if (!sheet || sheet.getLastRow() < 2) {
+    Logger.log('[sendGiveawayFormToAllRSVPs] No RSVPs found.');
+    return;
+  }
+
+  // RSVPs columns (1-indexed):
+  // 1=Timestamp, 2=Event ID, 3=Event Title, 4=Event Date, 5=Name,
+  // 6=Email, 7=Phone, 8=Contact Method, 9=SMS Consent, 10=Is Minor,
+  // 11=Minor Name, 12=Needs, 13=Language, 14=Source, 15=Checkin Token,
+  // 16=Status, 17=Checked In At, 18=T-Shirt Size (repurposed as blast marker)
+  //
+  // Column 18 (T-Shirt Size) is used to store the 'giveaway-sent' marker.
+  // This is a safe field to reuse: t-shirt deadline has passed and no new
+  // size selections are expected for Unstoppable Season 2026.
+
+  var numCols = Math.max(sheet.getLastColumn(), 18);
+  var data    = sheet.getDataRange().getValues(); // includes header row
+
+  // Collect qualifying rows: correct event ID, not cancelled, has email,
+  // not already sent, not a test email
+  var sentEmails = {};  // deduplicate across events
+  var rowsToSend = []; // { rowIndex (1-based), email, firstName }
+
+  for (var i = 1; i < data.length; i++) {
+    var row      = data[i];
+    var eventId  = String(row[1] || '').trim();
+    var email    = String(row[5] || '').trim().toLowerCase();
+    var status   = String(row[15] || '').trim().toLowerCase();
+    var marker   = String(row[17] || '').trim().toLowerCase();
+    var name     = String(row[4] || '').trim();
+
+    // Filter: must be one of the three target events
+    if (TARGET_EVENT_IDS.indexOf(eventId) === -1) continue;
+
+    // Filter: skip cancelled
+    if (SKIP_STATUSES.indexOf(status) !== -1) continue;
+
+    // Filter: must have a real email
+    if (!email || email.indexOf('@') === -1) continue;
+
+    // Filter: skip test emails
+    if (email.indexOf('test') !== -1 && email.indexOf('@healthmatters.clinic') === -1) continue;
+    if (email === 'test@test.com' || email === 'test@example.com') continue;
+
+    // Filter: already sent
+    if (marker === GIVEAWAY_SENT_MARKER) continue;
+
+    // Deduplicate: only send one email per unique address across all events
+    if (sentEmails[email]) continue;
+    sentEmails[email] = true;
+
+    rowsToSend.push({ rowIndex: i + 1, email: email, name: name });
+  }
+
+  Logger.log('[sendGiveawayFormToAllRSVPs] Sending to ' + rowsToSend.length + ' unique attendees.');
+
+  var sentCount = 0;
+  for (var j = 0; j < rowsToSend.length; j++) {
+    var rec       = rowsToSend[j];
+    var firstName = rec.name.split(' ')[0] || 'there';
+
+    try {
+      var htmlBody =
+        '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+        '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+        '<div style="max-width:600px;margin:0 auto;background:#080808;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.08);">' +
+        // Header
+        '<div style="background:#233dff;padding:28px 32px;text-align:center;">' +
+        '<img src="' + CONFIG.LOGO_URL + '" alt="Health Matters Clinic" style="width:52px;height:52px;border-radius:10px;margin-bottom:14px;background:#fff;padding:4px;">' +
+        '<h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;letter-spacing:.01em;">Health Matters Clinic</h1>' +
+        '<p style="margin:8px 0 0;color:rgba(255,255,255,.8);font-size:14px;">Unstoppable Season 2026</p>' +
+        '</div>' +
+        // Body
+        '<div style="padding:40px 36px;">' +
+        '<p style="font-size:18px;font-weight:700;color:#fff;margin:0 0 16px;">Hi ' + firstName + ',</p>' +
+        '<p style="font-size:15px;color:rgba(255,255,255,.75);line-height:1.7;margin:0 0 20px;">Thank you for attending one or more Unstoppable Season events this May. Your presence made this season what it was.</p>' +
+        '<p style="font-size:15px;color:rgba(255,255,255,.75);line-height:1.7;margin:0 0 28px;">As a thank you, you are eligible to enter our MacBook Neo drawing. Fill out the form, rate your experience, and you will be entered for a chance to win.</p>' +
+        // Blue highlight box
+        '<div style="background:rgba(35,61,255,.15);border:1px solid rgba(35,61,255,.35);border-radius:12px;padding:22px 24px;margin:0 0 32px;">' +
+        '<p style="font-size:14px;font-weight:700;color:rgba(255,255,255,.9);margin:0 0 6px;letter-spacing:.04em;text-transform:uppercase;">Drawing Details</p>' +
+        '<p style="font-size:14px;color:rgba(255,255,255,.65);line-height:1.65;margin:0;">Prize: MacBook Neo<br>Entry deadline: May 27, 2026<br>Winner announced: May 30, 2026<br>One entry per person</p>' +
+        '</div>' +
+        // CTA button
+        '<div style="text-align:center;margin:0 0 32px;">' +
+        '<a href="' + GIVEAWAY_URL + '" style="display:inline-block;background:#233dff;color:#fff;padding:16px 48px;border-radius:100px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:.03em;border:1.5px solid rgba(255,255,255,.25);">Enter the Giveaway</a>' +
+        '</div>' +
+        '<p style="font-size:14px;color:rgba(255,255,255,.45);line-height:1.65;margin:0 0 6px;">Fill out the short form, tell us which events you attended, rate your experience, and you are entered.</p>' +
+        '<p style="font-size:14px;color:rgba(255,255,255,.45);margin:0 0 32px;">Questions? Reply to this email.</p>' +
+        '<p style="font-size:14px;color:rgba(255,255,255,.55);margin:0;">Thank you for being part of something bigger.<br><strong style="color:#fff;">Health Matters Clinic</strong></p>' +
+        '</div>' +
+        // Footer
+        '<div style="border-top:1px solid rgba(255,255,255,.06);padding:20px 32px;text-align:center;">' +
+        '<p style="color:rgba(255,255,255,.3);font-size:12px;margin:0;">Health Matters Clinic · events@healthmatters.clinic<br>In crisis? Call or text <strong>988</strong>.</p>' +
+        '</div>' +
+        '</div></body></html>';
+
+      var plainBody =
+        'Hi ' + firstName + ',\n\n' +
+        'Thank you for attending Unstoppable Season events this May. Your presence made this season what it was.\n\n' +
+        'You are eligible to enter our MacBook Neo drawing. Fill out the short form and you are entered.\n\n' +
+        'Enter the Giveaway:\n' + GIVEAWAY_URL + '\n\n' +
+        'Drawing details:\n' +
+        '  Prize: MacBook Neo\n' +
+        '  Entry deadline: May 27, 2026\n' +
+        '  Winner announced: May 30, 2026\n' +
+        '  One entry per person\n\n' +
+        'Questions? Reply to this email.\n\n' +
+        'Thank you for being part of something bigger.\n' +
+        'Health Matters Clinic\n\n' +
+        'In crisis? Call or text 988.';
+
+      MailApp.sendEmail({
+        to: rec.email,
+        subject: 'Enter to Win the MacBook Neo — Your Unstoppable Season Entry',
+        htmlBody: htmlBody,
+        body: plainBody,
+        name: 'Health Matters Clinic Events',
+        replyTo: 'events@healthmatters.clinic'
+      });
+
+      // Mark the row as sent in column 18
+      sheet.getRange(rec.rowIndex, 18).setValue(GIVEAWAY_SENT_MARKER);
+      sentCount++;
+
+      // Flush every 20 sends to reduce risk of losing progress on quota error
+      if (sentCount % 20 === 0) SpreadsheetApp.flush();
+
+    } catch (mailErr) {
+      Logger.log('[sendGiveawayFormToAllRSVPs] Failed to send to ' + rec.email + ': ' + mailErr);
+    }
+  }
+
+  SpreadsheetApp.flush();
+  Logger.log('[sendGiveawayFormToAllRSVPs] Done. Sent: ' + sentCount + ' of ' + rowsToSend.length + ' queued.');
 }
