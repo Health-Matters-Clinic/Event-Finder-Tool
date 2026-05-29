@@ -14,17 +14,12 @@ export interface AdBanner {
 // Default empty — banners are fetched dynamically from Google Sheet
 export const AD_BANNERS: AdBanner[] = [];
 
-// Fetch active ad banners from GAS (Ads sheet)
-export async function fetchAdBanners(): Promise<AdBanner[]> {
-  try {
-    const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=get_ads`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data.success || !Array.isArray(data.ads)) return [];
-    const active = data.ads
-      .filter((ad: any) => ad.active === true || ad.active === 'TRUE')
-      .sort((a: any, b: any) => (Number(a.order) || 0) - (Number(b.order) || 0));
-    return active.map((ad: any): AdBanner => ({
+// Map a raw GAS ad row to the AdBanner shape, filtering inactive ones.
+function mapActiveAds(ads: any[]): AdBanner[] {
+  return ads
+    .filter((ad: any) => ad.active === true || ad.active === 'TRUE')
+    .sort((a: any, b: any) => (Number(a.order) || 0) - (Number(b.order) || 0))
+    .map((ad: any): AdBanner => ({
       id: String(ad.id || ''),
       imageUrl: String(ad.imageUrl || ''),
       mobileImageUrl: ad.mobileImageUrl ? String(ad.mobileImageUrl) : undefined,
@@ -33,6 +28,36 @@ export async function fetchAdBanners(): Promise<AdBanner[]> {
       isActive: true,
       order: Number(ad.order) || 0,
     }));
+}
+
+// Fetch active ad banners.
+// Primary: portal API proxy — fetches GAS server-side (GAS 302-redirects, which browser
+// fetch() can fail to follow in iframes/Safari, silently returning no ads).
+// Fallback: direct GAS call, mirroring how events are loaded.
+export async function fetchAdBanners(): Promise<AdBanner[]> {
+  // Primary: portal proxy
+  try {
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${PORTAL_API_URL}/api/public/ads`, { signal: controller.signal });
+    clearTimeout(tid);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && Array.isArray(data.ads)) {
+        return mapActiveAds(data.ads);
+      }
+    }
+  } catch {
+    // fall through to direct GAS
+  }
+
+  // Fallback: direct GAS
+  try {
+    const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=get_ads`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data.success || !Array.isArray(data.ads)) return [];
+    return mapActiveAds(data.ads);
   } catch {
     return [];
   }
