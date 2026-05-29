@@ -886,7 +886,7 @@ const App: React.FC = () => {
         </div>
         {selectedEvent && (
             <div
-              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40"
+              className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/40"
               onClick={() => setSelectedEvent(null)}
             >
               <div

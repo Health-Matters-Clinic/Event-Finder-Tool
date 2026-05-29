@@ -241,22 +241,13 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       return;
     }
 
-    // Email selected → both email AND phone required
+    // Email selected → email required
     if (wantsEmail && !email) {
       setState('error');
       setErrorMsg(
         lang === 'es'
           ? 'Se requiere correo electrónico para recibir confirmación por email.'
           : 'Email address is required for email confirmation.'
-      );
-      return;
-    }
-    if (wantsEmail && !phone) {
-      setState('error');
-      setErrorMsg(
-        lang === 'es'
-          ? 'También se requiere número de teléfono cuando seleccionas confirmación por email.'
-          : 'Phone number is also required when email confirmation is selected.'
       );
       return;
     }
@@ -566,7 +557,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                 <div>
                   <label htmlFor="rsvp-phone" className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     {lang === 'es' ? 'Teléfono' : 'Phone'}
-                    {(contactMethods.has('text') || contactMethods.has('email')) && <span className="text-red-500 ml-0.5">*</span>}
+                    {contactMethods.has('text') && <span className="text-red-500 ml-0.5">*</span>}
                   </label>
                   <input
                     id="rsvp-phone"
@@ -583,12 +574,12 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
               <p className="text-[10px] text-gray-500 -mt-1">
                 {lang === 'es'
                   ? contactMethods.has('email')
-                    ? '* Seleccionaste Email: se requieren correo y teléfono'
+                    ? '* Seleccionaste Email: se requiere correo'
                     : contactMethods.has('text')
                     ? '* Seleccionaste Texto: se requiere teléfono'
                     : '* Se requiere correo o teléfono'
                   : contactMethods.has('email')
-                  ? '* Email selected: email and phone both required'
+                  ? '* Email selected: email required'
                   : contactMethods.has('text')
                   ? '* Text selected: phone required'
                   : '* Email or phone required'}
