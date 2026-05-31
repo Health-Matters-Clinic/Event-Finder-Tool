@@ -830,6 +830,7 @@ const App: React.FC = () => {
           <Button
             variant="outline"
             className="h-9 px-4"
+            showDot={false}
             onClick={() => setIsPartnerOpen(true)}
           >
             {t.partner_events}
