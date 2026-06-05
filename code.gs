@@ -1,3 +1,36 @@
+// ============================================================
+// TEST RECORD CLEANUP — ACTION REQUIRED IN FIREBASE CONSOLE
+// ============================================================
+// The following test accounts and Firestore documents were created
+// during development and must be manually deleted.
+//
+// STEP 1 — Firebase Authentication
+//   URL: https://console.firebase.google.com/project/hmc-prod-473121/authentication/users
+//   Delete these user accounts:
+//     test-do-not-use@healthmatters.clinic
+//     test-delete2@healthmatters.clinic
+//     test-partner-clean@healthmatters.clinic
+//     test-delete-final@healthmatters.clinic
+//     test-1780608796@healthmatters.clinic
+//
+// STEP 2 — Firestore: volunteers collection
+//   URL: https://console.firebase.google.com/project/hmc-prod-473121/firestore/data/volunteers
+//   Delete all documents where email matches any of the addresses above.
+//
+// STEP 3 — Firestore: partner_agencies collection
+//   URL: https://console.firebase.google.com/project/hmc-prod-473121/firestore/data/partner_agencies
+//   Delete all documents where email matches any of the addresses above.
+//
+// STEP 4 — Firestore: wildfire_relief_requests collection
+//   URL: https://console.firebase.google.com/project/hmc-prod-473121/firestore/data/wildfire_relief_requests
+//   Delete all documents where:
+//     deliveryName == "TEST DELETE"
+//     deliveryName == "TEST RECORD DELETE"
+//
+// GAS cannot call Firebase Admin SDK directly — all deletions must be done
+// in the Firebase console or via a Node.js Admin SDK script run locally.
+// ============================================================
+
 // ========================================
 // CONFIGURATION
 // ========================================
@@ -244,6 +277,74 @@ function doGet(e) {
       notificationEmail: p.notificationEmail || ''
     };
     handlePartnerRequest(payload);
+    return HtmlService.createHtmlOutput('OK');
+  }
+
+  // ===== WILDFIRE RELIEF REQUEST =====
+  if (action === 'wildfire_relief_request') {
+    try {
+      var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      var sheetName = 'Wildfire Relief Requests';
+      var wfSheet = ss.getSheetByName(sheetName);
+      if (!wfSheet) {
+        wfSheet = ss.insertSheet(sheetName);
+        wfSheet.appendRow(['Timestamp', 'LA Wildfires', 'Household Size', 'Household Details', 'Urgent Needs', 'Other Needs', 'Displaced', 'Prior Street', 'Prior City', 'Prior ZIP', 'Can Pick Up', 'Name', 'Delivery Street', 'Delivery City', 'Delivery ZIP', 'GoFundMe URL']);
+      }
+      wfSheet.appendRow([
+        new Date().toISOString(),
+        p.isLAWildfires === 'true' ? 'Yes' : 'No',
+        p.householdSize || '',
+        p.householdDetails || '',
+        p.urgentNeeds || '',
+        p.otherNeeds || '',
+        p.isDisplaced === 'true' ? 'Yes' : p.isDisplaced === 'false' ? 'No' : '',
+        p.priorStreet || '',
+        p.priorCity || '',
+        p.priorZip || '',
+        p.canPickUp === 'true' ? 'Yes' : p.canPickUp === 'false' ? 'No' : '',
+        p.deliveryName || '',
+        p.deliveryStreet || '',
+        p.deliveryCity || '',
+        p.deliveryZip || '',
+        p.gofundmeUrl || ''
+      ]);
+      // Email notification to lawr@healthmatters.clinic
+      var needsList = [p.urgentNeeds, p.otherNeeds].filter(Boolean).join(', ') || 'Not specified';
+      var householdLine = (p.householdSize || '?') + ' people' + (p.householdDetails ? ' — ' + p.householdDetails : '');
+      var addressLine = [p.deliveryStreet, p.deliveryCity, p.deliveryZip].filter(Boolean).join(', ') || 'Not provided';
+      var priorLine = p.isDisplaced === 'true'
+        ? ([p.priorStreet, p.priorCity, p.priorZip].filter(Boolean).join(', ') || 'Not provided')
+        : 'Not displaced';
+      var pickupLine = p.canPickUp === 'true' ? 'Yes — can pick up' : 'No — needs delivery';
+      var gofundmeLine = p.gofundmeUrl ? p.gofundmeUrl : 'None provided';
+
+      var subject = 'New Disaster Relief Request — ' + (p.isLAWildfires === 'true' ? 'LA Wildfires' : 'Disaster') + ' — ' + (p.deliveryCity || 'Unknown City');
+      var body = 'A new disaster relief request has been submitted through the HMC Resource Directory.\n\n'
+        + '--- HOUSEHOLD ---\n'
+        + 'Household size: ' + householdLine + '\n'
+        + 'LA Wildfires related: ' + (p.isLAWildfires === 'true' ? 'Yes' : 'No') + '\n\n'
+        + '--- NEEDS ---\n'
+        + needsList + '\n\n'
+        + '--- SITUATION ---\n'
+        + 'Displaced: ' + (p.isDisplaced === 'true' ? 'Yes' : 'No') + '\n'
+        + 'Prior address: ' + priorLine + '\n'
+        + 'Available for pickup: ' + pickupLine + '\n\n'
+        + '--- DELIVERY / CURRENT LOCATION ---\n'
+        + (p.deliveryName ? 'Name: ' + p.deliveryName + '\n' : '')
+        + 'Address: ' + addressLine + '\n\n'
+        + '--- FUNDRAISING ---\n'
+        + 'GoFundMe: ' + gofundmeLine + '\n\n'
+        + 'Submitted: ' + new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+
+      MailApp.sendEmail({
+        to: 'lawr@healthmatters.clinic',
+        subject: subject,
+        body: body,
+        replyTo: 'contact@healthmatters.clinic'
+      });
+    } catch (e) {
+      Logger.log('wildfire_relief_request error: ' + e.message);
+    }
     return HtmlService.createHtmlOutput('OK');
   }
 
@@ -3363,4 +3464,224 @@ function sendGiveawayFormToAllRSVPs() {
 
   SpreadsheetApp.flush();
   Logger.log('[sendGiveawayFormToAllRSVPs] Done. Sent: ' + sentCount + ' of ' + rowsToSend.length + ' queued.');
+}
+
+// ========================================
+// MACBOOK GIVEAWAY DRAWING
+// ========================================
+
+/**
+ * drawMacBookWinner()
+ *
+ * Selects a winner for the MacBook giveaway based on verified attendance
+ * and post-event survey completion for the three Unstoppable Season events:
+ *
+ *   MOVE      event-1773943614157  — May 9, 2026
+ *   HEAL      event-1773943614220  — May 20, 2026
+ *   TRANSFORM event-1773943614235  — May 27, 2026
+ *
+ * Eligibility rules:
+ *   - 1 entry per qualifying event
+ *   - To qualify for an event: must be checked in (RSVPs.Status === 'checked-in')
+ *     AND must have a completed survey/giveaway form entry (Giveaway sheet, by email)
+ *   - Maximum 3 entries per person (one per event)
+ *
+ * Survey cross-reference:
+ *   The post-event Feedback sheet does NOT store attendee email, only name and
+ *   a free-text event label. The Giveaway sheet (written by handleGiveawayEntry)
+ *   stores email and eventsAttended, making it the authoritative source for
+ *   linking survey completion to a verified email address.
+ *   A person qualifies as having completed a survey if they appear in the
+ *   Giveaway sheet with a non-empty eventsAttended value.
+ *
+ * Output:
+ *   - Logs the winner's name and email to the GAS logger
+ *   - Writes the full pool and result to a "Giveaway Drawing" sheet
+ *   - Does NOT send any email — admin reviews the sheet first
+ *
+ * Run manually from the GAS editor after May 27, 2026.
+ * Announce winner by May 30, 2026.
+ */
+function drawMacBookWinner() {
+  var GIVEAWAY_EVENT_IDS = [
+    'event-1773943614157',  // MOVE — May 9
+    'event-1773943614220',  // HEAL — May 20
+    'event-1773943614235'   // TRANSFORM — May 27
+  ];
+
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+
+  // ------------------------------------------------------------------
+  // 1. Read RSVPs sheet — find checked-in rows for the three events
+  // ------------------------------------------------------------------
+  // RSVPs columns (0-indexed):
+  //   1 = Event ID
+  //   4 = Name
+  //   5 = Email
+  //  15 = Status  ('checked-in' means physically attended + QR scanned)
+  // ------------------------------------------------------------------
+  var rsvpSheet = ss.getSheetByName('RSVPs');
+  if (!rsvpSheet || rsvpSheet.getLastRow() < 2) {
+    Logger.log('[drawMacBookWinner] ERROR: RSVPs sheet is empty or missing.');
+    return;
+  }
+
+  var rsvpData = rsvpSheet.getDataRange().getValues();
+
+  // Map: email (lowercase) -> Set of event IDs where they checked in
+  var checkedInMap = {};  // { email: { 'event-id': true, ... } }
+
+  for (var i = 1; i < rsvpData.length; i++) {
+    var row     = rsvpData[i];
+    var eventId = String(row[1] || '').trim();
+    var name    = String(row[4] || '').trim();
+    var email   = String(row[5] || '').trim().toLowerCase();
+    var status  = String(row[15] || '').trim().toLowerCase();
+
+    if (!email || GIVEAWAY_EVENT_IDS.indexOf(eventId) === -1) continue;
+    if (status !== 'checked-in') continue;
+
+    if (!checkedInMap[email]) {
+      checkedInMap[email] = { name: name, events: {} };
+    }
+    checkedInMap[email].events[eventId] = true;
+  }
+
+  Logger.log('[drawMacBookWinner] Checked-in attendees across all 3 events: ' + Object.keys(checkedInMap).length);
+
+  // ------------------------------------------------------------------
+  // 2. Read Giveaway sheet — find people who completed the form/survey
+  // ------------------------------------------------------------------
+  // Giveaway columns (0-indexed):
+  //   0 = Timestamp
+  //   1 = Name
+  //   2 = Email
+  //   3 = Events Attended (non-empty means survey submitted)
+  //   4 = CalMHSA Survey
+  // ------------------------------------------------------------------
+  var giveawaySheet = ss.getSheetByName('Giveaway');
+  var surveyEmails = {};  // Set of emails that completed the giveaway form
+
+  if (giveawaySheet && giveawaySheet.getLastRow() > 1) {
+    var giveawayData = giveawaySheet.getRange(2, 1, giveawaySheet.getLastRow() - 1, 5).getValues();
+    for (var g = 0; g < giveawayData.length; g++) {
+      var gEmail         = String(giveawayData[g][2] || '').trim().toLowerCase();
+      var gEventsField   = String(giveawayData[g][3] || '').trim();
+      if (gEmail && gEventsField) {
+        surveyEmails[gEmail] = true;
+      }
+    }
+  }
+
+  Logger.log('[drawMacBookWinner] Giveaway form submissions with events attended: ' + Object.keys(surveyEmails).length);
+
+  // ------------------------------------------------------------------
+  // 3. Cross-reference: qualify only those with check-in AND survey
+  //    Each qualifying event = 1 entry (max 3 entries per person)
+  // ------------------------------------------------------------------
+  // entryPool: flat array of { email, name, eventId } — one item per entry
+  var entryPool = [];
+  var qualifiedPeople = [];
+
+  var emails = Object.keys(checkedInMap);
+  for (var e = 0; e < emails.length; e++) {
+    var personEmail  = emails[e];
+    var personRecord = checkedInMap[personEmail];
+
+    // Must have completed the post-event form
+    if (!surveyEmails[personEmail]) continue;
+
+    var personEvents = Object.keys(personRecord.events);
+    var entries = 0;
+    for (var ev = 0; ev < personEvents.length; ev++) {
+      entryPool.push({
+        email:   personEmail,
+        name:    personRecord.name,
+        eventId: personEvents[ev]
+      });
+      entries++;
+    }
+
+    qualifiedPeople.push({
+      email:   personEmail,
+      name:    personRecord.name,
+      entries: entries
+    });
+  }
+
+  Logger.log('[drawMacBookWinner] Qualified entrants: ' + qualifiedPeople.length + ' people, ' + entryPool.length + ' total entries.');
+
+  if (entryPool.length === 0) {
+    Logger.log('[drawMacBookWinner] No qualifying entries found. Drawing cannot proceed.');
+    _writeGiveawayDrawingSheet(ss, qualifiedPeople, entryPool, null, 'No qualifying entries found.');
+    return;
+  }
+
+  // ------------------------------------------------------------------
+  // 4. Random weighted draw — pick one entry from the pool at random
+  // ------------------------------------------------------------------
+  var winnerIndex   = Math.floor(Math.random() * entryPool.length);
+  var winningEntry  = entryPool[winnerIndex];
+  var winnerName    = winningEntry.name;
+  var winnerEmail   = winningEntry.email;
+  var winnerEntries = checkedInMap[winnerEmail] ? Object.keys(checkedInMap[winnerEmail].events).length : 1;
+
+  Logger.log('[drawMacBookWinner] *** WINNER: ' + winnerName + ' (' + winnerEmail + ') — ' + winnerEntries + ' entr' + (winnerEntries === 1 ? 'y' : 'ies') + ' ***');
+
+  // ------------------------------------------------------------------
+  // 5. Write results to "Giveaway Drawing" sheet (create if needed)
+  // ------------------------------------------------------------------
+  var note = 'Winner selected ' + Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
+  _writeGiveawayDrawingSheet(ss, qualifiedPeople, entryPool, winningEntry, note);
+
+  Logger.log('[drawMacBookWinner] Results written to "Giveaway Drawing" sheet. DO NOT send email until admin review.');
+}
+
+/**
+ * Internal helper — writes the drawing pool and winner to the "Giveaway Drawing" sheet.
+ */
+function _writeGiveawayDrawingSheet(ss, qualifiedPeople, entryPool, winner, note) {
+  var drawSheet = ss.getSheetByName('Giveaway Drawing');
+  if (!drawSheet) {
+    drawSheet = ss.insertSheet('Giveaway Drawing');
+  } else {
+    drawSheet.clearContents();
+  }
+
+  // Section 1: drawing metadata
+  drawSheet.appendRow(['MACBOOK GIVEAWAY DRAWING']);
+  drawSheet.appendRow(['Run at', Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST']);
+  drawSheet.appendRow(['Note', note || '']);
+  drawSheet.appendRow([]);
+
+  // Section 2: winner
+  drawSheet.appendRow(['--- WINNER ---']);
+  if (winner) {
+    drawSheet.appendRow(['Name',   winner.name]);
+    drawSheet.appendRow(['Email',  winner.email]);
+    drawSheet.appendRow(['Winning entry event', winner.eventId]);
+  } else {
+    drawSheet.appendRow(['No winner selected.']);
+  }
+  drawSheet.appendRow([]);
+
+  // Section 3: qualified entrants pool
+  drawSheet.appendRow(['--- QUALIFIED ENTRANTS (' + qualifiedPeople.length + ' people, ' + entryPool.length + ' total entries) ---']);
+  drawSheet.appendRow(['Name', 'Email', 'Entries']);
+  for (var i = 0; i < qualifiedPeople.length; i++) {
+    var p = qualifiedPeople[i];
+    drawSheet.appendRow([p.name, p.email, p.entries]);
+  }
+  drawSheet.appendRow([]);
+
+  // Section 4: full entry pool (one row per entry — shows weighting)
+  drawSheet.appendRow(['--- FULL ENTRY POOL (one row per entry) ---']);
+  drawSheet.appendRow(['Name', 'Email', 'Event ID']);
+  for (var j = 0; j < entryPool.length; j++) {
+    var entry = entryPool[j];
+    drawSheet.appendRow([entry.name, entry.email, entry.eventId]);
+  }
+
+  SpreadsheetApp.flush();
+  Logger.log('[drawMacBookWinner] Giveaway Drawing sheet written with ' + entryPool.length + ' entry rows.');
 }
