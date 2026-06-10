@@ -4,6 +4,9 @@
 // ============================================================
 
 function resendCheckinLinks() {
+  var DRY_RUN = true; // CHANGE TO false ONLY when intentionally ready to send
+  var MAX_SEND = 5;   // Safety cap — ignored in dry-run mode
+
   var SPREADSHEET_ID = '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM';
   var EVENT_FINDER_URL = 'https://eventfinder.healthmatters.clinic';
 
@@ -61,13 +64,19 @@ function resendCheckinLinks() {
       '\n\nHealth Matters Clinic\nhttps://www.healthmatters.clinic';
 
     try {
-      GmailApp.sendEmail(email, subject, plain, {
-        htmlBody:  html,
-        name:      'Health Matters Clinic Events',
-        replyTo:   'rsvp@healthmatters.clinic'
-      });
-      sent++;
-      Logger.log('Sent: ' + email + ' — ' + name);
+      if (DRY_RUN) {
+        Logger.log('[DRY RUN] Would send to: ' + email);
+        sent++;
+      } else {
+        if (sent >= MAX_SEND) { Logger.log('MAX_SEND reached'); return; }
+        GmailApp.sendEmail(email, subject, plain, {
+          htmlBody:  html,
+          name:      'Health Matters Clinic Events',
+          replyTo:   'rsvp@healthmatters.clinic'
+        });
+        sent++;
+        Logger.log('Sent: ' + email + ' — ' + name);
+      }
     } catch (err) {
       Logger.log('ERROR ' + email + ': ' + err);
       skipped++;

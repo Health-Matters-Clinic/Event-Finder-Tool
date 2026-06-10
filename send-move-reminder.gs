@@ -4,6 +4,9 @@
 // ============================================================
 
 function sendMOVEReminder() {
+  var DRY_RUN = true; // CHANGE TO false ONLY when intentionally ready to send
+  var MAX_SEND = 5;   // Safety cap — ignored in dry-run mode
+
   var SPREADSHEET_ID   = '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM';
   var WAIVER_BASE_URL  = 'https://eventfinder.healthmatters.clinic/waiver.html';
   var EVENT_DATE_MATCH = '5/9/2026'; // matches sheet col D timestamp prefix
@@ -152,13 +155,19 @@ function sendMOVEReminder() {
       'Questions? healthmatters.clinic | Crisis: call or text 988';
 
     try {
-      GmailApp.sendEmail(email, subject, plain, {
-        htmlBody: html,
-        name:     'Health Matters Clinic Events',
-        replyTo:  'rsvp@healthmatters.clinic'
-      });
-      sent++;
-      Logger.log('Sent: ' + email + ' — ' + name);
+      if (DRY_RUN) {
+        Logger.log('[DRY RUN] Would send to: ' + email);
+        sent++;
+      } else {
+        if (sent >= MAX_SEND) { Logger.log('MAX_SEND reached'); return; }
+        GmailApp.sendEmail(email, subject, plain, {
+          htmlBody: html,
+          name:     'Health Matters Clinic Events',
+          replyTo:  'rsvp@healthmatters.clinic'
+        });
+        sent++;
+        Logger.log('Sent: ' + email + ' — ' + name);
+      }
     } catch (err) {
       Logger.log('ERROR ' + email + ': ' + err);
       skipped++;
@@ -272,6 +281,9 @@ function sendTestReminder() {
 }
 
 function sendFirestoreRSVPs() {
+  var DRY_RUN = true; // CHANGE TO false ONLY when intentionally ready to send
+  var MAX_SEND = 5;   // Safety cap — ignored in dry-run mode
+
   // Attendee data removed from source control — PII must not be committed to a public repo.
   // To re-run this function: source attendee records from the RSVPs Google Sheet instead,
   // or use sendMOVEReminder() which reads directly from the sheet.
@@ -334,13 +346,19 @@ Health Matters Clinic</p>' +
       'See you out there.\n— Health Matters Clinic\nCrisis: call or text 988';
 
     try {
-      GmailApp.sendEmail(a.email, subject, plain, {
-        htmlBody: html,
-        name: 'Health Matters Clinic Events',
-        replyTo: 'rsvp@healthmatters.clinic'
-      });
-      sent++;
-      Logger.log('Sent: ' + a.email);
+      if (DRY_RUN) {
+        Logger.log('[DRY RUN] Would send to: ' + a.email);
+        sent++;
+      } else {
+        if (sent >= MAX_SEND) { Logger.log('MAX_SEND reached'); return; }
+        GmailApp.sendEmail(a.email, subject, plain, {
+          htmlBody: html,
+          name: 'Health Matters Clinic Events',
+          replyTo: 'rsvp@healthmatters.clinic'
+        });
+        sent++;
+        Logger.log('Sent: ' + a.email);
+      }
     } catch(e) {
       Logger.log('ERROR ' + a.email + ': ' + e);
     }
@@ -351,6 +369,9 @@ Health Matters Clinic</p>' +
 }
 
 function sendGenericBlast() {
+  var DRY_RUN = true; // CHANGE TO false ONLY when intentionally ready to send
+  var MAX_SEND = 5;   // Safety cap — ignored in dry-run mode
+
   var html =
     '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
     '<body style="font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
@@ -403,13 +424,16 @@ function sendGenericBlast() {
     '123 W. Manchester Blvd, Inglewood (Queen St. entrance)\n\n' +
     'See you out there.\n— Health Matters Clinic\nCrisis: call or text 988';
 
-  GmailApp.sendEmail('events@healthmatters.clinic', 'Today is Live Unstoppable: Issa Rae + Spencer Paysinger', plain, {
-    htmlBody: html,
-    name:    'Health Matters Clinic Events',
-    replyTo: 'rsvp@healthmatters.clinic'
-  });
-
-  Logger.log('Sent to events@healthmatters.clinic');
+  if (DRY_RUN) {
+    Logger.log('[DRY RUN] Would send to: events@healthmatters.clinic');
+  } else {
+    GmailApp.sendEmail('events@healthmatters.clinic', 'Today is Live Unstoppable: Issa Rae + Spencer Paysinger', plain, {
+      htmlBody: html,
+      name:    'Health Matters Clinic Events',
+      replyTo: 'rsvp@healthmatters.clinic'
+    });
+    Logger.log('Sent to events@healthmatters.clinic');
+  }
 }
 
 // ============================================================
@@ -418,6 +442,9 @@ function sendGenericBlast() {
 // ============================================================
 
 function sendHEALReminder() {
+  var DRY_RUN = true; // CHANGE TO false ONLY when intentionally ready to send
+  var MAX_SEND = 5;   // Safety cap — ignored in dry-run mode
+
   var SPREADSHEET_ID  = '1L57FfGbos21rzGu4ciuKipcumJchqe2ZzDPUyp-oRmM';
   var WAIVER_BASE_URL = 'https://eventfinder.healthmatters.clinic/waiver.html';
 
@@ -527,13 +554,19 @@ function sendHEALReminder() {
       'Questions? healthmatters.clinic | Crisis: call or text 988';
 
     try {
-      GmailApp.sendEmail(email, subject, plain, {
-        htmlBody: html,
-        name:     'Health Matters Clinic Events',
-        replyTo:  'rsvp@healthmatters.clinic'
-      });
-      sent++;
-      Logger.log('Sent: ' + email + ' (' + name + ')');
+      if (DRY_RUN) {
+        Logger.log('[DRY RUN] Would send to: ' + email);
+        sent++;
+      } else {
+        if (sent >= MAX_SEND) { Logger.log('MAX_SEND reached'); return; }
+        GmailApp.sendEmail(email, subject, plain, {
+          htmlBody: html,
+          name:     'Health Matters Clinic Events',
+          replyTo:  'rsvp@healthmatters.clinic'
+        });
+        sent++;
+        Logger.log('Sent: ' + email + ' (' + name + ')');
+      }
     } catch(err) {
       Logger.log('ERROR ' + email + ': ' + err);
       skipped++;

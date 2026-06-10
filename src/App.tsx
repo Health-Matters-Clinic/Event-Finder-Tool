@@ -311,7 +311,9 @@ const App: React.FC = () => {
     if (checkinParam) setPendingCheckinToken(checkinParam);
 
     // Listen for postMessage from parent (Webflow can send event param)
+    const ALLOWED_ORIGINS = ['https://www.healthmatters.clinic', 'https://healthmatters.clinic', 'https://teamhmc.github.io'];
     const onMessage = (e: MessageEvent) => {
+      if (!ALLOWED_ORIGINS.includes(e.origin)) return;
       if (e.data?.type === 'selectEvent' && e.data?.eventSlug) {
         setPendingEventSlug(e.data.eventSlug);
       }
