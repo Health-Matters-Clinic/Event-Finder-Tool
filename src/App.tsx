@@ -1129,9 +1129,9 @@ const App: React.FC = () => {
                   />
                 </svg>
                 {t.filters}
-                {(filters.month || filters.program || locationSearch || filters.ceApproved) && (
+                {(filters.month || filters.program || locationSearch) && (
                   <span className="bg-[#233dff] text-white text-[8px] px-2 py-0.5 rounded-full">
-                    {[filters.month, filters.program, locationSearch, filters.ceApproved ? 'ce' : ''].filter(Boolean).length}
+                    {[filters.month, filters.program, locationSearch].filter(Boolean).length}
                   </span>
                 )}
               </span>
@@ -1247,21 +1247,6 @@ const App: React.FC = () => {
                   </button>
                 </div>
 
-                {/* CE/CEU Filter */}
-                <button
-                  onClick={() => setFilters((f) => ({ ...f, ceApproved: !f.ceApproved }))}
-                  aria-pressed={filters.ceApproved}
-                  className={`w-full py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border border-solid flex items-center justify-center gap-2 ${
-                    filters.ceApproved
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
-                      : 'bg-white text-gray-700 border-black hover:bg-gray-50'
-                  }`}
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${filters.ceApproved ? 'bg-white' : 'bg-gray-300'}`}
-                  />
-                  {lang === 'es' ? 'CEU Aprobado' : 'CE/CEU Approved'}
-                </button>
               </div>
             </div>
           </div>
@@ -1270,7 +1255,7 @@ const App: React.FC = () => {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
               {t.showing_events(filteredEvents.length)}
             </p>
-            {(filters.month || filters.program || locationSearch || filters.ceApproved) && (
+            {(filters.month || filters.program || locationSearch) && (
               <button
                 onClick={() => {
                   setFilters({ month: '', program: '', showPast: false, ceApproved: false });
