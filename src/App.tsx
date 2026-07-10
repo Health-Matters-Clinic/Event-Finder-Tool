@@ -927,17 +927,11 @@ const App: React.FC = () => {
                   </span>
                 )}
                 {selectedEvent.ceApproved && (
-                  <span className="inline-block bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide">
-                    {selectedEvent.ceHours ? `${selectedEvent.ceHours} CEU Approved` : 'CEU Approved'}
+                  <span className="inline-block bg-[#ecfdf5] text-[#065f46] border border-[#6ee7b7]/50 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide" title={selectedEvent.ceBoards ? `Approved: ${selectedEvent.ceBoards}` : 'CE/CEU Approved'}>
+                    {selectedEvent.ceHours ? `${selectedEvent.ceHours} CEU` : 'CEU'}
                   </span>
                 )}
               </div>
-
-              {selectedEvent.ceApproved && selectedEvent.ceBoards && (
-                <p className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wide mb-3">
-                  Approved boards: {selectedEvent.ceBoards}
-                </p>
-              )}
 
               <h3 className="text-2xl font-semibold text-[#1a1a1a] mb-6 pr-6 leading-tight">
                 {translateEventTitle(selectedEvent.title, lang, selectedEvent)}
@@ -1348,6 +1342,11 @@ const App: React.FC = () => {
                         {lang === 'es' ? 'POR CONFIRMAR' : 'DETAILS TBD'}
                       </span>
                     )}
+                    {event.ceApproved && (
+                      <span className="bg-[#ecfdf5] text-[#065f46] border border-[#6ee7b7]/50 px-2 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-wider" title={event.ceBoards ? `Approved: ${event.ceBoards}` : 'CE/CEU Approved'}>
+                        {event.ceHours ? `${event.ceHours} CEU` : 'CEU'}
+                      </span>
+                    )}
                   </div>
 
                   <h4
@@ -1357,22 +1356,6 @@ const App: React.FC = () => {
                   >
                     {translateEventTitle(event.title, lang, event)}
                   </h4>
-
-                  {event.ceApproved && (
-                    <div className="mb-2">
-                      <span
-                        className="inline-block bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                        title={event.ceBoards ? `Approved boards: ${event.ceBoards}` : 'CE/CEU Approved'}
-                      >
-                        {event.ceHours ? `${event.ceHours} CEU Approved` : 'CEU Approved'}
-                      </span>
-                      {event.ceBoards && (
-                        <p className="text-[9px] text-emerald-600 font-semibold mt-0.5 uppercase tracking-wide">
-                          {event.ceBoards}
-                        </p>
-                      )}
-                    </div>
-                  )}
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2.5 text-xs text-gray-500 font-semibold">
