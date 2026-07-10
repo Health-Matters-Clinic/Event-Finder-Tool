@@ -25,6 +25,18 @@ interface AdRow {
 
 const emptyAdForm = (): AdRow => ({ id: '', imageUrl: '', mobileImageUrl: '', linkUrl: '', altText: '', active: true, order: 0 });
 
+interface PartnerAdSubmission {
+  id: string;
+  partnerName: string;
+  imageUrl: string;
+  mobileImageUrl: string;
+  linkUrl: string;
+  altText: string;
+  notes: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string;
+}
+
 interface PartnerRequest {
   id: number;
   submittedAt: string;
@@ -205,6 +217,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [adsToast, setAdsToast] = useState<string | null>(null);
   const [adLinkMode, setAdLinkMode] = useState<'event' | 'custom' | 'none'>('event');
 
+  // Partner ad submissions state
+  const [partnerAds, setPartnerAds] = useState<PartnerAdSubmission[]>([]);
+  const [partnerAdsLoading, setPartnerAdsLoading] = useState(false);
+  const [partnerAdsError, setPartnerAdsError] = useState('');
+  const [partnerAdsToast, setPartnerAdsToast] = useState<string | null>(null);
+
   // Trust session auth within the same browser session -- passcode was already verified
   useEffect(() => {
     const auth = sessionStorage.getItem(STORAGE_KEYS.ADMIN_AUTH);
@@ -220,6 +238,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
     if (view === 'ads') {
       fetchAds();
+      fetchPartnerAds();
     }
   }, [view]);
 
@@ -265,6 +284,85 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const showAdsToast = (msg: string) => {
     setAdsToast(msg);
     setTimeout(() => setAdsToast(null), 3000);
+  };
+
+  const showPartnerAdsToast = (msg: string) => {
+    setPartnerAdsToast(msg);
+    setTimeout(() => setPartnerAdsToast(null), 4000);
+  };
+
+  const fetchPartnerAds = async () => {
+    const hash = sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '';
+    if (!hash) return;
+    setPartnerAdsLoading(true);
+    setPartnerAdsError('');
+    try {
+      const res = await fetch(`${PORTAL_API_URL}/api/public/partner-ads-pending?hash=${encodeURIComponent(hash)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.ads)) {
+        setPartnerAds(data.ads.map((d: any) => ({
+          id: d.id,
+          partnerName: d.partnerName || 'Unknown Partner',
+          imageUrl: d.imageUrl || '',
+          mobileImageUrl: d.mobileImageUrl || '',
+          linkUrl: d.linkUrl || '',
+          altText: d.altText || '',
+          notes: d.notes || '',
+          status: d.status || 'pending',
+          submittedAt: d.submittedAt || '',
+        })));
+      } else {
+        setPartnerAdsError(data.error || 'Failed to load partner submissions');
+      }
+    } catch {
+      setPartnerAdsError('Connection error loading partner submissions');
+    } finally {
+      setPartnerAdsLoading(false);
+    }
+  };
+
+  const handleApprovePartnerAd = async (ad: PartnerAdSubmission) => {
+    const hash = sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '';
+    if (!hash) return;
+    try {
+      const res = await fetch(`${PORTAL_API_URL}/api/public/partner-ads/${ad.id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hash }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showPartnerAdsToast('Ad approved and sent to Event Finder.');
+        setPartnerAds(prev => prev.filter(a => a.id !== ad.id));
+      } else {
+        showPartnerAdsToast('Error: ' + (data.error || 'Approval failed'));
+      }
+    } catch {
+      showPartnerAdsToast('Connection error. Please try again.');
+    }
+  };
+
+  const handleRejectPartnerAd = async (ad: PartnerAdSubmission) => {
+    const reason = window.prompt('Reason for rejection (optional):') ?? null;
+    if (reason === null) return; // user cancelled prompt
+    const hash = sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '';
+    if (!hash) return;
+    try {
+      const res = await fetch(`${PORTAL_API_URL}/api/public/partner-ads/${ad.id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hash, reason }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showPartnerAdsToast('Ad rejected and partner notified.');
+        setPartnerAds(prev => prev.filter(a => a.id !== ad.id));
+      } else {
+        showPartnerAdsToast('Error: ' + (data.error || 'Rejection failed'));
+      }
+    } catch {
+      showPartnerAdsToast('Connection error. Please try again.');
+    }
   };
 
   const fetchAds = async () => {
@@ -2640,6 +2738,106 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Partner Submissions */}
+              <div className="mt-6 pt-5 border-t border-gray-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
+                      Partner Submissions
+                    </div>
+                    {partnerAds.length > 0 && (
+                      <span className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700">
+                        {partnerAds.length}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={fetchPartnerAds}
+                    disabled={partnerAdsLoading}
+                    className="text-xs font-semibold text-[#233dff] hover:underline disabled:opacity-50"
+                  >
+                    {partnerAdsLoading ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
+
+                {partnerAdsToast && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3 mb-3">
+                    <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm font-semibold text-emerald-700">{partnerAdsToast}</span>
+                  </div>
+                )}
+
+                {partnerAdsError && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold text-yellow-800">{partnerAdsError}</span>
+                    <button onClick={() => setPartnerAdsError('')} className="text-yellow-600 hover:text-yellow-800 text-xs font-bold">Dismiss</button>
+                  </div>
+                )}
+
+                {partnerAdsLoading && partnerAds.length === 0 && (
+                  <div className="space-y-2">
+                    <SkeletonCard />
+                    <SkeletonCard />
+                  </div>
+                )}
+
+                {!partnerAdsLoading && partnerAds.length === 0 && !partnerAdsError && (
+                  <div className="text-center py-8">
+                    <p className="text-sm font-medium text-gray-400">No pending partner ad submissions.</p>
+                  </div>
+                )}
+
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                  {partnerAds.map(ad => (
+                    <div key={ad.id} className="bg-white border border-amber-200 rounded-xl p-4 hover:border-amber-400 transition-all">
+                      <div className="flex items-start gap-3">
+                        <div className="shrink-0 w-16 h-10 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
+                          {ad.imageUrl ? (
+                            <img
+                              src={ad.imageUrl}
+                              alt={ad.altText}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          ) : (
+                            <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-gray-800 truncate">{ad.altText || 'Untitled'}</div>
+                          <div className="text-xs text-gray-500 font-medium">{ad.partnerName}</div>
+                          {ad.linkUrl && <div className="text-xs text-gray-400 truncate">{ad.linkUrl}</div>}
+                          {ad.notes && <div className="text-xs text-gray-400 italic mt-0.5 truncate">Note: {ad.notes}</div>}
+                          {ad.submittedAt && (
+                            <div className="text-[10px] text-gray-300 mt-0.5">
+                              {new Date(ad.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                        <button
+                          onClick={() => handleApprovePartnerAd(ad)}
+                          className="flex-1 py-2 rounded-full text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-all text-center"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectPartnerAd(ad)}
+                          className="flex-1 py-2 rounded-full text-xs font-semibold border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all text-center"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
