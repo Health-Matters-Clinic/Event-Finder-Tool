@@ -216,7 +216,7 @@ const App: React.FC = () => {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isPartnerOpen, setIsPartnerOpen] = useState(false);
   const [locationSearch, setLocationSearch] = useState('');
-  const [filters, setFilters] = useState({ month: '', program: '', showPast: false });
+  const [filters, setFilters] = useState({ month: '', program: '', showPast: false, ceApproved: false });
   const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [pendingEventSlug, setPendingEventSlug] = useState<string | null>(null);
@@ -487,6 +487,7 @@ const App: React.FC = () => {
         const dateOnly = event.date.includes('T') ? event.date.split('T')[0] : event.date;
         const monthMatch = !filters.month || dateOnly.includes(`-${filters.month}-`);
         const programMatch = !filters.program || event.program === filters.program;
+        const ceMatch = !filters.ceApproved || event.ceApproved === true;
 
         const locQuery = locationSearch.toLowerCase();
         const locationMatch =
@@ -497,7 +498,7 @@ const App: React.FC = () => {
         const eventIsPast = isPast(dateOnly);
         const archivalMatch = filters.showPast ? eventIsPast : !eventIsPast;
 
-        return monthMatch && programMatch && locationMatch && archivalMatch;
+        return monthMatch && programMatch && locationMatch && archivalMatch && ceMatch;
       })
       .sort((a, b) => {
         // Promoted events always come first
@@ -925,7 +926,18 @@ const App: React.FC = () => {
                     {t.past}
                   </span>
                 )}
+                {selectedEvent.ceApproved && (
+                  <span className="inline-block bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide">
+                    {selectedEvent.ceHours ? `${selectedEvent.ceHours} CEU Approved` : 'CEU Approved'}
+                  </span>
+                )}
               </div>
+
+              {selectedEvent.ceApproved && selectedEvent.ceBoards && (
+                <p className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wide mb-3">
+                  Approved boards: {selectedEvent.ceBoards}
+                </p>
+              )}
 
               <h3 className="text-2xl font-semibold text-[#1a1a1a] mb-6 pr-6 leading-tight">
                 {translateEventTitle(selectedEvent.title, lang, selectedEvent)}
@@ -1122,9 +1134,9 @@ const App: React.FC = () => {
                   />
                 </svg>
                 {t.filters}
-                {(filters.month || filters.program || locationSearch) && (
+                {(filters.month || filters.program || locationSearch || filters.ceApproved) && (
                   <span className="bg-[#233dff] text-white text-[8px] px-2 py-0.5 rounded-full">
-                    {[filters.month, filters.program, locationSearch].filter(Boolean).length}
+                    {[filters.month, filters.program, locationSearch, filters.ceApproved ? 'ce' : ''].filter(Boolean).length}
                   </span>
                 )}
               </span>
@@ -1239,6 +1251,22 @@ const App: React.FC = () => {
                     {t.past}
                   </button>
                 </div>
+
+                {/* CE/CEU Filter */}
+                <button
+                  onClick={() => setFilters((f) => ({ ...f, ceApproved: !f.ceApproved }))}
+                  aria-pressed={filters.ceApproved}
+                  className={`w-full py-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide transition-all border border-solid flex items-center justify-center gap-2 ${
+                    filters.ceApproved
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                      : 'bg-white text-gray-700 border-black hover:bg-gray-50'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${filters.ceApproved ? 'bg-white' : 'bg-gray-300'}`}
+                  />
+                  {lang === 'es' ? 'CEU Aprobado' : 'CE/CEU Approved'}
+                </button>
               </div>
             </div>
           </div>
@@ -1247,10 +1275,10 @@ const App: React.FC = () => {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
               {t.showing_events(filteredEvents.length)}
             </p>
-            {(filters.month || filters.program || locationSearch) && (
+            {(filters.month || filters.program || locationSearch || filters.ceApproved) && (
               <button
                 onClick={() => {
-                  setFilters({ month: '', program: '', showPast: false });
+                  setFilters({ month: '', program: '', showPast: false, ceApproved: false });
                   setLocationSearch('');
                 }}
                 className="text-[10px] font-semibold text-[#233dff] uppercase tracking-wide hover:underline"
@@ -1329,6 +1357,22 @@ const App: React.FC = () => {
                   >
                     {translateEventTitle(event.title, lang, event)}
                   </h4>
+
+                  {event.ceApproved && (
+                    <div className="mb-2">
+                      <span
+                        className="inline-block bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                        title={event.ceBoards ? `Approved boards: ${event.ceBoards}` : 'CE/CEU Approved'}
+                      >
+                        {event.ceHours ? `${event.ceHours} CEU Approved` : 'CEU Approved'}
+                      </span>
+                      {event.ceBoards && (
+                        <p className="text-[9px] text-emerald-600 font-semibold mt-0.5 uppercase tracking-wide">
+                          {event.ceBoards}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2.5 text-xs text-gray-500 font-semibold">

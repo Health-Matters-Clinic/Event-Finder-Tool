@@ -36,6 +36,9 @@ export interface ClinicEvent {
   title_es?: string;          // Spanish title (admin-provided)
   description_es?: string;    // Spanish description (admin-provided)
   sessions?: EventSession[];  // Sub-events/agenda items within this event
+  ceApproved?: boolean;        // LACDMH-approved for CE/CEU credit
+  ceBoards?: string;           // Approved boards (e.g. "BBS, BRN, CCAPP, Psychology")
+  ceHours?: number;            // CE credit hours awarded
 }
 
 export interface PartnerEventRequest {
