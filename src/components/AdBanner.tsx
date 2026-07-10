@@ -88,13 +88,44 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
       onMouseLeave={() => { hovered.current = false; }}
       style={{ textAlign: 'center', lineHeight: 0 }}
     >
-      <a
-        href={banner.linkUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={banner.altText}
-        style={{ display: 'inline-block' }}
-      >
+      {banner.linkUrl ? (
+        <a
+          href={banner.linkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={banner.altText}
+          style={{ display: 'inline-block' }}
+        >
+          <img
+            key={`${displayIndex}-${isMobile ? 'm' : 'd'}`}
+            src={imgSrc}
+            alt={banner.altText}
+            style={{
+              opacity: visible ? 1 : 0,
+              transition: 'opacity 0.3s ease',
+              borderRadius: '4px',
+              ...imgStyle,
+            }}
+            onError={() => {
+              setErroredIndices(prev => {
+                const next = new Set(prev);
+                next.add(displayIndex);
+                return next;
+              });
+              setVisible(false);
+              setTimeout(() => {
+                setCurrentIndex(ci => {
+                  const newErrored = new Set(erroredIndices);
+                  newErrored.add(displayIndex);
+                  const next = advanceToNextValid(ci, activeBanners.length, newErrored);
+                  return next !== null ? next : ci;
+                });
+                setVisible(true);
+              }, 300);
+            }}
+          />
+        </a>
+      ) : (
         <img
           key={`${displayIndex}-${isMobile ? 'm' : 'd'}`}
           src={imgSrc}
@@ -111,7 +142,6 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
               next.add(displayIndex);
               return next;
             });
-            // Auto-advance to next valid banner
             setVisible(false);
             setTimeout(() => {
               setCurrentIndex(ci => {
@@ -124,7 +154,7 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
             }, 300);
           }}
         />
-      </a>
+      )}
       {visibleBanners.length > 1 && (
         <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginTop: '4px' }}>
           {activeBanners.map((_, i) => {

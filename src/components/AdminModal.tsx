@@ -203,7 +203,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [adForm, setAdForm] = useState<AdRow>(emptyAdForm());
   const [adSaving, setAdSaving] = useState(false);
   const [adsToast, setAdsToast] = useState<string | null>(null);
-  const [adLinkMode, setAdLinkMode] = useState<'event' | 'custom'>('event');
+  const [adLinkMode, setAdLinkMode] = useState<'event' | 'custom' | 'none'>('event');
 
   // Trust session auth within the same browser session -- passcode was already verified
   useEffect(() => {
@@ -327,21 +327,29 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const handleDeleteAd = async (id: string) => {
-    if (!window.confirm('Deactivate this ad?')) return;
+    const ad = ads.find(a => a.id === id);
+    if (!ad) return;
+    if (!window.confirm('Remove this ad? It will be deactivated and hidden from the Event Finder.')) return;
     setAdsError('');
     try {
       const params = new URLSearchParams({
-        action: 'delete_ad',
+        action: 'save_ad',
         hash: sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '',
-        id,
+        id: ad.id,
+        imageUrl: ad.imageUrl,
+        mobileImageUrl: ad.mobileImageUrl,
+        linkUrl: ad.linkUrl,
+        altText: ad.altText,
+        active: 'FALSE',
+        order: String(ad.order),
       });
       const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
-        showAdsToast('Ad deactivated.');
+        showAdsToast('Ad removed.');
         await fetchAds();
       } else {
-        setAdsError(data.error || 'Delete failed');
+        setAdsError(data.error || 'Failed to remove ad');
       }
     } catch {
       setAdsError('Connection error');
@@ -2326,9 +2334,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
                   {/* Helper text */}
                   <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700 leading-relaxed space-y-1">
-                    <p><strong>Link only — no file upload.</strong> Host your image on Canva, Google Drive, or Dropbox, then paste the public share link here.</p>
-                    <p><strong>Accepted formats:</strong> PNG, JPG, GIF, WebP</p>
-                    <p><strong>Hosting tips:</strong> In Canva, use Share → Copy link (set to "Anyone with link"). In Google Drive, right-click → Share → Anyone with the link → Copy. In Dropbox, share link and change <code>dl=0</code> to <code>raw=1</code> at the end of the URL.</p>
+                    <p><strong>Direct image URL required.</strong> The URL must point directly to a PNG, JPG, GIF, or WebP image file — not a webpage.</p>
+                    <p><strong>Canva:</strong> Do NOT use "Share → Copy link" (that gives a canva.link URL which will not load). Instead: Share → Download → PNG, then upload the file to Google Drive.</p>
+                    <p><strong>Google Drive:</strong> Upload your image, right-click → Share → Anyone with the link. Copy the file ID from the URL and use: <code>https://drive.google.com/uc?export=view&amp;id=FILE_ID</code></p>
+                    <p><strong>Dropbox:</strong> Share link and change <code>dl=0</code> to <code>raw=1</code> at the end of the URL.</p>
                     <p><strong>Sizes:</strong> Desktop 728×90px · Mobile 320×50px</p>
                   </div>
 
@@ -2343,10 +2352,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       type="url"
                       value={adForm.imageUrl}
                       onChange={e => setAdForm(f => ({ ...f, imageUrl: e.target.value }))}
-                      placeholder="https://..."
+                      placeholder="https://drive.google.com/uc?export=view&id=..."
                       className={inputCls}
                     />
-                    {adForm.imageUrl && (
+                    {adForm.imageUrl && (adForm.imageUrl.includes('canva.link') || (adForm.imageUrl.includes('canva.com') && !adForm.imageUrl.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/i))) && (
+                      <p className="text-[11px] text-amber-600 font-semibold mt-1">
+                        Canva share links cannot be used as image URLs. Download your design as PNG/JPG and upload to Google Drive, then use the direct URL format above.
+                      </p>
+                    )}
+                    {adForm.imageUrl && !adForm.imageUrl.includes('canva.link') && (
                       <div className="mt-2 flex items-center gap-2">
                         <span className="text-[9px] font-bold uppercase tracking-widest bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">D</span>
                         <img
@@ -2387,7 +2401,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
                   {/* Link URL — smart toggle */}
                   <div className="space-y-2">
-                    <label className={labelCls}>Link URL *</label>
+                    <label className={labelCls}>Link URL</label>
                     {/* Mode radio */}
                     <div className="flex items-center gap-5 text-sm font-semibold text-gray-600">
                       <label className="flex items-center gap-2 cursor-pointer">
@@ -2415,12 +2429,25 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         />
                         Custom URL
                       </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="adLinkMode"
+                          value="none"
+                          checked={adLinkMode === 'none'}
+                          onChange={() => {
+                            setAdLinkMode('none');
+                            setAdForm(f => ({ ...f, linkUrl: '' }));
+                          }}
+                          className="accent-[#233dff]"
+                        />
+                        No link
+                      </label>
                     </div>
 
                     {adLinkMode === 'event' ? (
                       <div>
                         <select
-                          required
                           value={adForm.linkUrl}
                           onChange={e => {
                             const selected = events.find(ev => `https://eventfinder.healthmatters.clinic?event=${encodeURIComponent(ev.id)}` === e.target.value);
@@ -2448,15 +2475,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           <p className="text-[10px] text-gray-400 mt-1 font-mono truncate">{adForm.linkUrl}</p>
                         )}
                       </div>
-                    ) : (
+                    ) : adLinkMode === 'custom' ? (
                       <input
-                        required
                         type="url"
                         value={adForm.linkUrl}
                         onChange={e => setAdForm(f => ({ ...f, linkUrl: e.target.value }))}
                         placeholder="https://..."
                         className={inputCls}
                       />
+                    ) : (
+                      <p className="text-xs text-gray-400">Banner will display without a clickable link.</p>
                     )}
                   </div>
 
@@ -2596,7 +2624,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           setAdForm({ ...ad });
                           // Detect mode from existing linkUrl
                           const isEventLink = ad.linkUrl.startsWith('https://eventfinder.healthmatters.clinic?event=');
-                          setAdLinkMode(isEventLink ? 'event' : 'custom');
+                          setAdLinkMode(!ad.linkUrl ? 'none' : isEventLink ? 'event' : 'custom');
                           setAdFormVisible(true);
                         }}
                         className="px-2.5 py-1 rounded-full text-xs font-semibold border border-[#233dff]/30 text-[#233dff] hover:bg-[#233dff] hover:text-white transition-all"
