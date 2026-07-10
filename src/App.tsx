@@ -834,6 +834,7 @@ const App: React.FC = () => {
             variant="outline"
             className="h-9 px-4"
             showDot={false}
+            style={{ fontSize: '11px', fontWeight: 600, borderWidth: '1px', textTransform: 'uppercase', letterSpacing: '0.06em' }}
             onClick={() => setIsPartnerOpen(true)}
           >
             {t.partner_events}
