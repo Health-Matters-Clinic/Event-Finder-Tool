@@ -280,6 +280,51 @@ function doGet(e) {
     return HtmlService.createHtmlOutput('OK');
   }
 
+  // ===== TRAINING REGISTRATION (Facilitator Certification + CEU) =====
+  if (action === 'training_registration') {
+    try {
+      var ss2 = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      var trSheetName = 'Training Registrations';
+      var trSheet = ss2.getSheetByName(trSheetName);
+      if (!trSheet) {
+        trSheet = ss2.insertSheet(trSheetName);
+        trSheet.appendRow(['Timestamp','Pathway','First Name','Last Name','Email','Phone','Organization','Role','License Type','License Number','Motivation','How Heard']);
+      }
+      trSheet.appendRow([
+        new Date().toISOString(),
+        p.pathway || '',
+        p.firstName || '',
+        p.lastName || '',
+        p.email || '',
+        p.phone || '',
+        p.organization || '',
+        p.role || '',
+        p.licenseType || '',
+        p.licenseNumber || '',
+        p.motivation || '',
+        p.howHeard || ''
+      ]);
+      var isCEU = p.pathway === 'ceu';
+      var trSubject = isCEU
+        ? 'New CEU Registration: ' + (p.firstName||'') + ' ' + (p.lastName||'') + ' (' + (p.role||'') + ')'
+        : 'New Facilitator Application: ' + (p.firstName||'') + ' ' + (p.lastName||'') + ' (' + (p.role||'') + ')';
+      var trBody = (isCEU ? 'CEU REGISTRATION\n\n' : 'FACILITATOR CERTIFICATION APPLICATION\n\n')
+        + 'Name: ' + (p.firstName||'') + ' ' + (p.lastName||'') + '\n'
+        + 'Email: ' + (p.email||'') + '\n'
+        + 'Phone: ' + (p.phone||'Not provided') + '\n'
+        + 'Organization: ' + (p.organization||'Not provided') + '\n'
+        + 'Role: ' + (p.role||'') + '\n'
+        + (isCEU ? 'License Type: ' + (p.licenseType||'') + '\nLicense Number: ' + (p.licenseNumber||'Not provided') + '\n' : '')
+        + (!isCEU && p.motivation ? 'Motivation: ' + p.motivation + '\n' : '')
+        + 'How Heard: ' + (p.howHeard||'') + '\n'
+        + 'Submitted: ' + new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+      MailApp.sendEmail({ to: 'education@healthmatters.clinic', subject: trSubject, body: trBody });
+    } catch (trErr) {
+      Logger.log('training_registration error: ' + trErr.message);
+    }
+    return HtmlService.createHtmlOutput('OK');
+  }
+
   // ===== WILDFIRE RELIEF REQUEST =====
   if (action === 'wildfire_relief_request') {
     try {
