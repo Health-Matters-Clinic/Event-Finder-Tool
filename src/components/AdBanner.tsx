@@ -108,14 +108,14 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
             }}
             onError={() => {
               setErroredIndices(prev => {
-                const next = new Set(prev);
+                const next = new Set<number>(prev);
                 next.add(displayIndex);
                 return next;
               });
               setVisible(false);
               setTimeout(() => {
                 setCurrentIndex(ci => {
-                  const newErrored = new Set(erroredIndices);
+                  const newErrored = new Set<number>(erroredIndices);
                   newErrored.add(displayIndex);
                   const next = advanceToNextValid(ci, activeBanners.length, newErrored);
                   return next !== null ? next : ci;
@@ -138,14 +138,14 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
           }}
           onError={() => {
             setErroredIndices(prev => {
-              const next = new Set(prev);
+              const next = new Set<number>(prev);
               next.add(displayIndex);
               return next;
             });
             setVisible(false);
             setTimeout(() => {
               setCurrentIndex(ci => {
-                const newErrored = new Set(erroredIndices);
+                const newErrored = new Set<number>(erroredIndices);
                 newErrored.add(displayIndex);
                 const next = advanceToNextValid(ci, activeBanners.length, newErrored);
                 return next !== null ? next : ci;
