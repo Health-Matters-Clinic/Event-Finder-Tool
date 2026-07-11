@@ -89,6 +89,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
           <div className="text-sm font-bold">{t.partner_modal_title}</div>
           <button
             onClick={onClose}
+            aria-label={lang === 'es' ? 'Cerrar' : 'Close'}
             className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all"
           >
             ✕

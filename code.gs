@@ -47,6 +47,16 @@ const CONFIG = {
 // PASSCODE AUTH FUNCTIONS
 // ========================================
 
+// HTML-escape user-supplied strings before inserting into HTML responses.
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function sha256(text) {
   var raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text);
   return raw.map(function(b) { return ('0' + ((b + 256) % 256).toString(16)).slice(-2); }).join('');
@@ -638,7 +648,7 @@ function doGet(e) {
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][14]).trim() === String(p.token).trim()) {
         sheet.getRange(i + 1, 16).setValue('cancelled');
-        var name = String(data[i][4] || '').split(' ')[0] || 'there';
+        var name = escapeHtml(String(data[i][4] || '').split(' ')[0] || 'there');
         return HtmlService.createHtmlOutput(
           '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
           '<body style="font-family:Inter,Arial,sans-serif;text-align:center;padding:48px 24px;background:#f5f3ef;">' +
@@ -1159,9 +1169,28 @@ function saveAllEvents(events) {
 // RSVP HANDLER
 // ========================================
 function handleRSVP(payload) {
+  // Server-side required-field validation
+  var trimmedName = (payload.name || '').trim();
+  if (!trimmedName) {
+    return { success: false, error: 'Name is required.' };
+  }
+  if (!payload.email && !payload.phone) {
+    return { success: false, error: 'Email or phone is required.' };
+  }
+  if (!payload.eventId) {
+    return { success: false, error: 'Event ID is required.' };
+  }
+  // Basic email format check if provided
+  if (payload.email) {
+    var emailStr = String(payload.email).trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
+      return { success: false, error: 'Invalid email address.' };
+    }
+  }
+
   var lock = LockService.getScriptLock();
   try { lock.waitLock(15000); } catch(e) {
-    return { success: false, error: 'Server busy — please try again.' };
+    return { success: false, error: 'Server busy -- please try again.' };
   }
   try {
   var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
@@ -1441,6 +1470,14 @@ function sendPartnerRSVPNotification(payload) {
 // PARTNER REQUEST HANDLER
 // ========================================
 function handlePartnerRequest(payload) {
+  // Server-side required-field validation
+  if (!(payload.name || '').trim()) return;
+  if (!(payload.email || '').trim()) return;
+  if (!(payload.organization || '').trim()) return;
+  if (!(payload.eventTitle || '').trim()) return;
+  // Basic email format check
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(payload.email).trim())) return;
+
   // Dedup guard: use a script lock to prevent concurrent duplicate submissions,
   // then check if an identical request (same email + eventTitle) was already
   // recorded in the last 60 seconds before writing or sending any emails.
@@ -2093,70 +2130,66 @@ function sendPartnerAdminNotification(payload) {
 // HTML PAGE BUILDERS - Apple-level design
 // ========================================
 function buildSuccessPage(name, eventTitle, checkinTime) {
+  var safeName = escapeHtml(name);
+  var safeTitle = escapeHtml(eventTitle);
+  var safeTime = escapeHtml(checkinTime || '');
   return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<title>Check-in | Health Matters Clinic</title>' +
     '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">' +
     '<style>*{box-sizing:border-box}body{-webkit-font-smoothing:antialiased}</style></head>' +
     '<body style="font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:48px 24px;background:linear-gradient(180deg,#f5f3ef 0%,#eae7e2 100%);min-height:100vh;">' +
     '<div style="max-width:380px;margin:0 auto;">' +
-    // Main card
     '<div style="background:white;border-radius:24px;padding:40px 32px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.08);">' +
-    // Logo inside card
     '<img src="' + CONFIG.LOGO_URL + '" alt="Health Matters Clinic" style="width:72px;height:72px;border-radius:18px;margin:0 auto 24px;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.1);">' +
     '<h1 style="color:#1a1a1a;margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.5px;">You\'re Checked In</h1>' +
-    '<p style="color:#666;margin:0 0 28px;font-size:17px;font-weight:400;">Welcome, ' + name + '</p>' +
-    // Event info
+    '<p style="color:#666;margin:0 0 28px;font-size:17px;font-weight:400;">Welcome, ' + safeName + '</p>' +
     '<div style="background:#f8f9fc;padding:20px;border-radius:16px;">' +
-    '<p style="font-weight:600;color:#1a1a1a;font-size:16px;margin:0 0 4px;line-height:1.4;">' + eventTitle + '</p>' +
-    '<p style="color:#233dff;font-size:13px;font-weight:600;margin:0;">' + (checkinTime || '') + '</p></div>' +
+    '<p style="font-weight:600;color:#1a1a1a;font-size:16px;margin:0 0 4px;line-height:1.4;">' + safeTitle + '</p>' +
+    '<p style="color:#233dff;font-size:13px;font-weight:600;margin:0;">' + safeTime + '</p></div>' +
     '</div>' +
-    // Footer
     '<p style="text-align:center;color:#999;font-size:11px;margin-top:24px;font-weight:500;letter-spacing:0.5px;">HEALTH MATTERS CLINIC</p>' +
     '</div></body></html>';
 }
 
 function buildAlreadyCheckedInPage(name, eventTitle) {
+  var safeName = escapeHtml(name);
+  var safeTitle = escapeHtml(eventTitle);
   return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<title>Check-in | Health Matters Clinic</title>' +
     '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">' +
     '<style>*{box-sizing:border-box}body{-webkit-font-smoothing:antialiased}</style></head>' +
     '<body style="font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:48px 24px;background:linear-gradient(180deg,#f5f3ef 0%,#eae7e2 100%);min-height:100vh;">' +
     '<div style="max-width:380px;margin:0 auto;">' +
-    // Main card
     '<div style="background:white;border-radius:24px;padding:40px 32px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.08);">' +
-    // Logo inside card
     '<img src="' + CONFIG.LOGO_URL + '" alt="Health Matters Clinic" style="width:72px;height:72px;border-radius:18px;margin:0 auto 24px;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.1);">' +
     '<h1 style="color:#1a1a1a;margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.5px;">Already Checked In</h1>' +
-    '<p style="color:#666;margin:0 0 28px;font-size:17px;font-weight:400;">Welcome back, ' + name + '</p>' +
-    // Event info
+    '<p style="color:#666;margin:0 0 28px;font-size:17px;font-weight:400;">Welcome back, ' + safeName + '</p>' +
     '<div style="background:#f8f9fc;padding:20px;border-radius:16px;">' +
-    '<p style="font-weight:600;color:#1a1a1a;font-size:16px;margin:0;line-height:1.4;">' + eventTitle + '</p></div>' +
+    '<p style="font-weight:600;color:#1a1a1a;font-size:16px;margin:0;line-height:1.4;">' + safeTitle + '</p></div>' +
     '</div>' +
-    // Footer
     '<p style="text-align:center;color:#999;font-size:11px;margin-top:24px;font-weight:500;letter-spacing:0.5px;">HEALTH MATTERS CLINIC</p>' +
     '</div></body></html>';
 }
 
 function buildEarlyCheckinPage(name, eventTitle, eventDate) {
+  var safeName = escapeHtml(name);
+  var safeTitle = escapeHtml(eventTitle);
+  var safeDate = escapeHtml(eventDate);
   return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<title>Check-in | Health Matters Clinic</title>' +
     '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">' +
     '<style>*{box-sizing:border-box}body{-webkit-font-smoothing:antialiased}</style></head>' +
     '<body style="font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:48px 24px;background:linear-gradient(180deg,#f5f3ef 0%,#eae7e2 100%);min-height:100vh;">' +
     '<div style="max-width:380px;margin:0 auto;">' +
-    // Main card
     '<div style="background:white;border-radius:24px;padding:40px 32px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.08);">' +
-    // Logo inside card
     '<img src="' + CONFIG.LOGO_URL + '" alt="Health Matters Clinic" style="width:72px;height:72px;border-radius:18px;margin:0 auto 24px;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.1);">' +
     '<h1 style="color:#1a1a1a;margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.5px;">Not Yet</h1>' +
-    '<p style="color:#666;margin:0 0 8px;font-size:17px;font-weight:400;">Hi ' + name + '</p>' +
+    '<p style="color:#666;margin:0 0 8px;font-size:17px;font-weight:400;">Hi ' + safeName + '</p>' +
     '<p style="color:#888;margin:0 0 28px;font-size:15px;font-weight:400;">Check-in opens on the day of the event</p>' +
-    // Event info
     '<div style="background:#f8f9fc;padding:20px;border-radius:16px;">' +
-    '<p style="font-weight:600;color:#1a1a1a;font-size:16px;margin:0 0 6px;line-height:1.4;">' + eventTitle + '</p>' +
-    '<p style="color:#233dff;font-size:14px;font-weight:600;margin:0;">' + eventDate + '</p></div>' +
+    '<p style="font-weight:600;color:#1a1a1a;font-size:16px;margin:0 0 6px;line-height:1.4;">' + safeTitle + '</p>' +
+    '<p style="color:#233dff;font-size:14px;font-weight:600;margin:0;">' + safeDate + '</p></div>' +
     '</div>' +
-    // Footer
     '<p style="text-align:center;color:#999;font-size:11px;margin-top:24px;font-weight:500;letter-spacing:0.5px;">HEALTH MATTERS CLINIC</p>' +
     '</div></body></html>';
 }

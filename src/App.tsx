@@ -113,8 +113,20 @@ const sanitizeEvent = (e: any): ClinicEvent | null => {
     description: e.description ? String(e.description) : '',
     lat: typeof e.lat === 'number' ? e.lat : parseFloat(e.lat) || DEFAULT_CENTER[0],
     lng: typeof e.lng === 'number' ? e.lng : parseFloat(e.lng) || DEFAULT_CENTER[1],
-    flyerUrl: e.flyerUrl ? String(e.flyerUrl) : '',
-    websiteUrl: e.websiteUrl ? String(e.websiteUrl) : '',
+    flyerUrl: (() => {
+      const raw = e.flyerUrl ? String(e.flyerUrl) : '';
+      if (!raw) return '';
+      const lower = raw.trim().toLowerCase();
+      if (lower.startsWith('javascript:') || lower.startsWith('vbscript:') || lower.startsWith('data:text/')) return '';
+      return raw;
+    })(),
+    websiteUrl: (() => {
+      const raw = e.websiteUrl ? String(e.websiteUrl) : '';
+      if (!raw) return '';
+      const lower = raw.trim().toLowerCase();
+      if (lower.startsWith('javascript:') || lower.startsWith('vbscript:')) return '';
+      return raw;
+    })(),
     sessions: Array.isArray(e.sessions) ? e.sessions : [],
   };
 };
@@ -770,7 +782,9 @@ const App: React.FC = () => {
   // Post height to parent so Webflow iframe auto-resizes
   useEffect(() => {
     if (window.self === window.top) return;
-    const send = () => window.parent.postMessage({ type: 'efHeight', height: document.documentElement.scrollHeight }, '*');
+    const PARENT_ORIGINS = ['https://www.healthmatters.clinic', 'https://healthmatters.clinic', 'https://teamhmc.github.io'];
+    const parentOrigin = PARENT_ORIGINS.find(o => document.referrer.startsWith(o)) || 'https://www.healthmatters.clinic';
+    const send = () => window.parent.postMessage({ type: 'efHeight', height: document.documentElement.scrollHeight }, parentOrigin);
     send();
     const ro = new ResizeObserver(send);
     ro.observe(document.documentElement);
