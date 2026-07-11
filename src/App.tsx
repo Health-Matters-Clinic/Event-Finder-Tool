@@ -734,10 +734,6 @@ const App: React.FC = () => {
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: eventUrl },
         image: e.flyerUrl || 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
       };
-      // Add performer for known speakers
-      if (e.title.toLowerCase().includes('unstoppable') && e.title.toLowerCase().includes('walk')) {
-        entry.performer = { '@type': 'Person', 'name': 'Issa Rae' };
-      }
       return entry;
     });
 
