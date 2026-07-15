@@ -17,6 +17,17 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        rollupOptions: {
+          output: {
+            // Stable filename prevents 503 window on GitHub Pages CDN during deploy:
+            // a hashed name gets deleted before CDN purges the old index.html reference.
+            entryFileNames: 'assets/index.js',
+            chunkFileNames: 'assets/[name]-[hash].js',
+            assetFileNames: 'assets/[name]-[hash][extname]',
+          }
+        }
       }
     };
 });
