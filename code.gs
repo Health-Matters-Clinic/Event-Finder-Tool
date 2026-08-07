@@ -328,7 +328,7 @@ function doGet(e) {
         + (!isCEU && p.motivation ? 'Motivation: ' + p.motivation + '\n' : '')
         + 'How Heard: ' + (p.howHeard||'') + '\n'
         + 'Submitted: ' + new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-      MailApp.sendEmail({ to: 'education@healthmatters.clinic', subject: trSubject, body: trBody });
+      MailApp.sendEmail({ to: 'training@healthmatters.clinic', subject: trSubject, body: trBody });
     } catch (trErr) {
       Logger.log('training_registration error: ' + trErr.message);
     }
