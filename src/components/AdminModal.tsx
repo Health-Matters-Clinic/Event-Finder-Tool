@@ -76,11 +76,15 @@ const PROGRAM_COLORS: Record<string, string> = {
 const SHARE_BASE_URL = 'https://www.healthmatters.clinic/resources/eventfinder?event=';
 const REQUIRED_EVENT_IDS = ['event-1772064063990', 'event-1773943614235'];
 
-// Get default date (2 weeks from now)
+// Get default date (2 weeks from now), in local time — see todayStr() below
+// for why toISOString() is the wrong tool for a local calendar date.
 const getDefaultDate = () => {
   const date = new Date();
   date.setDate(date.getDate() + 14);
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 };
 
 const emptyEvent: ClinicEvent = {
@@ -106,8 +110,17 @@ const parseEventDate = (dateStr: string): Date => {
   return new Date(dateStr + 'T00:00:00');
 };
 
-// Helper: get today as YYYY-MM-DD
-const todayStr = () => new Date().toISOString().split('T')[0];
+// Helper: get today as YYYY-MM-DD, in local time. toISOString() converts to
+// UTC first, which rolls the date forward a full day for anyone west of UTC
+// (e.g. Pacific) once local time passes UTC midnight minus the offset — an
+// event dated tomorrow was showing a TODAY badge from early evening onward.
+const todayStr = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 const preserveRequiredEvents = (events: ClinicEvent[]) => {
   const byId = new Map(events.map((event) => [event.id, event]));
@@ -1726,7 +1739,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         const fmt = e.target.value as 'in-person' | 'virtual';
                         setEventFormat(fmt);
                         if (fmt === 'virtual') {
-                          setFormData((prev) => ({ ...prev, address: '', city: '', lat: 0, lng: 0 }));
+                          // location isn't directly editable — it's derived from city on save
+                          // (see handleSaveEvent) and was carrying over the old in-person value
+                          // since that fallback only fires when location is still empty.
+                          setFormData((prev) => ({ ...prev, address: '', city: '', location: '', lat: 0, lng: 0 }));
                         }
                       }}
                       className={`${inputCls} appearance-none cursor-pointer`}
