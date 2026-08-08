@@ -38,3 +38,33 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ── Site-standard button hover ──────────────────────────────────────────
+   The buttons on healthmatters.clinic animate by rolling the label up and
+   a duplicate copy in from below. On the main site that motion comes from a
+   Webflow IX2 interaction; here it is pure CSS so it works without one.
+   Button.tsx renders the two label copies. */
+.pill-clip {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  line-height: 1.2;
+  vertical-align: bottom;
+}
+.pill-label {
+  display: block;
+  transition: transform 0.3s ease;
+  white-space: nowrap;
+}
+.pill-label-alt {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: 100%;
+}
+.pill-btn:hover .pill-label {
+  transform: translateY(-100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pill-label { transition: none; }
+}

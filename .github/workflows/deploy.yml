@@ -1,36 +1,65 @@
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [main]
+  # Allows a redeploy from the Actions tab without pushing an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let an in-flight deploy finish rather than cancelling it, but never run two at
+# once. Overlapping Pages deploys are a source of the 503 window this repo has
+# already had to work around with a stable entry bundle filename.
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  # Build and deploy are separate jobs on purpose. When upload-pages-artifact and
+  # deploy-pages run in the same job, deploy-pages can query the artifacts API
+  # before the upload is finalized and fail with "Fetching artifact metadata
+  # failed" / "No artifacts named github-pages were found" even though the
+  # artifact was uploaded. Splitting them makes the artifact a real job boundary.
+  build:
     runs-on: ubuntu-latest
-    
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+          cache: 'npm'
+
       - name: Install dependencies
-        run: npm install
-      
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
       - name: Build
         run: npm run build
-      
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
-      
-      - name: Deploy
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # deploy-pages requires the job to be attached to the github-pages
+    # environment. This block was missing entirely.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
