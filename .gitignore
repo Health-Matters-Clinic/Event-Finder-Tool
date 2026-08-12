@@ -141,3 +141,6 @@ vite.config.ts.timestamp-*
 # build/release artifacts
 *.zip
 
+
+# Local agent worktrees, never part of the deployable tree
+.claude/
