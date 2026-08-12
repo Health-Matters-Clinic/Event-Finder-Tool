@@ -12,56 +12,6 @@ const PartnerModal = lazy(() => import('./components/PartnerModal').then(m => ({
 
 const HMC_SITE_URL = 'https://www.healthmatters.clinic';
 
-/**
- * Site bar shared by every standalone HMC tool.
- *
- * Each tool lives on its own subdomain, so someone who lands here has no route
- * back to healthmatters.clinic. This bar is that route. Both the logo and the
- * labelled link go home, and the bar sits above the app header so it is
- * reachable on mobile without scrolling to the footer. target="_top" keeps it
- * correct when the tool is embedded in the Webflow page inside an iframe.
- */
-const SiteBar: React.FC<{ toolName?: string; lang?: Language }> = ({ toolName, lang = 'en' as Language }) => (
-  <nav aria-label="Site" className="w-full bg-white border-b border-gray-200 z-[210] relative">
-    <div className="flex items-center justify-between gap-3 px-4 py-2 sm:px-6">
-      <div className="flex min-w-0 items-center gap-3">
-        <a
-          href={HMC_SITE_URL}
-          target="_top"
-          className="group flex items-center gap-2.5 rounded-xl px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-[#233dff] focus-visible:ring-offset-2"
-        >
-          <img
-            src="/hmc-logo.png"
-            alt="Health Matters Clinic"
-            width={32}
-            height={32}
-            className="h-8 w-8 flex-shrink-0 rounded-lg object-contain transition-transform duration-200 group-hover:scale-105"
-          />
-          <span aria-hidden="true" className="hidden text-sm font-medium leading-none text-[#1a1a1a] sm:inline">
-            Health Matters Clinic
-          </span>
-        </a>
-        {toolName && (
-          <span className="hidden border-l border-gray-200 pl-3 text-xs font-semibold uppercase tracking-widest text-gray-400 md:inline">
-            {toolName}
-          </span>
-        )}
-      </div>
-      <a
-        href={HMC_SITE_URL}
-        target="_top"
-        className="inline-flex min-h-[40px] flex-shrink-0 items-center gap-1.5 rounded-full border border-[#233dff] px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#233dff] outline-none transition-colors hover:bg-[#233dff] hover:text-white focus-visible:ring-2 focus-visible:ring-[#233dff] focus-visible:ring-offset-2"
-      >
-        <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M19 12H5" />
-          <path d="m12 19-7-7 7-7" />
-        </svg>
-        {lang === 'es' ? 'Volver al sitio' : 'Back to Main Site'}
-      </a>
-    </div>
-  </nav>
-);
-
 declare const L: any;
 
 const PROGRAM_COLORS: { [key: string]: string } = {
@@ -774,7 +724,7 @@ const App: React.FC = () => {
               address: { '@type': 'PostalAddress', streetAddress: e.address, addressLocality: e.city || 'Los Angeles', addressRegion: 'CA', addressCountry: 'US' },
               ...(e.lat && e.lng ? { geo: { '@type': 'GeoCoordinates', latitude: e.lat, longitude: e.lng } } : {}),
             },
-        description: e.description || `${e.title}, free community health event by Health Matters Clinic in Los Angeles County.`,
+        description: e.description || `${e.title}, a wellness event from Health Matters Clinic.`,
         organizer: { '@type': 'Organization', name: 'Health Matters Clinic', url: 'https://www.healthmatters.clinic' },
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: eventUrl },
         image: e.flyerUrl || 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
@@ -826,7 +776,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white" style={{ minHeight: '100%' }}>
-      <SiteBar toolName="Event Finder" lang={lang} />
       <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 z-[200] relative flex items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
         {/* Left: Tool name */}
         <div className="flex min-w-0 items-center gap-4">
@@ -1436,6 +1385,17 @@ const App: React.FC = () => {
           <footer className="p-6 bg-white border-t border-gray-200 text-center shrink-0">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
               &copy; {new Date().getFullYear()} {t.copyright}
+              <span className="mx-2">|</span>
+              {/* Back-navigation for anyone who landed on the standalone subdomain.
+                  It lives in the footer, not a top bar, so the Webflow embed of
+                  this tool does not end up showing a second set of site chrome. */}
+              <a
+                href={HMC_SITE_URL}
+                target="_top"
+                className="text-gray-400 hover:text-[#233dff] transition-colors"
+              >
+                HEALTHMATTERS.CLINIC
+              </a>
               <span className="mx-2">|</span>
               <button
                 onClick={() => setIsAdminOpen(true)}
