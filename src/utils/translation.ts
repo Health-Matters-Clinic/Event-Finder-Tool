@@ -7,6 +7,7 @@ const PROGRAM_TRANSLATIONS: Record<string, string> = {
   'Community Fair': 'Feria comunitaria',
   'Community Wellness': 'Bienestar comunitario',
   'Partner Event': 'Evento de Socio',
+  'Training': 'Capacitacion',
   'Volunteer': 'Voluntario',
 };
 

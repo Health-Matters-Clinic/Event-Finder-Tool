@@ -21,6 +21,7 @@ const PROGRAM_COLORS: { [key: string]: string } = {
   'Community Fair': '#ea580c',
   'Community Wellness': '#db2777',
   'Partner Event': '#0891b2',
+  'Training': '#4338ca',
   'Volunteer': '#f59e0b',
   default: '#4b5563',
 };
@@ -1205,6 +1206,7 @@ const App: React.FC = () => {
                     <option value="Community Fair">{programLabel('Community Fair')}</option>
                     <option value="Community Wellness">{programLabel('Community Wellness')}</option>
                     <option value="Partner Event">{programLabel('Partner Event')}</option>
+                    <option value="Training">{programLabel('Training')}</option>
                     <option value="Volunteer">{programLabel('Volunteer')}</option>
                   </select>
                 </div>

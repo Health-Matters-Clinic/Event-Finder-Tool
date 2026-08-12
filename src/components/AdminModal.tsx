@@ -60,6 +60,7 @@ const PROGRAM_OPTIONS = [
   'Community Fair',
   'Community Wellness',
   'Partner Event',
+  'Training',
   'Volunteer',
 ];
 
@@ -70,6 +71,7 @@ const PROGRAM_COLORS: Record<string, string> = {
   'Community Fair': '#ea580c',
   'Community Wellness': '#db2777',
   'Partner Event': '#0891b2',
+  'Training': '#4338ca',
   'Volunteer': '#f59e0b',
 };
 
