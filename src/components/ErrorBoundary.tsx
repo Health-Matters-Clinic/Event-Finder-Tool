@@ -1,6 +1,6 @@
 import React from 'react';
 
-// @ts-ignore — React class component for error boundary
+// @ts-ignore React class component for error boundary
 export class ErrorBoundary extends (React.Component as any) {
   state = { hasError: false };
 

@@ -67,7 +67,7 @@ export interface RSVPPayload {
   phone?: string;
   email?: string;
 
-  // RSVP preferences (collection only — reminders are handled elsewhere)
+  // RSVP preferences (collection only, reminders are handled elsewhere)
   contact_method?: 'text' | 'email' | 'none';
   sms_consent?: boolean;
 
@@ -85,7 +85,7 @@ export interface RSVPPayload {
   // Session selections
   sessionIds?: string[];
 
-  // T-shirt size (Unstoppable events only — for early registrant tee pickup)
+  // T-shirt size (Unstoppable events only, for early registrant tee pickup)
   tshirtSize?: string;
 
   // Flag: registered before May 2 cutoff, eligible for on-site tee pickup
@@ -94,7 +94,7 @@ export interface RSVPPayload {
   // Group RSVP: number of additional guests (0 = just the registrant)
   guests?: number;
 
-  // Accessibility needs — routed to kayla@healthmatters.clinic
+  // Accessibility needs, routed to kayla@healthmatters.clinic
   accessibilityNeeds?: string;
 
   // For check-in

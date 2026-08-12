@@ -99,7 +99,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
 
     let portalWrite: Promise<boolean> = Promise.resolve(false);
 
-    // Fire-and-forget portal dual-write (Firestore + volunteer matching) — primary success still comes from GAS
+    // Fire-and-forget portal dual-write (Firestore + volunteer matching). Primary success still comes from GAS
     if (payload.action === 'preregister' || !payload.action) {
       portalWrite = fetch(`${PORTAL_API_URL}/api/public/rsvp`, {
         method: 'POST',
@@ -127,7 +127,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       }).then((response) => response.ok).catch(() => false);
     }
 
-    // Primary write: Google Apps Script — writes to Sheet + sends confirmation email
+    // Primary write goes to Google Apps Script, which writes to the Sheet and sends the confirmation email
     try {
       const response = await fetch(buildGasUrl(params));
       if (!response.ok) throw new Error(`Registration failed (${response.status})`);
@@ -263,7 +263,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       return;
     }
 
-    // Email required — it's the only way to deliver the check-in link
+    // Email required, it's the only way to deliver the check-in link
     if (!email) {
       setState('error');
       setErrorMsg(
@@ -481,10 +481,10 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
               <p className="text-xs text-green-700 mt-1">
                 {lang === 'es'
                   ? submittedEmail
-                    ? 'Revisa tu correo — te enviamos tu confirmación con una invitación de calendario adjunta.'
+                    ? 'Revisa tu correo. Te enviamos tu confirmación con una invitación de calendario adjunta.'
                     : 'Todo listo. Te contactaremos por texto con los detalles del evento.'
                   : submittedEmail
-                  ? 'Check your email — we sent your confirmation with a calendar invite attached.'
+                  ? 'Check your email. We sent your confirmation with a calendar invite attached.'
                   : "You're all set! We'll reach out by text with event details."}
               </p>
               {emailMayBeDelayed && (
@@ -607,7 +607,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                 />
               )}
 
-              {/* Contact preference — can pick both */}
+              {/* Contact preference, can pick both */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                   {lang === 'es' ? 'Contacto:' : 'Contact:'}
@@ -651,7 +651,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                 </span>
               </label>
 
-              {/* T-shirt size — Unstoppable events, early registrants only (before May 2) */}
+              {/* T-shirt size for Unstoppable events, early registrants only (before May 2) */}
               {isUnstoppableEvent && isEarlyRegistrant && (
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
@@ -674,14 +674,14 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                   {isEarlyRegistrant && (
                     <p className="text-[10px] text-[#233dff] font-semibold mt-1">
                       {lang === 'es'
-                        ? 'Registrado antes del 2 de mayo — elegible para recoger camiseta en el evento'
-                        : 'Registered before May 2 — eligible for on-site tee pickup'}
+                        ? 'Registrado antes del 2 de mayo, elegible para recoger camiseta en el evento'
+                        : 'Registered before May 2, eligible for on-site tee pickup'}
                     </p>
                   )}
                 </div>
               )}
 
-              {/* Needs — optional, used only to help HMC staff support you */}
+              {/* Needs, optional, used only to help HMC staff support you */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                   {lang === 'es' ? 'Estoy aquí para (opcional):' : "I'm here for (optional):"}

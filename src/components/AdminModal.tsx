@@ -76,7 +76,7 @@ const PROGRAM_COLORS: Record<string, string> = {
 const SHARE_BASE_URL = 'https://www.healthmatters.clinic/resources/eventfinder?event=';
 const REQUIRED_EVENT_IDS = ['event-1772064063990', 'event-1773943614235'];
 
-// Get default date (2 weeks from now), in local time — see todayStr() below
+// Get default date (2 weeks from now), in local time. See todayStr() below
 // for why toISOString() is the wrong tool for a local calendar date.
 const getDefaultDate = () => {
   const date = new Date();
@@ -112,7 +112,7 @@ const parseEventDate = (dateStr: string): Date => {
 
 // Helper: get today as YYYY-MM-DD, in local time. toISOString() converts to
 // UTC first, which rolls the date forward a full day for anyone west of UTC
-// (e.g. Pacific) once local time passes UTC midnight minus the offset — an
+// (e.g. Pacific) once local time passes UTC midnight minus the offset, an
 // event dated tomorrow was showing a TODAY badge from early evening onward.
 const todayStr = () => {
   const d = new Date();
@@ -266,7 +266,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         setPartnerRequests(data.requests);
       }
     } catch {
-      // silently ignore — badge just won't show
+      // silently ignore, the badge just won't show
     }
   };
 
@@ -711,7 +711,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       } else if (data.needsSetup) {
         setPasscodeError(lang === 'es' ? 'No hay codigo configurado. Usa "Restablecer Codigo" para crear uno.' : 'No passcode set. Use "Reset Passcode" to create one.');
       } else if (data.success === true && 'events' in data) {
-        setPasscodeError(lang === 'es' ? 'Error del servidor — contacta al admin' : 'Server auth not configured. Redeploy the Apps Script.');
+        setPasscodeError(lang === 'es' ? 'Error del servidor. Contacta al administrador.' : 'Server auth not configured. Redeploy the Apps Script.');
       } else {
         setPasscodeError(lang === 'es' ? 'Codigo incorrecto' : 'Incorrect passcode');
       }
@@ -1238,7 +1238,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center transition-all duration-300">
                   <div className="text-2xl font-bold text-[#233dff] tabular-nums">{stats.upcoming}</div>
                   <div className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mt-0.5">
-                    {lang === 'es' ? 'Proximos' : 'Upcoming'}
+                    {lang === 'es' ? 'Próximos' : 'Upcoming'}
                   </div>
                 </div>
                 {/* Past */}
@@ -1455,7 +1455,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={lang === 'es' ? 'Buscar eventos por titulo...' : 'Search events by title...'}
+                  placeholder={lang === 'es' ? 'Buscar eventos por título...' : 'Search events by title...'}
                   className="w-full bg-gray-50 border border-gray-200 pl-11 pr-4 py-2.5 rounded-xl text-sm font-medium focus:border-[#233dff] focus:bg-white outline-none transition-all"
                 />
                 {searchQuery && (
@@ -1596,13 +1596,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-[#1a1a1a] truncate">
-                        {formData.title || (lang === 'es' ? 'Titulo del evento' : 'Event title')}
+                        {formData.title || (lang === 'es' ? 'Título del evento' : 'Event title')}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
                         {formData.dateDisplay || formData.date || '--'} {formData.time ? `| ${formData.time}` : ''}
                       </div>
                       <div className="text-xs text-gray-400 mt-0.5">
-                        {formData.city || formData.address || (lang === 'es' ? 'Ubicacion' : 'Location')}
+                        {formData.city || formData.address || (lang === 'es' ? 'Ubicación' : 'Location')}
                       </div>
                       <div className="flex items-center gap-1.5 mt-2">
                         {formData.program && (
@@ -1633,12 +1633,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </div>
 
               {/* Section: Basic Info */}
-              <FormSection title={lang === 'es' ? 'Informacion Basica' : 'Basic Info'}>
+              <FormSection title={lang === 'es' ? 'Información Básica' : 'Basic Info'}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Title */}
                   <div className="sm:col-span-2">
                     <label className={labelCls}>
-                      {lang === 'es' ? 'Titulo' : 'Title'} *
+                      {lang === 'es' ? 'Título' : 'Title'} *
                     </label>
                     <input
                       name="title"
@@ -1658,7 +1658,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       name="title_es"
                       value={formData.title_es || ''}
                       onChange={handleFormChange}
-                      placeholder={lang === 'es' ? 'Titulo traducido' : 'Spanish title for ES toggle'}
+                      placeholder={lang === 'es' ? 'Título traducido' : 'Spanish title for ES toggle'}
                       className={inputCls}
                     />
                   </div>
@@ -1739,7 +1739,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         const fmt = e.target.value as 'in-person' | 'virtual';
                         setEventFormat(fmt);
                         if (fmt === 'virtual') {
-                          // location isn't directly editable — it's derived from city on save
+                          // location isn't directly editable, it's derived from city on save
                           // (see handleSaveEvent) and was carrying over the old in-person value
                           // since that fallback only fires when location is still empty.
                           setFormData((prev) => ({ ...prev, address: '', city: '', location: '', lat: 0, lng: 0 }));
@@ -1756,7 +1756,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
               {/* Section: Location */}
               {eventFormat === 'in-person' && (
-                <FormSection title={lang === 'es' ? 'Ubicacion' : 'Location'}>
+                <FormSection title={lang === 'es' ? 'Ubicación' : 'Location'}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* City */}
                     <div>
@@ -1775,7 +1775,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     {/* Address */}
                     <div>
                       <label className={labelCls}>
-                        {lang === 'es' ? 'Direccion' : 'Address'} *
+                        {lang === 'es' ? 'Dirección' : 'Address'} *
                       </label>
                       <input
                         name="address"
@@ -1827,7 +1827,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   {/* Description */}
                   <div>
                     <label className={labelCls}>
-                      {lang === 'es' ? 'Descripcion' : 'Description'} *
+                      {lang === 'es' ? 'Descripción' : 'Description'} *
                     </label>
                     <textarea
                       name="description"
@@ -1849,7 +1849,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       value={formData.description_es || ''}
                       onChange={handleFormChange}
                       rows={3}
-                      placeholder={lang === 'es' ? 'Descripcion traducida' : 'Spanish description for ES toggle'}
+                      placeholder={lang === 'es' ? 'Descripción traducida' : 'Spanish description for ES toggle'}
                       className={`${inputCls} resize-none`}
                     />
                   </div>
@@ -1895,7 +1895,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                                 const ctx = canvas.getContext('2d');
                                 ctx?.drawImage(img, 0, 0, width, height);
                                 const base64 = canvas.toDataURL('image/jpeg', 0.8);
-                                // Upload to portal — get back a permanent URL instead of storing base64 in sheet
+                                // Upload to the portal to get back a permanent URL instead of storing base64 in the sheet
                                 try {
                                   const res = await fetch(`${PORTAL_API_URL}/api/public/upload-flyer`, {
                                     method: 'POST',
@@ -2023,7 +2023,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-gray-400 italic">
                       {sessions.length === 0
-                        ? lang === 'es' ? 'Sin sesiones — usa esto para eventos con multiples actividades' : 'No sessions -- use this for events with multiple activities'
+                        ? lang === 'es' ? 'Sin sesiones. Usa esto para eventos con múltiples actividades.' : 'No sessions. Use this for events with multiple activities.'
                         : `${sessions.length} ${lang === 'es' ? 'sesiones' : 'sessions'}`}
                     </p>
                     <button
@@ -2031,14 +2031,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       onClick={() => setSessions(prev => [...prev, { id: `s-${Date.now()}`, title: '', time: '', capacity: undefined, instructor: '', description: '' }])}
                       className="text-xs font-semibold text-[#233dff] hover:underline"
                     >
-                      + {lang === 'es' ? 'Agregar Sesion' : 'Add Session'}
+                      + {lang === 'es' ? 'Agregar Sesión' : 'Add Session'}
                     </button>
                   </div>
                   {sessions.map((session, idx) => (
                     <div key={session.id} className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                          {lang === 'es' ? 'Sesion' : 'Session'} {idx + 1}
+                          {lang === 'es' ? 'Sesión' : 'Session'} {idx + 1}
                         </span>
                         <button
                           type="button"
@@ -2052,7 +2052,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         <input
                           value={session.title}
                           onChange={e => setSessions(prev => prev.map(s => s.id === session.id ? { ...s, title: e.target.value } : s))}
-                          placeholder={lang === 'es' ? 'Titulo (ej. Clase de Baile)' : 'Title (e.g. Dance Class)'}
+                          placeholder={lang === 'es' ? 'Título (ej. Clase de Baile)' : 'Title (e.g. Dance Class)'}
                           className="col-span-2 bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] outline-none"
                         />
                         <input
@@ -2077,7 +2077,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         <input
                           value={session.location || ''}
                           onChange={e => setSessions(prev => prev.map(s => s.id === session.id ? { ...s, location: e.target.value } : s))}
-                          placeholder={lang === 'es' ? 'Ubicacion (opc.)' : 'Room/area (opt.)'}
+                          placeholder={lang === 'es' ? 'Ubicación (opc.)' : 'Room/area (opt.)'}
                           className="bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] outline-none"
                         />
                       </div>
@@ -2085,7 +2085,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         value={session.description || ''}
                         onChange={e => setSessions(prev => prev.map(s => s.id === session.id ? { ...s, description: e.target.value } : s))}
                         rows={2}
-                        placeholder={lang === 'es' ? 'Descripcion (opc.)' : 'Description (opt.)'}
+                        placeholder={lang === 'es' ? 'Descripción (opc.)' : 'Description (opt.)'}
                         className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm focus:border-[#233dff] outline-none resize-none"
                       />
                     </div>
@@ -2448,7 +2448,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
                   {/* Helper text */}
                   <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700 leading-relaxed space-y-1">
-                    <p><strong>Direct image URL required.</strong> The URL must point directly to a PNG, JPG, GIF, or WebP image file — not a webpage.</p>
+                    <p><strong>Direct image URL required.</strong> The URL must point directly to a PNG, JPG, GIF, or WebP image file, not a webpage.</p>
                     <p><strong>Canva:</strong> Do NOT use "Share → Copy link" (that gives a canva.link URL which will not load). Instead: Share → Download → PNG, then upload the file to Google Drive.</p>
                     <p><strong>Google Drive:</strong> Upload your image, right-click → Share → Anyone with the link. Copy the file ID from the URL and use: <code>https://drive.google.com/uc?export=view&amp;id=FILE_ID</code></p>
                     <p><strong>Dropbox:</strong> Share link and change <code>dl=0</code> to <code>raw=1</code> at the end of the URL.</p>
@@ -2491,7 +2491,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   <div>
                     <label className={labelCls}>
                       MOBILE IMAGE URL
-                      <span className="ml-2 font-normal normal-case text-gray-400">320 x 50 pixels (optional — desktop image will scale if not provided)</span>
+                      <span className="ml-2 font-normal normal-case text-gray-400">320 x 50 pixels (optional, the desktop image will scale if not provided)</span>
                     </label>
                     <input
                       type="url"
@@ -2513,7 +2513,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     )}
                   </div>
 
-                  {/* Link URL — smart toggle */}
+                  {/* Link URL, smart toggle */}
                   <div className="space-y-2">
                     <label className={labelCls}>Link URL</label>
                     {/* Mode radio */}
@@ -2580,7 +2580,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                               const url = `https://eventfinder.healthmatters.clinic?event=${encodeURIComponent(ev.id)}`;
                               return (
                                 <option key={ev.id} value={url}>
-                                  {ev.title} — {ev.dateDisplay || ev.date}
+                                  {ev.title}, {ev.dateDisplay || ev.date}
                                 </option>
                               );
                             })}
@@ -2696,7 +2696,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         )}
                         <span className="absolute top-0.5 left-0.5 text-[8px] font-bold bg-gray-700/70 text-white px-1 rounded leading-tight">D</span>
                       </div>
-                      {/* Mobile thumbnail — only shown if mobileImageUrl exists */}
+                      {/* Mobile thumbnail, only shown if mobileImageUrl exists */}
                       {ad.mobileImageUrl && (
                         <div className="relative w-16 h-5 rounded overflow-hidden bg-purple-50 border border-purple-200 flex items-center justify-center">
                           <img

@@ -10,23 +10,56 @@ const RSVPModal = lazy(() => import('./components/RSVPModal').then(m => ({ defau
 const AdminModal = lazy(() => import('./components/AdminModal').then(m => ({ default: m.AdminModal })));
 const PartnerModal = lazy(() => import('./components/PartnerModal').then(m => ({ default: m.PartnerModal })));
 
-// HMC Logo Component with hover animation
-const HMC_LOGO_URL = 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png';
+const HMC_SITE_URL = 'https://www.healthmatters.clinic';
 
-const HMCLogo: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <a
-    href="https://www.healthmatters.clinic"
-    target="_blank"
-    rel="noopener noreferrer"
-    className={`group flex items-center justify-center transition-transform duration-300 hover:scale-110 ${className}`}
-    title="Health Matters Clinic"
-  >
-    <img
-      src={HMC_LOGO_URL}
-      alt="Health Matters Clinic"
-      className="h-10 w-10 object-contain transition-all duration-300 group-hover:drop-shadow-[0_4px_8px_rgba(35,61,255,0.3)]"
-    />
-  </a>
+/**
+ * Site bar shared by every standalone HMC tool.
+ *
+ * Each tool lives on its own subdomain, so someone who lands here has no route
+ * back to healthmatters.clinic. This bar is that route. Both the logo and the
+ * labelled link go home, and the bar sits above the app header so it is
+ * reachable on mobile without scrolling to the footer. target="_top" keeps it
+ * correct when the tool is embedded in the Webflow page inside an iframe.
+ */
+const SiteBar: React.FC<{ toolName?: string; lang?: Language }> = ({ toolName, lang = 'en' as Language }) => (
+  <nav aria-label="Site" className="w-full bg-white border-b border-gray-200 z-[210] relative">
+    <div className="flex items-center justify-between gap-3 px-4 py-2 sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
+        <a
+          href={HMC_SITE_URL}
+          target="_top"
+          className="group flex items-center gap-2.5 rounded-xl px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-[#233dff] focus-visible:ring-offset-2"
+        >
+          <img
+            src="/hmc-logo.png"
+            alt="Health Matters Clinic"
+            width={32}
+            height={32}
+            className="h-8 w-8 flex-shrink-0 rounded-lg object-contain transition-transform duration-200 group-hover:scale-105"
+          />
+          <span aria-hidden="true" className="hidden text-sm font-medium leading-none text-[#1a1a1a] sm:inline">
+            Health Matters Clinic
+          </span>
+        </a>
+        {toolName && (
+          <span className="hidden border-l border-gray-200 pl-3 text-xs font-semibold uppercase tracking-widest text-gray-400 md:inline">
+            {toolName}
+          </span>
+        )}
+      </div>
+      <a
+        href={HMC_SITE_URL}
+        target="_top"
+        className="inline-flex min-h-[40px] flex-shrink-0 items-center gap-1.5 rounded-full border border-[#233dff] px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#233dff] outline-none transition-colors hover:bg-[#233dff] hover:text-white focus-visible:ring-2 focus-visible:ring-[#233dff] focus-visible:ring-offset-2"
+      >
+        <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 12H5" />
+          <path d="m12 19-7-7 7-7" />
+        </svg>
+        {lang === 'es' ? 'Volver al sitio' : 'Back to Main Site'}
+      </a>
+    </div>
+  </nav>
 );
 
 declare const L: any;
@@ -133,7 +166,7 @@ const sanitizeEvent = (e: any): ClinicEvent | null => {
 
 const sanitizeEvents = (raw: any[]): ClinicEvent[] => {
   const events = raw.map(sanitizeEvent).filter((e): e is ClinicEvent => e !== null);
-  // Deduplicate by title+date — prefer Eventbrite IDs (event-XXXXXX) over others
+  // Deduplicate by title+date, preferring Eventbrite IDs (event-XXXXXX) over others
   const isEbId = (id: string) => /^event-\d+$/.test(id || '');
   const seen = new Map<string, number>();
   const deduped: ClinicEvent[] = [];
@@ -175,7 +208,7 @@ const mergeWithBundledEvents = (raw: any[]): ClinicEvent[] => {
     const existing = byId.get(id) || fallback;
     if (existing) {
       const merged = mergeEventData(existing, { ...existing, ...REQUIRED_EVENT_OVERRIDES[id], id } as ClinicEvent);
-      // Force HMC RSVP modal — these events use HMC registration, not external links
+      // Force HMC RSVP modal, these events use HMC registration, not external links
       merged.websiteUrl = '';
       byId.set(id, merged);
     }
@@ -359,7 +392,7 @@ const App: React.FC = () => {
         return false;
       };
 
-      // Primary: portal API — proxies GAS server-side (GAS is CORS-blocked from browser)
+      // Primary path is the portal API, which proxies GAS server-side (GAS is CORS-blocked from the browser)
       try {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 12000);
@@ -557,7 +590,7 @@ const App: React.FC = () => {
     markersRef.current = {};
 
     filteredEvents.forEach((event) => {
-      // Skip virtual/online events and events with invalid coordinates — no map pin
+      // Skip virtual/online events and events with invalid coordinates, no map pin
       const addrLower = (event.address || '').toLowerCase();
       const isVirtual = !event.address || addrLower.includes('online') || addrLower.includes('virtual') || addrLower.includes('zoom');
       if (isVirtual || (event.lat === 0 && event.lng === 0)) return;
@@ -770,12 +803,12 @@ const App: React.FC = () => {
       const url = new URL(window.location.href);
       url.searchParams.set('event', selectedEvent.id);
       window.history.pushState({}, '', url.toString());
-      document.title = `${selectedEvent.title}, Free Event in ${selectedEvent.city || 'Los Angeles'} | Health Matters Clinic`;
+      document.title = `${selectedEvent.title} | Health Matters Clinic Event Finder`;
     } else {
       const url = new URL(window.location.href);
       url.searchParams.delete('event');
       window.history.replaceState({}, '', url.toString());
-      document.title = 'Free Health & Wellness Events in Los Angeles | Health Matters Clinic Event Finder';
+      document.title = 'Event Finder | Wellness Events, Workshops & Training | Health Matters Clinic';
     }
   }, [selectedEvent]);
 
@@ -793,15 +826,15 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col bg-[#f5f3ef] font-['Inter'] selection:bg-[#233dff] selection:text-white" style={{ minHeight: '100%' }}>
+      <SiteBar toolName="Event Finder" lang={lang} />
       <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 z-[200] relative flex items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-        {/* Left: Logo */}
-        <div className="flex items-center gap-4">
-          <HMCLogo />
-          <div className="hidden sm:block">
-            <h1 className="text-xl font-medium text-[#1a1a1a] tracking-normal leading-none">
+        {/* Left: Tool name */}
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="min-w-0">
+            <h1 className="truncate text-lg sm:text-xl font-medium text-[#1a1a1a] tracking-normal leading-none">
               Event Finder
             </h1>
-            <p className="text-[10px] text-gray-500 font-semibold tracking-[0.02em]">{t.app_subtitle}</p>
+            <p className="hidden sm:block text-[10px] text-gray-500 font-semibold tracking-[0.02em]">{t.app_subtitle}</p>
           </div>
         </div>
 
@@ -1016,7 +1049,7 @@ const App: React.FC = () => {
                     rel="noopener noreferrer"
                     className="text-sm font-semibold text-[#233dff] hover:underline inline-flex items-center gap-1.5"
                   >
-                    {lang === 'es' ? 'Mas Informacion' : 'More Info'}
+                    {lang === 'es' ? 'Más Información' : 'More Info'}
                   </a>
                 )}
               </div>
@@ -1168,7 +1201,7 @@ const App: React.FC = () => {
                 <div className="relative group">
                   <input
                     type="text"
-                    placeholder={lang === 'es' ? 'Buscar ubicacion...' : 'Search location...'}
+                    placeholder={lang === 'es' ? 'Buscar ubicación...' : 'Search location...'}
                     value={locationSearch}
                     onChange={(e) => setLocationSearch(e.target.value)}
                     className="w-full bg-white border-[1.5px] border-solid border-gray-200 px-4 py-3 rounded-xl text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all pl-11"
@@ -1263,7 +1296,9 @@ const App: React.FC = () => {
 
           <div className="p-4 px-6 border-b border-gray-200 flex justify-between items-center bg-white">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              {t.showing_events(filteredEvents.length)}
+              {(filters.month || filters.program || locationSearch)
+                ? t.filtered_results
+                : filters.showPast ? t.past : t.upcoming}
             </p>
             {(filters.month || filters.program || locationSearch) && (
               <button
@@ -1444,7 +1479,7 @@ const App: React.FC = () => {
           <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50">
             <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center">
               <img
-                src={HMC_LOGO_URL}
+                src="/hmc-logo.png"
                 alt="Health Matters Clinic"
                 className="w-14 h-14 rounded-xl mx-auto mb-4"
               />
@@ -1473,7 +1508,7 @@ const App: React.FC = () => {
               {checkinResult.state === 'notyet' && (
                 <>
                   <div className="text-3xl font-black text-[#233dff] mb-2">Not Yet!</div>
-                  <p className="text-gray-600 text-sm mt-1">Check-in opens the day before your event. Your spot is confirmed — we'll see you there!</p>
+                  <p className="text-gray-600 text-sm mt-1">Check-in opens the day before your event. Your spot is confirmed, we will see you there.</p>
                   {checkinResult.eventTitle && <p className="text-gray-400 text-xs mt-2">{checkinResult.eventTitle}</p>}
                   <button onClick={() => setCheckinResult(null)} className="mt-6 bg-[#233dff] text-white font-bold px-8 py-3 rounded-full hover:bg-[#1a2fd0] transition-colors">Got it</button>
                 </>

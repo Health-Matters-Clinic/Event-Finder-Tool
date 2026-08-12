@@ -41,7 +41,7 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
           const next = (i + step) % activeBanners.length;
           if (!erroredIndices.has(next)) return next;
         }
-        return i; // all errored — stay
+        return i; // all errored, stay
       });
       setVisible(true);
     }, 300);

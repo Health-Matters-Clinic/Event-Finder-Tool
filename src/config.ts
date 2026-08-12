@@ -4,14 +4,14 @@
 export interface AdBanner {
   id: string;
   imageUrl: string;         // Desktop: 728×90 pixels (leaderboard)
-  mobileImageUrl?: string;  // Mobile: 320×50 pixels (optional — falls back to imageUrl scaled)
+  mobileImageUrl?: string;  // Mobile 320x50 pixels (optional, falls back to imageUrl scaled)
   linkUrl: string;          // Where clicking takes you
   altText: string;          // Accessibility + display fallback
   isActive: boolean;
   order?: number;
 }
 
-// Default empty — banners are fetched dynamically from Google Sheet
+// Default empty, banners are fetched dynamically from the Google Sheet
 export const AD_BANNERS: AdBanner[] = [];
 
 // Map a raw GAS ad row to the AdBanner shape, filtering inactive ones.
@@ -31,7 +31,7 @@ function mapActiveAds(ads: any[]): AdBanner[] {
 }
 
 // Fetch active ad banners.
-// Primary: portal API proxy — fetches GAS server-side (GAS 302-redirects, which browser
+// Primary path is the portal API proxy, which fetches GAS server-side (GAS 302-redirects, which browser
 // fetch() can fail to follow in iframes/Safari, silently returning no ads).
 // Fallback: direct GAS call, mirroring how events are loaded.
 export async function fetchAdBanners(): Promise<AdBanner[]> {

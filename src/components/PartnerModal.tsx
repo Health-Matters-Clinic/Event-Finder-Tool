@@ -56,14 +56,14 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
     });
 
     try {
-      // GAS always throws a CORS error even on success — use no-cors to bypass.
+      // GAS always throws a CORS error even on success, so use no-cors to bypass.
       // The browser sends the request without reading the response, so GAS receives
       // and processes it normally. Show success optimistically after fetch resolves.
       await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`, {
         method: 'GET',
         mode: 'no-cors',
       });
-      // Can't read the response body with no-cors — optimistically show success
+      // Can't read the response body with no-cors, so optimistically show success
       setSubmitted(true);
     } catch {
       // no-cors can still fail on genuine network errors (offline, DNS failure)
@@ -221,7 +221,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                   value={formData.location}
                   onChange={handleChange}
                   required
-                  placeholder={lang === 'es' ? 'Direccion completa del evento' : 'Full event address'}
+                  placeholder={lang === 'es' ? 'Dirección completa del evento' : 'Full event address'}
                   className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
                 />
                 <p className="text-[9px] text-gray-400 mt-1">
@@ -243,7 +243,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                 />
                 <p className="text-[9px] text-gray-400 mt-1">
                   {lang === 'es'
-                    ? 'Suba su flyer a Google Drive, Dropbox o Canva y pegue el enlace publico. Las notificaciones de RSVP estan disponibles con una cuenta de socio HMC.'
+                    ? 'Suba su flyer a Google Drive, Dropbox o Canva y pegue el enlace público. Las notificaciones de RSVP están disponibles con una cuenta de socio HMC gratuita.'
                     : 'Upload your flyer to Google Drive, Dropbox, or Canva and paste the public link. RSVP notifications are available with a free HMC Partner account.'}
                 </p>
               </div>

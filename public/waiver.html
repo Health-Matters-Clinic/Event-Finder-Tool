@@ -595,7 +595,7 @@
       <h1 id="formEventName">MOVE: Live Unstoppable Walk/Run</h1>
       <div class="header-meta" id="formEventMeta">
         Curtis Tucker Center for Community Wellness<br>
-        Inglewood, CA &nbsp;|&nbsp; May 9, 2026 &nbsp;|&nbsp; 8:00 AM – 10:00 AM<br>
+        Inglewood, CA &nbsp;|&nbsp; May 9, 2026 &nbsp;|&nbsp; 8:00 AM - 10:00 AM<br>
         Coordinator: Health Matters Clinic
       </div>
     </div>
@@ -818,9 +818,9 @@ var CHECKIN_TOKEN  = _urlParams.get('checkin') || '';
 var EVENT_ID       = _urlParams.get('event')   || '';
 
 var EVENT_INFO = {
-  'event-1772063101013': { name: 'MOVE: Live Unstoppable Walk/Run',   date: 'May 9, 2026',  venue: 'Curtis Tucker Center for Community Wellness', address: 'Inglewood, CA', time: '8:00 AM – 10:00 AM' },
-  'event-1772064063990': { name: 'HEAL: Unstoppable Wellness Meetup', date: 'May 20, 2026', venue: 'Curtis Tucker Center for Community Wellness', address: 'Inglewood, CA', time: '5:45 PM – 7:15 PM' },
-  'event-1773943614235': { name: 'TRANSFORM: Unstoppable Experience', date: 'May 27, 2026', venue: 'Virtual on Zoom',                             address: '',             time: '7:00 PM – 8:00 PM' }
+  'event-1772063101013': { name: 'MOVE: Live Unstoppable Walk/Run',   date: 'May 9, 2026',  venue: 'Curtis Tucker Center for Community Wellness', address: 'Inglewood, CA', time: '8:00 AM - 10:00 AM' },
+  'event-1772064063990': { name: 'HEAL: Unstoppable Wellness Meetup', date: 'May 20, 2026', venue: 'Curtis Tucker Center for Community Wellness', address: 'Inglewood, CA', time: '5:45 PM - 7:15 PM' },
+  'event-1773943614235': { name: 'TRANSFORM: Unstoppable Experience', date: 'May 27, 2026', venue: 'Virtual on Zoom',                             address: '',             time: '7:00 PM - 8:00 PM' }
 };
 var _eventInfo = EVENT_INFO[EVENT_ID] || EVENT_INFO['event-1772063101013'];
 var EVENT_NAME = _eventInfo.name;
@@ -844,7 +844,7 @@ if (NO_WAIVER_EVENTS.indexOf(EVENT_ID) !== -1 && CHECKIN_TOKEN) {
   });
 }
 
-// Per-event check-in windows: 7:15 AM – 11:00 AM PDT on event day
+// Per-event check-in windows run 7:15 AM to 11:00 AM PDT on event day
 // PDT = UTC-7, so 7:15 AM PDT = 14:15 UTC, 11:00 AM PDT = 18:00 UTC
 var EVENT_GATES = {
   'event-1772063101013': { open: '2026-05-09T14:15:00Z', close: '2026-05-09T18:00:00Z', label: 'May 9',  openLabel: '7:15 AM' },
@@ -1057,7 +1057,7 @@ function validateMinor() {
 }
 
 // =============================================
-// BACKGROUND GAS SUBMIT — retry + localStorage backup
+// BACKGROUND GAS SUBMIT, retry plus localStorage backup
 // =============================================
 function gasSubmitWithRetry(payload, backupData, attempt) {
   attempt = attempt || 1;
@@ -1077,7 +1077,7 @@ function gasSubmitWithRetry(payload, backupData, attempt) {
           gasSubmitWithRetry(payload, backupData, attempt + 1);
         }, delay);
       } else {
-        // All 3 attempts exhausted — save to localStorage
+        // All 3 attempts exhausted, save to localStorage
         console.error('All GAS submit attempts failed. Saving to localStorage.');
         try {
           var existing = JSON.parse(localStorage.getItem('hmc_waiver_backup') || '[]');

@@ -14,7 +14,7 @@ export const Button: React.FC<ButtonProps> = ({
   showDot = true,
   ...props
 }) => {
-  // Base styles — font-normal text-base leading-[1.2] per design spec
+  // Base styles, font-normal text-base leading-[1.2] per design spec
   const baseStyles =
     'pill-btn inline-flex items-center gap-2.5 px-6 py-3 rounded-full font-normal text-base leading-[1.2] transition-all duration-200 active:transform active:scale-95';
 
