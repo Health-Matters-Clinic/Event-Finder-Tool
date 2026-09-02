@@ -3,7 +3,7 @@ import { EVENTS, I18N } from './constants';
 import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, STORAGE_KEYS, fetchAdBanners, AdBanner } from './config';
 import { ClinicEvent, Language } from './types';
 import { Button } from './components/Button';
-import { translateEventTitle, translateProgram } from './utils/translation';
+import { translateDescription, translateEventTitle, translateProgram } from './utils/translation';
 import AdBannerComponent from './components/AdBanner';
 
 const RSVPModal = lazy(() => import('./components/RSVPModal').then(m => ({ default: m.RSVPModal })));
@@ -953,6 +953,21 @@ const App: React.FC = () => {
                       className="w-full rounded-xl border border-gray-200 shadow-sm max-h-[45vw] sm:max-h-none object-cover object-top"
                       onError={(e) => (e.currentTarget.style.display = 'none')}
                     />
+                  </div>
+                )}
+                {/* The description was fetched, written into the JSON-LD schema and the
+                    calendar export, and never shown to the reader. Rendered here in the
+                    modal's own label + paragraph pattern rather than anything new, so it
+                    matches When and Where exactly. Absent when empty: a placeholder like
+                    "details coming soon" on a fully described event reads as broken. */}
+                {selectedEvent.description && selectedEvent.description.trim() && (
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                      {lang === 'es' ? 'Descripcion' : 'Description'}
+                    </label>
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                      {translateDescription(selectedEvent.description, lang, selectedEvent)}
+                    </p>
                   </div>
                 )}
                 <div>
