@@ -265,12 +265,25 @@ const mergeWithBundledEvents = (raw: any[]): ClinicEvent[] => {
   return sanitizeEvents(Array.from(byId.values()));
 };
 
+/** "8:00 A.M." and "8:00 AM" are the same time; only one of them used to parse. */
+const normalizeMeridiem = (v: string): string =>
+  String(v || '').replace(/([AP])\.\s*M\./gi, '$1M').replace(/\u00a0/g, ' ');
+
+/**
+ * Clock time as HH:MM:SS, or '' when the string cannot be read.
+ *
+ * This used to return '08:00:00' for anything it could not parse, so an event
+ * written "12PM - 2PM" was published to Google as starting at 8 in the morning.
+ * Minutes are optional now, A.M./P.M. is accepted, and an unreadable value
+ * returns nothing so the caller can fall back to a bare date instead of
+ * inventing an hour.
+ */
 const parseTimeToISO = (timeStr: string): string => {
-  if (!timeStr) return '08:00:00';
-  const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-  if (!match) return '08:00:00';
+  const first = normalizeMeridiem(timeStr).split(/[-–]/)[0].trim();
+  const match = first.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (!match) return '';
   let h = parseInt(match[1], 10);
-  const m = match[2];
+  const m = match[2] || '00';
   const ampm = match[3].toUpperCase();
   if (ampm === 'PM' && h !== 12) h += 12;
   if (ampm === 'AM' && h === 12) h = 0;
@@ -279,7 +292,7 @@ const parseTimeToISO = (timeStr: string): string => {
 
 /** Second clock time in a range like "12:00 PM - 4:00 PM"; empty when there is none. */
 const endTimeOf = (timeStr: string): string => {
-  const all = String(timeStr || '').match(/\d{1,2}:\d{2}\s*(?:AM|PM)/gi);
+  const all = normalizeMeridiem(timeStr).match(/\d{1,2}(?::\d{2})?\s*(?:AM|PM)/gi);
   return all && all.length > 1 ? parseTimeToISO(all[all.length - 1]) : '';
 };
 
@@ -847,8 +860,14 @@ const App: React.FC = () => {
         // answer. endDate is emitted only when the event actually states an end
         // time: it used to be the bare date against a timestamped startDate, so
         // an evening event declared an end before its own start.
-        startDate: e.time ? `${e.date}T${parseTimeToISO(e.time)}${pacificOffset(e.date)}` : e.date,
-        ...(isMultiDay(e)
+        // A bare date when the time cannot be read. Honest about an unknown hour,
+        // and still valid schema.org; a made-up 08:00 is a claim, not an absence.
+        startDate: parseTimeToISO(e.time)
+          ? `${e.date}T${parseTimeToISO(e.time)}${pacificOffset(e.date)}`
+          : e.date,
+        ...(!parseTimeToISO(e.time)
+          ? (isMultiDay(e) ? { endDate: lastDayOf(e) } : {})
+          : isMultiDay(e)
           ? { endDate: endTimeOf(e.time)
               ? `${lastDayOf(e)}T${endTimeOf(e.time)}${pacificOffset(lastDayOf(e))}`
               : lastDayOf(e) }
