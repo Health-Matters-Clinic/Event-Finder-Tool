@@ -26,6 +26,34 @@ const PROGRAM_COLORS: { [key: string]: string } = {
   default: '#4b5563',
 };
 
+const isVirtualEvent = (e: { isVirtual?: boolean; address?: string }): boolean => {
+  if (typeof e.isVirtual === 'boolean') return e.isVirtual;
+  const a = (e.address || '').toLowerCase();
+  return !e.address || a.includes('online') || a.includes('virtual') || a.includes('zoom');
+};
+
+/** Street line plus city, so the modal shows a full address rather than a fragment. */
+const fullAddress = (e: { address?: string; city?: string }): string => {
+  const parts = [e.address, e.city].map((x) => (x || '').trim()).filter(Boolean);
+  // Do not repeat the city when the street line already ends with it.
+  if (parts.length === 2 && parts[0].toLowerCase().endsWith(parts[1].toLowerCase())) return parts[0];
+  return parts.join(', ');
+};
+
+/**
+ * Whether the modal offers a way to sign up. A "save the date" event only becomes
+ * bookable once it has a real time and somewhere to be; an online event satisfies
+ * the second half by being online, which the old address-length check could not
+ * express, so a virtual save-the-date could never open for RSVPs.
+ */
+const eventIsBookable = (e: ClinicEvent): boolean =>
+  !isPast(e.date) &&
+  (!e.saveTheDate ||
+    Boolean(e.time && e.time !== 'TBD' && (e.isVirtual === true || (e.address && e.address.length > 15))));
+
+/** True when the primary button is an outbound Register link rather than HMC RSVP. */
+const showsRegisterButton = (e: ClinicEvent): boolean => Boolean(eventIsBookable(e) && e.websiteUrl);
+
 const DEFAULT_CENTER: [number, number] = [33.9719, -118.2108];
 const REQUIRED_DEEP_LINK_EVENT_IDS = ['event-1772064063990', 'event-1773943614235'];
 const PUBLIC_EVENTFINDER_URL = 'https://www.healthmatters.clinic/resources/eventfinder';
@@ -60,9 +88,16 @@ const REQUIRED_EVENT_OVERRIDES: Record<string, Partial<ClinicEvent>> = {
 
 const mergeEventData = (base: ClinicEvent, incoming: ClinicEvent): ClinicEvent => {
   const merged = { ...base, ...incoming };
+  // Fill only from fields the incoming record does not carry at all. An empty
+  // string is a value, not an absence: it is what the admin form writes when a
+  // field is deliberately cleared. Treating '' as missing meant a field could
+  // never be emptied, because the previous value was restored on every merge.
+  // That is what made switching an event to Virtual impossible: clearing the
+  // address brought the old address straight back, and the format, which was
+  // derived from address, flipped to in-person again.
   (['title', 'dateDisplay', 'time', 'location', 'city', 'address', 'program', 'description', 'flyerUrl', 'websiteUrl'] as const)
     .forEach((key) => {
-      if (!incoming[key] && base[key]) merged[key] = base[key] as any;
+      if (incoming[key] === undefined || incoming[key] === null) merged[key] = base[key] as any;
     });
   if ((!incoming.sessions || incoming.sessions.length === 0) && base.sessions?.length) merged.sessions = base.sessions;
   return merged;
@@ -95,8 +130,13 @@ const sanitizeEvent = (e: any): ClinicEvent | null => {
     address: e.address ? String(e.address) : '',
     program: e.program ? String(e.program) : 'Community Wellness',
     description: e.description ? String(e.description) : '',
-    lat: typeof e.lat === 'number' ? e.lat : parseFloat(e.lat) || DEFAULT_CENTER[0],
-    lng: typeof e.lng === 'number' ? e.lng : parseFloat(e.lng) || DEFAULT_CENTER[1],
+    // 0 means "no coordinates", which the map loop already skips. This used to
+    // fall back to DEFAULT_CENTER, which silently dropped every event lacking
+    // coordinates onto one spot in Willowbrook and presented it as that event's
+    // real location. No pin is honest; a confidently wrong pin is not.
+    lat: typeof e.lat === 'number' ? e.lat : parseFloat(e.lat) || 0,
+    lng: typeof e.lng === 'number' ? e.lng : parseFloat(e.lng) || 0,
+    isVirtual: typeof e.isVirtual === 'boolean' ? e.isVirtual : undefined,
     flyerUrl: (() => {
       const raw = e.flyerUrl ? String(e.flyerUrl) : '';
       if (!raw) return '';
@@ -178,6 +218,22 @@ const parseTimeToISO = (timeStr: string): string => {
   if (ampm === 'PM' && h !== 12) h += 12;
   if (ampm === 'AM' && h === 12) h = 0;
   return `${String(h).padStart(2, '0')}:${m}:00`;
+};
+
+/** Second clock time in a range like "12:00 PM - 4:00 PM"; empty when there is none. */
+const endTimeOf = (timeStr: string): string => {
+  const all = String(timeStr || '').match(/\d{1,2}:\d{2}\s*(?:AM|PM)/gi);
+  return all && all.length > 1 ? parseTimeToISO(all[all.length - 1]) : '';
+};
+
+/** Pacific UTC offset for a date: -07:00 during DST, -08:00 outside it. */
+const pacificOffset = (dateStr: string): string => {
+  try {
+    const d = new Date(`${dateStr}T12:00:00Z`);
+    const name = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', timeZoneName: 'short' })
+      .formatToParts(d).find((p) => p.type === 'timeZoneName')?.value;
+    return name === 'PDT' ? '-07:00' : '-08:00';
+  } catch { return '-08:00'; }
 };
 
 const isPast = (dateStr: string) => {
@@ -538,9 +594,17 @@ const App: React.FC = () => {
       // Esri's World Light Gray Canvas needs no key and is the closest match to what
       // the design was built around, so the page looks like itself again. Attribution
       // is required and given.
+      // Esri's light gray canvas is two layers, not one: the base carries the
+      // landmass and roads, and the labels live in a separate reference layer
+      // drawn on top. Only the base was added when this moved off CARTO, which is
+      // why the map went quiet: no city names, no street names, just gray shapes.
       L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
         attribution: '&copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
         maxZoom: 16,
+      }).addTo(mapRef.current);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 16,
+        pane: 'overlayPane',
       }).addTo(mapRef.current);
       L.control.zoom({ position: 'bottomright' }).addTo(mapRef.current);
     }
@@ -554,9 +618,7 @@ const App: React.FC = () => {
 
     filteredEvents.forEach((event) => {
       // Skip virtual/online events and events with invalid coordinates, no map pin
-      const addrLower = (event.address || '').toLowerCase();
-      const isVirtual = !event.address || addrLower.includes('online') || addrLower.includes('virtual') || addrLower.includes('zoom');
-      if (isVirtual || (event.lat === 0 && event.lng === 0)) return;
+      if (isVirtualEvent(event) || (event.lat === 0 && event.lng === 0)) return;
       const isSelected = selectedEvent?.id === event.id;
       const color = PROGRAM_COLORS[event.program] || PROGRAM_COLORS.default;
 
@@ -718,13 +780,18 @@ const App: React.FC = () => {
     const upcoming = events.filter(e => !isPast(e.date));
     const jsonLd = upcoming.map(e => {
       const eventUrl = `${PUBLIC_EVENTFINDER_URL}?event=${e.id}`;
-      const isVirtual = !e.address || e.address.toLowerCase().includes('virtual') || e.address.toLowerCase().includes('zoom');
+      const isVirtual = isVirtualEvent(e);
       const entry: any = {
         '@context': 'https://schema.org',
         '@type': 'Event',
         name: e.title,
-        startDate: e.time ? `${e.date}T${parseTimeToISO(e.time)}` : e.date,
-        endDate: e.date,
+        // Both carry an explicit Pacific offset. Without one a timestamp is read in
+        // the crawler's timezone, which for an online event has no defensible
+        // answer. endDate is emitted only when the event actually states an end
+        // time: it used to be the bare date against a timestamped startDate, so
+        // an evening event declared an end before its own start.
+        startDate: e.time ? `${e.date}T${parseTimeToISO(e.time)}${pacificOffset(e.date)}` : e.date,
+        ...(endTimeOf(e.time) ? { endDate: `${e.date}T${endTimeOf(e.time)}${pacificOffset(e.date)}` } : {}),
         eventAttendanceMode: isVirtual ? 'https://schema.org/OnlineEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
         eventStatus: 'https://schema.org/EventScheduled',
         isAccessibleForFree: true,
@@ -985,7 +1052,7 @@ const App: React.FC = () => {
                     {lang === 'es' ? 'Donde' : 'Where'}
                   </label>
                   <p className="text-sm font-semibold text-gray-700 leading-relaxed">
-                    {selectedEvent.address || (lang === 'es' ? 'Evento Virtual' : 'Virtual Event')}
+                    {fullAddress(selectedEvent) || (lang === 'es' ? 'Evento Virtual' : 'Virtual Event')}
                   </p>
                 </div>
                 {selectedEvent.sessions && selectedEvent.sessions.length > 0 && (
@@ -1019,7 +1086,10 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 )}
-                {selectedEvent.websiteUrl && (
+                {/* Shown only when the Register button below is not already rendering this
+                    same URL, which it does for any upcoming event that has one. Two
+                    controls to one destination read as two different destinations. */}
+                {selectedEvent.websiteUrl && !showsRegisterButton(selectedEvent) && (
                   <a
                     href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
                     target="_blank"
@@ -1032,7 +1102,7 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-3">
-                {!isPast(selectedEvent.date) && (!selectedEvent.saveTheDate || (selectedEvent.time && selectedEvent.time !== 'TBD' && selectedEvent.address && selectedEvent.address.length > 15)) ? (
+                {eventIsBookable(selectedEvent) ? (
                   selectedEvent.websiteUrl ? (
                   <a
                     href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}

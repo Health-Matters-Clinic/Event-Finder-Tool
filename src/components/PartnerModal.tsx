@@ -21,6 +21,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
     eventTime: '',
     location: '',
     flyerUrl: '',
+    websiteUrl: '',
   });
   const [notifyOnRsvp, setNotifyOnRsvp] = useState(false);
   const [notificationEmail, setNotificationEmail] = useState('');
@@ -50,6 +51,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
       eventTime: formData.eventTime,
       location: formData.location,
       flyerUrl: formData.flyerUrl || '',
+      websiteUrl: formData.websiteUrl || '',
       ...(notifyOnRsvp && notificationEmail ? { notificationEmail } : {}),
       lang,
       timestamp: new Date().toISOString(),
@@ -245,6 +247,29 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                   {lang === 'es'
                     ? 'Suba su flyer a Google Drive, Dropbox o Canva y pegue el enlace público. Las notificaciones de RSVP están disponibles con una cuenta de socio HMC gratuita.'
                     : 'Upload your flyer to Google Drive, Dropbox, or Canva and paste the public link. RSVP notifications are available with a free HMC Partner account.'}
+                </p>
+              </div>
+
+              {/* Registration link. Partner events frequently run their own Eventbrite
+                  or signup page, and there was nowhere to say so: the field existed in
+                  EventOps but not here, so every such event had to be corrected by hand
+                  after submission. */}
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  {lang === 'es' ? 'Enlace de Registro' : 'Registration Link'}
+                </label>
+                <input
+                  name="websiteUrl"
+                  type="url"
+                  value={formData.websiteUrl}
+                  onChange={handleChange}
+                  placeholder="https://eventbrite.com/..."
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                />
+                <p className="text-[9px] text-gray-400 mt-1">
+                  {lang === 'es'
+                    ? 'Opcional. Si su evento tiene su propia pagina de registro, pongala aqui y enviaremos a la gente ahi. Dejelo en blanco para usar el RSVP de HMC.'
+                    : 'Optional. If your event has its own registration page, put it here and we will send people there. Leave blank to use HMC RSVP.'}
                 </p>
               </div>
 

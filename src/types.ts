@@ -39,6 +39,10 @@ export interface ClinicEvent {
   ceApproved?: boolean;        // LACDMH-approved for CE/CEU credit
   ceBoards?: string;           // Approved boards (e.g. "BBS, BRN, CCAPP, Psychology")
   ceHours?: number;            // CE credit hours awarded
+  // Whether this is an online event. Stored rather than inferred: the format used
+  // to be derived from whether address was non-empty, which meant a virtual event
+  // reverted to in-person the moment anything put an address back on the record.
+  isVirtual?: boolean;
 }
 
 export interface PartnerEventRequest {
@@ -49,6 +53,8 @@ export interface PartnerEventRequest {
   eventDescription: string;
   proposedDate: string;
   location: string;
+  /** Partner's own registration page, when the event does not use HMC RSVP. */
+  websiteUrl?: string;
   submittedAt: string;
 }
 

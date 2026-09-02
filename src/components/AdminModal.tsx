@@ -99,8 +99,11 @@ const emptyEvent: ClinicEvent = {
   city: '',
   address: '',
   program: 'Community Wellness',
-  lat: 33.9719,
-  lng: -118.2108,
+  // Deliberately 0, not a real coordinate. These used to default to 33.9719 /
+  // -118.2108, which is DEFAULT_CENTER in App.tsx, so every event saved without
+  // looking up coordinates landed on one spot in Willowbrook and looked placed.
+  lat: 0,
+  lng: 0,
   description: '',
   saveTheDate: false,
   isPromoted: false,
@@ -200,6 +203,58 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [editingEvent, setEditingEvent] = useState<ClinicEvent | null>(null);
   const [formData, setFormData] = useState<ClinicEvent>(emptyEvent);
   const [eventFormat, setEventFormat] = useState<'in-person' | 'virtual'>('in-person');
+  const [geoStatus, setGeoStatus] = useState<'' | 'looking' | 'ok' | 'none' | 'error'>('');
+
+  /**
+   * Turn the typed address into coordinates, so an event lands where it actually is.
+   * Nothing in this codebase geocoded before, and the coordinate fields were
+   * pre-filled with the map's default centre, so every event added without
+   * manually looking up a latitude was pinned to the same spot.
+   *
+   * Runs only when the button is pressed, never on render or on save, which keeps
+   * usage to a handful of requests a day and well inside Nominatim's terms.
+   */
+  const lookUpCoordinates = async () => {
+    const street = (formData.address || '').trim();
+    const city = (formData.city || '').trim();
+    if (!street && !city) { setGeoStatus('none'); return; }
+
+    // A suite or unit number is not something a street gazetteer knows, and it
+    // makes the whole lookup miss: "801 Parkview Dr N Suite #100" returns nothing
+    // while "801 Parkview Dr N" resolves. Try what was typed first, then retry
+    // without the unit designator.
+    const withoutUnit = street
+      .replace(/[,;]?\s*(?:suite|ste\.?|apt\.?|unit|#)\s*[\w-]*/gi, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+      .replace(/[,\s]+$/, '');
+
+    const attempts = Array.from(new Set([street, withoutUnit].filter(Boolean)))
+      .map((line) => [line, city, 'CA', 'USA'].filter(Boolean).join(', '));
+
+    setGeoStatus('looking');
+    try {
+      for (const query of attempts) {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(query)}`,
+          { headers: { Accept: 'application/json' } },
+        );
+        if (!res.ok) throw new Error(String(res.status));
+        const hits = await res.json();
+        const hit = Array.isArray(hits) ? hits[0] : null;
+        const lat = hit ? parseFloat(hit.lat) : NaN;
+        const lng = hit ? parseFloat(hit.lon) : NaN;
+        if (isFinite(lat) && isFinite(lng)) {
+          setFormData((prev) => ({ ...prev, lat, lng }));
+          setGeoStatus('ok');
+          return;
+        }
+      }
+      setGeoStatus('none');
+    } catch {
+      setGeoStatus('error');
+    }
+  };
   const [sessions, setSessions] = useState<EventSession[]>([]);
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
@@ -789,7 +844,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const handleEditEvent = (event: ClinicEvent) => {
     setFormData({ ...event });
     setEditingEvent(event);
-    setEventFormat(event.address ? 'in-person' : 'virtual');
+    setEventFormat(event.isVirtual === true || (event.isVirtual === undefined && !event.address) ? 'virtual' : 'in-person');
     setSessions(event.sessions || []);
     setView('edit');
   };
@@ -803,7 +858,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       createdAt: new Date().toISOString(),
     });
     setEditingEvent(null);
-    setEventFormat(event.address ? 'in-person' : 'virtual');
+    setEventFormat(event.isVirtual === true || (event.isVirtual === undefined && !event.address) ? 'virtual' : 'in-person');
     setSessions(event.sessions ? event.sessions.map((s) => ({ ...s, id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` })) : []);
     setView('edit');
   };
@@ -1740,6 +1795,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       onChange={(e) => {
                         const fmt = e.target.value as 'in-person' | 'virtual';
                         setEventFormat(fmt);
+                        // Stored on the event, not inferred later from whether an address
+                        // happens to be present. Inference is what made this setting revert.
+                        setFormData((prev) => ({ ...prev, isVirtual: fmt === 'virtual' }));
                         if (fmt === 'virtual') {
                           // location isn't directly editable, it's derived from city on save
                           // (see handleSaveEvent) and was carrying over the old in-person value
@@ -1818,6 +1876,41 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         required
                         className={inputCls}
                       />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <button
+                        type="button"
+                        onClick={lookUpCoordinates}
+                        disabled={geoStatus === 'looking'}
+                        className="px-4 py-2 rounded-full border border-gray-300 text-sm font-semibold text-gray-700 hover:border-[#233dff] hover:text-[#233dff] disabled:opacity-50"
+                      >
+                        {geoStatus === 'looking'
+                          ? (lang === 'es' ? 'Buscando...' : 'Looking up...')
+                          : (lang === 'es' ? 'Buscar coordenadas desde la direccion' : 'Find coordinates from address')}
+                      </button>
+                      {(!formData.lat || !formData.lng) && geoStatus !== 'ok' && (
+                        <p className="text-xs mt-1.5 text-amber-700">
+                          {lang === 'es'
+                            ? 'Sin coordenadas este evento no aparecera en el mapa.'
+                            : 'Without coordinates this event will not appear on the map.'}
+                        </p>
+                      )}
+                      {geoStatus === 'ok' && (
+                        <p className="text-xs mt-1.5 text-green-700">
+                          {lang === 'es' ? 'Coordenadas encontradas.' : 'Coordinates found. Check the pin looks right.'}
+                        </p>
+                      )}
+                      {geoStatus === 'none' && (
+                        <p className="text-xs mt-1.5 text-amber-700">
+                          {lang === 'es' ? 'No se encontro esa direccion. Revisala o escribe las coordenadas.' : 'That address was not found. Check it, or enter coordinates by hand.'}
+                        </p>
+                      )}
+                      {geoStatus === 'error' && (
+                        <p className="text-xs mt-1.5 text-red-600">
+                          {lang === 'es' ? 'La busqueda fallo. Escribe las coordenadas.' : 'Lookup failed. Enter coordinates by hand.'}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </FormSection>
@@ -1952,11 +2045,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     )}
                   </div>
 
-                  {/* Website/Eventbrite URL */}
+                  {/* External registration link. Leaving this blank is what keeps an
+                      event on HMC's own RSVP flow, so the consequence is spelled out
+                      rather than left for someone to discover after the fact. */}
                   <div>
                     <label className={labelCls}>
-                      {lang === 'es' ? 'Enlace del Evento' : 'Event Link'}{' '}
-                      <span className="text-gray-300">(optional - website/eventbrite)</span>
+                      {lang === 'es' ? 'Enlace de Registro Externo' : 'External Registration Link'}{' '}
+                      <span className="text-gray-300">(optional)</span>
                     </label>
                     <input
                       name="websiteUrl"
@@ -1965,6 +2060,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       placeholder="https://eventbrite.com/..."
                       className={inputCls}
                     />
+                    <p className={`text-xs mt-1.5 ${formData.websiteUrl ? 'text-amber-700' : 'text-gray-400'}`}>
+                      {formData.websiteUrl
+                        ? (lang === 'es'
+                            ? 'Este evento enviara a la gente a ese enlace. HMC no recibira ninguna confirmacion ni correo.'
+                            : 'This event will send people to that link instead. HMC will not capture the RSVP, and no confirmation email is sent.')
+                        : (lang === 'es'
+                            ? 'Dejar en blanco para usar el registro de HMC.'
+                            : 'Leave blank to use HMC RSVP and capture registrations here.')}
+                    </p>
                   </div>
                 </div>
               </FormSection>
