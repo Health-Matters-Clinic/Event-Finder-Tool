@@ -527,8 +527,20 @@ const App: React.FC = () => {
         DEFAULT_CENTER,
         10
       );
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap',
+      // Esri's light grey canvas, not CARTO.
+      //
+      // CARTO's light_all tiles were free and unkeyed when this was written in
+      // February. They now require an API key, and rather than failing they serve a
+      // tile stamped "API KEY REQUIRED" over and over, so the map still rendered and
+      // still moved while every street was covered in a watermark. Nothing in this
+      // repo changed; the provider did.
+      //
+      // Esri's World Light Gray Canvas needs no key and is the closest match to what
+      // the design was built around, so the page looks like itself again. Attribution
+      // is required and given.
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+        maxZoom: 16,
       }).addTo(mapRef.current);
       L.control.zoom({ position: 'bottomright' }).addTo(mapRef.current);
     }
