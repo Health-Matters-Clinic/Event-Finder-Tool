@@ -62,6 +62,11 @@ const PROGRAM_OPTIONS = [
   'Partner Event',
   'Training',
   'Volunteer',
+  // Not everything is Unstoppable. A summit, an interfaith meeting and a resource
+  // fair were all filed as Community Wellness and drawn in the same colour.
+  'Conference',
+  'Meeting',
+  'Panel',
 ];
 
 const PROGRAM_COLORS: Record<string, string> = {
@@ -73,6 +78,9 @@ const PROGRAM_COLORS: Record<string, string> = {
   'Partner Event': '#0891b2',
   'Training': '#4338ca',
   'Volunteer': '#f59e0b',
+  'Conference': '#b91c1c',
+  'Meeting': '#0d9488',
+  'Panel': '#a21caf',
 };
 
 const SHARE_BASE_URL = 'https://www.healthmatters.clinic/resources/eventfinder?event=';
@@ -202,7 +210,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [resetMessage, setResetMessage] = useState('');
   const [editingEvent, setEditingEvent] = useState<ClinicEvent | null>(null);
   const [formData, setFormData] = useState<ClinicEvent>(emptyEvent);
-  const [eventFormat, setEventFormat] = useState<'in-person' | 'virtual'>('in-person');
+  const [eventFormat, setEventFormat] = useState<'in-person' | 'in-person-tba' | 'virtual'>('in-person');
   const [geoStatus, setGeoStatus] = useState<'' | 'looking' | 'ok' | 'none' | 'error'>('');
 
   /**
@@ -844,7 +852,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const handleEditEvent = (event: ClinicEvent) => {
     setFormData({ ...event });
     setEditingEvent(event);
-    setEventFormat(event.isVirtual === true || (event.isVirtual === undefined && !event.address) ? 'virtual' : 'in-person');
+    setEventFormat(
+      event.isVirtual === true || (event.isVirtual === undefined && event.locationTBD !== true && !event.address)
+        ? 'virtual'
+        : event.locationTBD === true
+          ? 'in-person-tba'
+          : 'in-person',
+    );
     setSessions(event.sessions || []);
     setView('edit');
   };
@@ -858,7 +872,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       createdAt: new Date().toISOString(),
     });
     setEditingEvent(null);
-    setEventFormat(event.isVirtual === true || (event.isVirtual === undefined && !event.address) ? 'virtual' : 'in-person');
+    setEventFormat(
+      event.isVirtual === true || (event.isVirtual === undefined && event.locationTBD !== true && !event.address)
+        ? 'virtual'
+        : event.locationTBD === true
+          ? 'in-person-tba'
+          : 'in-person',
+    );
     setSessions(event.sessions ? event.sessions.map((s) => ({ ...s, id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` })) : []);
     setView('edit');
   };
@@ -1735,6 +1755,31 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     />
                   </div>
 
+                  {/* End date. Blank for a single-day event. A multi-day training used
+                      to be stored as one date, so it disappeared from the listing on the
+                      morning of day two and its schema said it had already finished. */}
+                  <div>
+                    <label className={labelCls}>
+                      {lang === 'es' ? 'Fecha de fin' : 'End Date'}{' '}
+                      <span className="text-gray-300">
+                        {lang === 'es' ? '(solo eventos de varios dias)' : '(multi-day events only)'}
+                      </span>
+                    </label>
+                    <input
+                      name="endDate"
+                      type="date"
+                      min={formData.date || undefined}
+                      value={formData.endDate || ''}
+                      onChange={handleFormChange}
+                      className={inputCls}
+                    />
+                    {formData.endDate && formData.date && formData.endDate < formData.date && (
+                      <p className="text-xs mt-1.5 text-red-600">
+                        {lang === 'es' ? 'La fecha de fin es anterior al inicio.' : 'End date is before the start date.'}
+                      </p>
+                    )}
+                  </div>
+
                   {/* Time */}
                   <div>
                     <label className={labelCls}>
@@ -1793,11 +1838,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <select
                       value={eventFormat}
                       onChange={(e) => {
-                        const fmt = e.target.value as 'in-person' | 'virtual';
+                        const fmt = e.target.value as 'in-person' | 'in-person-tba' | 'virtual';
                         setEventFormat(fmt);
                         // Stored on the event, not inferred later from whether an address
                         // happens to be present. Inference is what made this setting revert.
-                        setFormData((prev) => ({ ...prev, isVirtual: fmt === 'virtual' }));
+                        setFormData((prev) => ({
+                          ...prev,
+                          isVirtual: fmt === 'virtual',
+                          locationTBD: fmt === 'in-person-tba',
+                        }));
+                        if (fmt === 'in-person-tba') {
+                          // Keep the city so the event still filters by area, but drop the
+                          // placeholder address and the coordinates, which is what put a
+                          // pin on the map for a venue nobody has chosen yet.
+                          setFormData((prev) => ({ ...prev, address: '', lat: 0, lng: 0 }));
+                        }
                         if (fmt === 'virtual') {
                           // location isn't directly editable, it's derived from city on save
                           // (see handleSaveEvent) and was carrying over the old in-person value
@@ -1808,6 +1863,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       className={`${inputCls} appearance-none cursor-pointer`}
                     >
                       <option value="in-person">{lang === 'es' ? 'En Persona' : 'In-Person'}</option>
+                      <option value="in-person-tba">
+                        {lang === 'es' ? 'En Persona - lugar por anunciar' : 'In-Person - location TBA'}
+                      </option>
                       <option value="virtual">{lang === 'es' ? 'Virtual' : 'Virtual'}</option>
                     </select>
                   </div>
@@ -1815,7 +1873,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </FormSection>
 
               {/* Section: Location */}
-              {eventFormat === 'in-person' && (
+              {(eventFormat === 'in-person' || eventFormat === 'in-person-tba') && (
                 <FormSection title={lang === 'es' ? 'Ubicación' : 'Location'}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* City */}
@@ -1841,7 +1899,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         name="address"
                         value={formData.address}
                         onChange={handleFormChange}
-                        required
+                        required={eventFormat === 'in-person'}
+                        disabled={eventFormat === 'in-person-tba'}
                         className={inputCls}
                       />
                     </div>
@@ -1857,7 +1916,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         step="any"
                         value={formData.lat}
                         onChange={handleFormChange}
-                        required
+                        required={eventFormat === 'in-person'}
+                        disabled={eventFormat === 'in-person-tba'}
                         className={inputCls}
                       />
                     </div>
@@ -1873,7 +1933,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         step="any"
                         value={formData.lng}
                         onChange={handleFormChange}
-                        required
+                        required={eventFormat === 'in-person'}
+                        disabled={eventFormat === 'in-person-tba'}
                         className={inputCls}
                       />
                     </div>

@@ -43,6 +43,19 @@ export interface ClinicEvent {
   // to be derived from whether address was non-empty, which meant a virtual event
   // reverted to in-person the moment anything put an address back on the record.
   isVirtual?: boolean;
+  /**
+   * Last day of a run of days, as YYYY-MM-DD. Absent for a single-day event.
+   * A three-day training was previously one `date`, so it vanished from the
+   * listing after day one and its schema claimed it was over.
+   */
+  endDate?: string;
+  /**
+   * In person, venue not announced yet. A real third state: writing "TBA" into
+   * the address made the event look located, put a pin on the map at whatever
+   * coordinates were lying around, and blocked RSVPs because the bookable check
+   * demanded an address longer than fifteen characters.
+   */
+  locationTBD?: boolean;
 }
 
 export interface PartnerEventRequest {

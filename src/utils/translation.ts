@@ -9,6 +9,9 @@ const PROGRAM_TRANSLATIONS: Record<string, string> = {
   'Partner Event': 'Evento de Socio',
   'Training': 'Capacitacion',
   'Volunteer': 'Voluntario',
+  'Conference': 'Conferencia',
+  'Meeting': 'Reunión',
+  'Panel': 'Panel',
 };
 
 const TITLE_REPLACEMENTS: Array<[RegExp, string]> = [

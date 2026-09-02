@@ -23,7 +23,57 @@ const PROGRAM_COLORS: { [key: string]: string } = {
   'Partner Event': '#0891b2',
   'Training': '#4338ca',
   'Volunteer': '#f59e0b',
+  'Conference': '#b91c1c',
+  'Meeting': '#0d9488',
+  'Panel': '#a21caf',
   default: '#4b5563',
+};
+
+/** Last day an event runs. A single-day event's last day is its only day. */
+const lastDayOf = (e: { date: string; endDate?: string }): string =>
+  e.endDate && e.endDate >= e.date ? e.endDate : e.date;
+
+/**
+ * An event is over only after its final day. Judging by the start date alone
+ * dropped a multi-day training out of the listing the morning of day two.
+ */
+const eventHasPassed = (e: { date: string; endDate?: string }): boolean => isPast(lastDayOf(e));
+
+/** True when the event runs across more than one day. */
+const isMultiDay = (e: { date: string; endDate?: string }): boolean =>
+  Boolean(e.endDate && e.endDate > e.date);
+
+/** Does the run of days touch the given two-digit month? */
+const spansMonth = (e: { date: string; endDate?: string }, mm: string): boolean => {
+  const start = (e.date || '').split('T')[0];
+  const end = lastDayOf(e).split('T')[0];
+  if (!start) return false;
+  if (!isMultiDay(e)) return start.includes(`-${mm}-`);
+  // Walk months rather than days: a range never spans enough months to matter.
+  const [sy, sm] = start.split('-').map(Number);
+  const [ey, em] = end.split('-').map(Number);
+  for (let y = sy, m = sm; y < ey || (y === ey && m <= em); m === 12 ? (m = 1, y++) : m++) {
+    if (String(m).padStart(2, '0') === mm) return true;
+  }
+  return false;
+};
+
+/** "September 14 to 18, 2026", or the plain display string for a single day. */
+const dateRangeDisplay = (e: ClinicEvent): string => {
+  if (!isMultiDay(e)) return e.dateDisplay;
+  const fmt = (d: string, opts: Intl.DateTimeFormatOptions) => {
+    try { return new Date(`${d.split('T')[0]}T12:00:00Z`).toLocaleDateString('en-US', { ...opts, timeZone: 'UTC' }); }
+    catch { return d; }
+  };
+  const a = e.date.split('T')[0];
+  const b = lastDayOf(e).split('T')[0];
+  const sameMonth = a.slice(0, 7) === b.slice(0, 7);
+  // The closing day is written out by hand for a same-month range. Asking
+  // toLocaleDateString for day plus year without a month yields "2026 (day: 18)",
+  // which is what a test caught here.
+  return sameMonth
+    ? `${fmt(a, { month: 'long', day: 'numeric' })} to ${Number(b.slice(8, 10))}, ${b.slice(0, 4)}`
+    : `${fmt(a, { month: 'long', day: 'numeric' })} to ${fmt(b, { month: 'long', day: 'numeric', year: 'numeric' })}`;
 };
 
 const isVirtualEvent = (e: { isVirtual?: boolean; address?: string }): boolean => {
@@ -47,9 +97,9 @@ const fullAddress = (e: { address?: string; city?: string }): string => {
  * express, so a virtual save-the-date could never open for RSVPs.
  */
 const eventIsBookable = (e: ClinicEvent): boolean =>
-  !isPast(e.date) &&
+  !eventHasPassed(e) &&
   (!e.saveTheDate ||
-    Boolean(e.time && e.time !== 'TBD' && (e.isVirtual === true || (e.address && e.address.length > 15))));
+    Boolean(e.time && e.time !== 'TBD' && (e.isVirtual === true || e.locationTBD === true || (e.address && e.address.length > 15))));
 
 /** True when the primary button is an outbound Register link rather than HMC RSVP. */
 const showsRegisterButton = (e: ClinicEvent): boolean => Boolean(eventIsBookable(e) && e.websiteUrl);
@@ -137,6 +187,13 @@ const sanitizeEvent = (e: any): ClinicEvent | null => {
     lat: typeof e.lat === 'number' ? e.lat : parseFloat(e.lat) || 0,
     lng: typeof e.lng === 'number' ? e.lng : parseFloat(e.lng) || 0,
     isVirtual: typeof e.isVirtual === 'boolean' ? e.isVirtual : undefined,
+    locationTBD: typeof e.locationTBD === 'boolean' ? e.locationTBD : undefined,
+    // Only trust an end date that is a plain YYYY-MM-DD at or after the start.
+    endDate: (() => {
+      const raw = e.endDate ? String(e.endDate).split('T')[0] : '';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return undefined;
+      return raw >= String(e.date).split('T')[0] ? raw : undefined;
+    })(),
     flyerUrl: (() => {
       const raw = e.flyerUrl ? String(e.flyerUrl) : '';
       if (!raw) return '';
@@ -473,14 +530,14 @@ const App: React.FC = () => {
           return false;
         };
         // Prefer upcoming events over past ones
-        const futureMatches = events.filter(e => keywordMatch(e) && !isPast(e.date));
-        const pastMatches = events.filter(e => keywordMatch(e) && isPast(e.date));
+        const futureMatches = events.filter(e => keywordMatch(e) && !eventHasPassed(e));
+        const pastMatches = events.filter(e => keywordMatch(e) && eventHasPassed(e));
         foundEvent = futureMatches.length > 0 ? futureMatches[0] : pastMatches[pastMatches.length - 1] || null;
       }
 
       if (foundEvent) {
         // If it's a past event, temporarily enable showPast filter so it appears in the list
-        if (isPast(foundEvent.date)) {
+        if (eventHasPassed(foundEvent)) {
           setFilters(f => ({ ...f, showPast: true }));
         }
         setSelectedEvent(foundEvent);
@@ -537,7 +594,7 @@ const App: React.FC = () => {
         if (!event.date) return false;
         // Handle both YYYY-MM-DD and ISO date strings
         const dateOnly = event.date.includes('T') ? event.date.split('T')[0] : event.date;
-        const monthMatch = !filters.month || dateOnly.includes(`-${filters.month}-`);
+        const monthMatch = !filters.month || spansMonth(event, filters.month);
         const programMatch = !filters.program || event.program === filters.program;
         const ceMatch = !filters.ceApproved || event.ceApproved === true;
 
@@ -547,7 +604,7 @@ const App: React.FC = () => {
           (event.city && event.city.toLowerCase().includes(locQuery)) ||
           (event.address && event.address.toLowerCase().includes(locQuery));
 
-        const eventIsPast = isPast(dateOnly);
+        const eventIsPast = eventHasPassed(event);
         const archivalMatch = filters.showPast ? eventIsPast : !eventIsPast;
 
         return monthMatch && programMatch && locationMatch && archivalMatch && ceMatch;
@@ -618,7 +675,7 @@ const App: React.FC = () => {
 
     filteredEvents.forEach((event) => {
       // Skip virtual/online events and events with invalid coordinates, no map pin
-      if (isVirtualEvent(event) || (event.lat === 0 && event.lng === 0)) return;
+      if (isVirtualEvent(event) || event.locationTBD || (event.lat === 0 && event.lng === 0)) return;
       const isSelected = selectedEvent?.id === event.id;
       const color = PROGRAM_COLORS[event.program] || PROGRAM_COLORS.default;
 
@@ -714,7 +771,7 @@ const App: React.FC = () => {
   const handleShare = async () => {
     if (!selectedEvent) return;
     const eventTitle = translateEventTitle(selectedEvent.title, lang, selectedEvent);
-    const shareText = `${eventTitle} - ${selectedEvent.dateDisplay}${selectedEvent.address ? ` @ ${selectedEvent.address}` : ''}`;
+    const shareText = `${eventTitle} - ${dateRangeDisplay(selectedEvent)}${selectedEvent.address ? ` @ ${selectedEvent.address}` : ''}`;
 
     // Create event-specific share URL, always use event ID for reliable deep linking
     const shareUrl = `${PUBLIC_EVENTFINDER_URL}?event=${encodeURIComponent(selectedEvent.id)}&rsvp=true${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
@@ -777,7 +834,7 @@ const App: React.FC = () => {
 
   // SEO: Inject JSON-LD structured data for Google rich results
   useEffect(() => {
-    const upcoming = events.filter(e => !isPast(e.date));
+    const upcoming = events.filter(e => !eventHasPassed(e));
     const jsonLd = upcoming.map(e => {
       const eventUrl = `${PUBLIC_EVENTFINDER_URL}?event=${e.id}`;
       const isVirtual = isVirtualEvent(e);
@@ -791,7 +848,13 @@ const App: React.FC = () => {
         // time: it used to be the bare date against a timestamped startDate, so
         // an evening event declared an end before its own start.
         startDate: e.time ? `${e.date}T${parseTimeToISO(e.time)}${pacificOffset(e.date)}` : e.date,
-        ...(endTimeOf(e.time) ? { endDate: `${e.date}T${endTimeOf(e.time)}${pacificOffset(e.date)}` } : {}),
+        ...(isMultiDay(e)
+          ? { endDate: endTimeOf(e.time)
+              ? `${lastDayOf(e)}T${endTimeOf(e.time)}${pacificOffset(lastDayOf(e))}`
+              : lastDayOf(e) }
+          : endTimeOf(e.time)
+            ? { endDate: `${e.date}T${endTimeOf(e.time)}${pacificOffset(e.date)}` }
+            : {}),
         eventAttendanceMode: isVirtual ? 'https://schema.org/OnlineEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
         eventStatus: 'https://schema.org/EventScheduled',
         isAccessibleForFree: true,
@@ -994,7 +1057,7 @@ const App: React.FC = () => {
                     {lang === 'es' ? 'PATROCINADO' : 'SPONSORED'}
                   </span>
                 )}
-                {selectedEvent.date && isPast(selectedEvent.date) && (
+                {selectedEvent.date && eventHasPassed(selectedEvent) && (
                   <span className="inline-block bg-gray-100 text-gray-600 border border-gray-200 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide">
                     {t.past}
                   </span>
@@ -1042,9 +1105,12 @@ const App: React.FC = () => {
                     {lang === 'es' ? 'Cuando' : 'When'}
                   </label>
                   <p className="text-base font-bold text-gray-900 leading-snug">
-                    {selectedEvent.dateDisplay}
+                    {dateRangeDisplay(selectedEvent)}
                     <br />
                     {selectedEvent.time}
+                    {isMultiDay(selectedEvent) && selectedEvent.time && (
+                      <span className="font-semibold text-gray-500"> {lang === 'es' ? 'cada dia' : 'each day'}</span>
+                    )}
                   </p>
                 </div>
                 <div>
@@ -1052,7 +1118,10 @@ const App: React.FC = () => {
                     {lang === 'es' ? 'Donde' : 'Where'}
                   </label>
                   <p className="text-sm font-semibold text-gray-700 leading-relaxed">
-                    {fullAddress(selectedEvent) || (lang === 'es' ? 'Evento Virtual' : 'Virtual Event')}
+                    {selectedEvent.locationTBD
+                      ? [(lang === 'es' ? 'Lugar por anunciar' : 'Location to be announced'), selectedEvent.city]
+                          .filter(Boolean).join(' \u00b7 ')
+                      : fullAddress(selectedEvent) || (lang === 'es' ? 'Evento Virtual' : 'Virtual Event')}
                   </p>
                 </div>
                 {selectedEvent.sessions && selectedEvent.sessions.length > 0 && (
@@ -1303,6 +1372,9 @@ const App: React.FC = () => {
                     <option value="Community Fair">{programLabel('Community Fair')}</option>
                     <option value="Community Wellness">{programLabel('Community Wellness')}</option>
                     <option value="Partner Event">{programLabel('Partner Event')}</option>
+                    <option value="Conference">{programLabel('Conference')}</option>
+                    <option value="Meeting">{programLabel('Meeting')}</option>
+                    <option value="Panel">{programLabel('Panel')}</option>
                     <option value="Training">{programLabel('Training')}</option>
                     <option value="Volunteer">{programLabel('Volunteer')}</option>
                   </select>
@@ -1403,7 +1475,7 @@ const App: React.FC = () => {
                         className="text-[10px] font-semibold uppercase tracking-wide"
                         style={{ color: PROGRAM_COLORS[event.program] || PROGRAM_COLORS.default }}
                       >
-                        {event.dateDisplay}
+                        {dateRangeDisplay(event)}
                       </span>
                     </div>
                     {event.isPromoted && (
@@ -1457,7 +1529,9 @@ const App: React.FC = () => {
                           d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                         />
                       </svg>
-                      {event.city}
+                      {event.locationTBD
+                        ? (event.city || (lang === 'es' ? 'Lugar por anunciar' : 'Location TBA'))
+                        : event.city}
                     </div>
                   </div>
                 </div>
