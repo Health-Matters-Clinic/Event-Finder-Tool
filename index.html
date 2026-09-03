@@ -2,6 +2,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Consent Mode default. Must run BEFORE gtag.js so storage is denied until a
+       choice exists. Reads the ecosystem-wide hmc_consent cookie (scoped to
+       .healthmatters.clinic) because localStorage is per-origin and cannot carry a
+       choice made on www across to this subdomain. -->
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}(function(){var c=null;try{var m=document.cookie.match(/(?:^|;\\s*)hmc_consent=([^;]*)/);if(m)c=decodeURIComponent(m[1]);}catch(e){}var granted=c==="all"?"granted":"denied";gtag("consent","default",{analytics_storage:granted,ad_storage:"denied",ad_user_data:"denied",ad_personalization:"denied"});})();</script>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-8W3TXXHT9M"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-8W3TXXHT9M');gtag('config','AW-18025824149');</script>
