@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://eventfinder.healthmatters.clinic/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
-  <url><loc>https://eventfinder.healthmatters.clinic/event/dec-12-2026/</loc><lastmod>2026-08-12</lastmod><priority>0.8</priority></url>
+  <url><loc>https://eventfinder.healthmatters.clinic/event/event-1788382361550/</loc><lastmod>2026-09-03</lastmod><priority>0.8</priority></url>
+  <url><loc>https://eventfinder.healthmatters.clinic/event/event-1788384105016/</loc><lastmod>2026-09-03</lastmod><priority>0.8</priority></url>
+  <url><loc>https://eventfinder.healthmatters.clinic/event/event-1788384789216/</loc><lastmod>2026-09-03</lastmod><priority>0.8</priority></url>
+  <url><loc>https://eventfinder.healthmatters.clinic/event/event-1788381980621/</loc><lastmod>2026-09-03</lastmod><priority>0.8</priority></url>
+  <url><loc>https://eventfinder.healthmatters.clinic/event/event-1788375886876/</loc><lastmod>2026-09-03</lastmod><priority>0.8</priority></url>
+  <url><loc>https://eventfinder.healthmatters.clinic/event/dec-12-2026/</loc><lastmod>2026-09-03</lastmod><priority>0.8</priority></url>
 </urlset>

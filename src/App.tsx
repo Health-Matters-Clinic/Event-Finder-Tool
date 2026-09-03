@@ -104,6 +104,35 @@ const eventIsBookable = (e: ClinicEvent): boolean =>
 /** True when the primary button is an outbound Register link rather than HMC RSVP. */
 const showsRegisterButton = (e: ClinicEvent): boolean => Boolean(eventIsBookable(e) && e.websiteUrl);
 
+/**
+ * A partner-hosted registration page is the one point in the funnel where the
+ * visitor leaves and we lose them: rsvp_submit and rsvp_confirmed only fire for
+ * HMC-hosted RSVPs, so an event that sends people to Eventbrite recorded
+ * nothing at all. We cannot see a completion on someone else's site, but the
+ * click-through is measurable and is the honest proxy for intent.
+ *
+ * label distinguishes the primary Register button from the secondary More Info
+ * link, since they can point at the same URL.
+ */
+const trackExternalRsvp = (e: ClinicEvent, label: 'register' | 'more_info'): void => {
+  try {
+    const g = (window as any).gtag;
+    if (!g) return;
+    const raw = e.websiteUrl || '';
+    const href = raw.startsWith('http') ? raw : `https://${raw}`;
+    let host = '';
+    try { host = new URL(href).hostname; } catch { host = 'unknown'; }
+    g('event', 'rsvp_external_click', {
+      event_id: e.id,
+      event_title: e.title,
+      destination_host: host,
+      link_label: label,
+    });
+  } catch {
+    /* tracking must never block the click */
+  }
+};
+
 const DEFAULT_CENTER: [number, number] = [33.9719, -118.2108];
 const REQUIRED_DEEP_LINK_EVENT_IDS = ['event-1772064063990', 'event-1773943614235'];
 const PUBLIC_EVENTFINDER_URL = 'https://www.healthmatters.clinic/resources/eventfinder';
@@ -1182,6 +1211,7 @@ const App: React.FC = () => {
                     href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => trackExternalRsvp(selectedEvent, 'more_info')}
                     className="text-sm font-semibold text-[#233dff] hover:underline inline-flex items-center gap-1.5"
                   >
                     {lang === 'es' ? 'Más Información' : 'More Info'}
@@ -1196,6 +1226,7 @@ const App: React.FC = () => {
                     href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => trackExternalRsvp(selectedEvent, 'register')}
                   >
                     <Button className="w-full justify-center h-12">
                       {lang === 'es' ? 'Registrarse' : 'Register'}
