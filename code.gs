@@ -264,7 +264,8 @@ function doGet(e) {
       tshirtSize: p.tshirtSize || '',
       earlyRegistrant: p.earlyRegistrant === 'true',
       guests: p.guests ? parseInt(p.guests) || 0 : 0,
-      accessibilityNeeds: p.accessibilityNeeds || ''
+      accessibilityNeeds: p.accessibilityNeeds || '',
+      hostOrg: p.hostOrg || ''
     };
     var rsvpResult = handleRSVP(payload);
     return ContentService.createTextOutput(JSON.stringify(rsvpResult))
@@ -1284,7 +1285,8 @@ function handleRSVP(payload) {
       'Timestamp', 'Event ID', 'Event Title', 'Event Date', 'Name',
       'Email', 'Phone', 'Contact Method', 'SMS Consent', 'Is Minor',
       'Minor Name', 'Needs', 'Language', 'Source', 'Checkin Token',
-      'Status', 'Checked In At', 'T-Shirt Size', 'Guests', 'Accessibility Needs'
+      'Status', 'Checked In At', 'T-Shirt Size', 'Guests', 'Accessibility Needs',
+      'Host Org'
     ]);
   }
 
@@ -1321,6 +1323,13 @@ function handleRSVP(payload) {
     }
   }
 
+  // The organization an RSVP was taken for. Without it a registration HMC collected
+  // on a partner's behalf sits in this sheet indistinguishable from one of our own.
+  var rsvpHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (rsvpHeaders.indexOf('Host Org') === -1) {
+    sheet.getRange(1, sheet.getLastColumn() + 1).setValue('Host Org');
+  }
+
   var checkinToken = Utilities.getUuid();
   var timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
   var needsStr = Array.isArray(payload.needs) ? payload.needs.join(', ') : (payload.needs || '');
@@ -1345,7 +1354,8 @@ function handleRSVP(payload) {
     '',
     payload.tshirtSize || '',
     payload.guests ? String(payload.guests) : '',
-    payload.accessibilityNeeds || ''
+    payload.accessibilityNeeds || '',
+    ownerCheck.hostOrg || payload.hostOrg || ''
   ]);
 
   SpreadsheetApp.flush();
