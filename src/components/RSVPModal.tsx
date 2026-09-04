@@ -308,6 +308,9 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       earlyRegistrant: isUnstoppableEvent && isEarlyRegistrant ? true : undefined,
       guests: guestCount > 0 ? guestCount : undefined,
       accessibilityNeeds: accessibilityNeeds.trim() || undefined,
+      // Recorded so an RSVP HMC took on a partner's behalf is identifiable as theirs
+      // in the sheet, rather than sitting there indistinguishable from our own.
+      hostOrg: (event.hostOrg || '').trim() || undefined,
     };
 
     // Analytics: RSVP form submitted
@@ -465,6 +468,16 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
 
         {/* Body */}
         <div className="p-4 space-y-3 overflow-y-auto flex-1">
+          {/* Whose event this is, when HMC is taking the RSVP on someone else's behalf.
+              Somebody can reach this form from a shared link without ever seeing the
+              event card, and the form is branded HMC throughout. */}
+          {event.rsvpMode === 'hmc-for-partner' && (event.hostOrg || '').trim() && (
+            <div className="bg-[#f0f4ff] border border-[#233dff]/20 rounded-xl px-3.5 py-2.5 text-xs text-gray-700 leading-relaxed">
+              {lang === 'es'
+                ? `Este evento lo organiza ${(event.hostOrg as string).trim()}. Health Matters Clinic recoge los registros en su nombre y compartira tu registro con ellos.`
+                : `This event is hosted by ${(event.hostOrg as string).trim()}. Health Matters Clinic is collecting RSVPs on their behalf and will share your registration with them.`}
+            </div>
+          )}
           {/* Status */}
           {state === 'error' && (
             <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-sm font-semibold text-red-800">

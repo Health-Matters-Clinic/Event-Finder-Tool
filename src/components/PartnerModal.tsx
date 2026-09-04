@@ -22,6 +22,8 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
     location: '',
     flyerUrl: '',
     websiteUrl: '',
+    rsvpMode: '',
+    rsvpContact: '',
   });
   const [notifyOnRsvp, setNotifyOnRsvp] = useState(false);
   const [notificationEmail, setNotificationEmail] = useState('');
@@ -29,7 +31,9 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -52,6 +56,8 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
       location: formData.location,
       flyerUrl: formData.flyerUrl || '',
       websiteUrl: formData.websiteUrl || '',
+      rsvpMode: formData.rsvpMode || '',
+      rsvpContact: formData.rsvpContact || '',
       ...(notifyOnRsvp && notificationEmail ? { notificationEmail } : {}),
       lang,
       timestamp: new Date().toISOString(),
@@ -250,31 +256,92 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                 </p>
               </div>
 
-              {/* Registration link. Partner events frequently run their own Eventbrite
-                  or signup page, and there was nowhere to say so: the field existed in
-                  EventOps but not here, so every such event had to be corrected by hand
-                  after submission. */}
+              {/* How the RSVP is handled. Previously a lone optional link whose blank
+                  state silently meant "HMC will collect the RSVP for you", which is not
+                  something a partner ever actually asked for. Now they say. */}
               <div>
                 <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                  {lang === 'es' ? 'Enlace de Registro' : 'Registration Link'}
+                  {lang === 'es' ? 'Como se registra la gente' : 'How people RSVP'} *
                 </label>
-                <input
-                  name="websiteUrl"
-                  type="url"
-                  value={formData.websiteUrl}
+                <select
+                  name="rsvpMode"
+                  required
+                  value={formData.rsvpMode}
                   onChange={handleChange}
-                  placeholder="https://eventbrite.com/..."
-                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
-                />
-                <p className="text-[9px] text-gray-400 mt-1">
-                  {lang === 'es'
-                    ? 'Opcional. Si su evento tiene su propia pagina de registro, pongala aqui y enviaremos a la gente ahi. Dejelo en blanco para usar el RSVP de HMC.'
-                    : 'Optional. If your event has its own registration page, put it here and we will send people there. Leave blank to use HMC RSVP.'}
+                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all appearance-none cursor-pointer"
+                >
+                  <option value="" disabled>
+                    {lang === 'es' ? '- Elegir -' : '- Choose -'}
+                  </option>
+                  <option value="none">
+                    {lang === 'es'
+                      ? 'No se necesita registro - invitacion abierta'
+                      : 'No RSVP needed - open invite'}
+                  </option>
+                  <option value="external">
+                    {lang === 'es'
+                      ? 'Con nosotros - tenemos enlace o contacto'
+                      : 'With us - we have a link or contact'}
+                  </option>
+                  <option value="hmc-for-partner">
+                    {lang === 'es'
+                      ? 'HMC recoge los registros por nosotros'
+                      : 'HMC collects the RSVPs for us'}
+                  </option>
+                </select>
+                <p className="text-[9px] text-gray-400 mt-1 leading-relaxed">
+                  {formData.rsvpMode === 'hmc-for-partner'
+                    ? (lang === 'es'
+                        ? 'Requiere una cuenta de socio para que podamos enviarte los registros.'
+                        : 'Requires a partner account so we can send the registrations to you.')
+                    : (lang === 'es'
+                        ? 'Tu evento, tus registros. HMC no recoge nada salvo que lo pidas.'
+                        : 'Your event, your registrations. HMC collects nothing unless you ask.')}
                 </p>
               </div>
 
-              {/* RSVP Notifications */}
-              <div className="border-t border-gray-100 pt-3">
+              {formData.rsvpMode === 'external' && (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                      {lang === 'es' ? 'Enlace de Registro' : 'Registration Link'}
+                    </label>
+                    <input
+                      name="websiteUrl"
+                      type="url"
+                      value={formData.websiteUrl}
+                      onChange={handleChange}
+                      placeholder="https://eventbrite.com/..."
+                      className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                      {lang === 'es' ? 'O contacto de registro' : 'Or registration contact'}
+                    </label>
+                    <input
+                      name="rsvpContact"
+                      value={formData.rsvpContact}
+                      onChange={handleChange}
+                      placeholder={lang === 'es' ? 'Nombre, telefono o correo' : 'Name, phone, or email'}
+                      className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    />
+                    <p className="text-[9px] text-gray-400 mt-1">
+                      {lang === 'es'
+                        ? 'Si no tienen pagina de registro. Se necesita uno de los dos.'
+                        : 'If you have no registration page. One of the two is needed.'}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* RSVP Notifications. Only meaningful when HMC is the one collecting;
+                  there is nothing to notify anyone about on an event whose signups
+                  never touch HMC. */}
+              <div
+                className="border-t border-gray-100 pt-3"
+                hidden={formData.rsvpMode !== 'hmc-for-partner'}
+              >
                 <label className="flex items-center gap-2.5 cursor-pointer select-none">
                   <input
                     type="checkbox"

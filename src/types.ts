@@ -1,6 +1,24 @@
 
 export type Language = 'en' | 'es';
 
+/**
+ * Who owns the RSVP for an event. Stored, never inferred: the registration route
+ * used to be read off whether `websiteUrl` happened to be filled in, which made a
+ * blank field mean "Health Matters Clinic collects this RSVP". That is the wrong
+ * default for a listing that carries other organizations' events, and there was no
+ * way at all to say an event needs no RSVP.
+ *
+ * - `hmc`             HMC hosts it and collects the RSVP.
+ * - `hmc-for-partner` HMC deliberately collects on the host organization's behalf,
+ *                     as arranged through partner.healthmatters.clinic.
+ * - `external`        The host organization owns it. We link out or show their contact.
+ * - `none`            Open invite. Nothing to sign up for.
+ */
+export type RsvpMode = 'hmc' | 'hmc-for-partner' | 'external' | 'none';
+
+/** The two modes under which an RSVP reaches HMC's own sheet. */
+export const HMC_COLLECTED_MODES: readonly RsvpMode[] = ['hmc', 'hmc-for-partner'];
+
 export interface EventSession {
   id: string;
   title: string;
@@ -56,6 +74,23 @@ export interface ClinicEvent {
    * demanded an address longer than fifteen characters.
    */
   locationTBD?: boolean;
+  /**
+   * Who collects the RSVP. Absent on records written before the field existed;
+   * `resolveRsvpMode` decides what those mean rather than any default here, so the
+   * absence stays visible to the admin screen that asks someone to set it.
+   */
+  rsvpMode?: RsvpMode;
+  /**
+   * The organization actually running the event, when that is not HMC. Names the
+   * destination on the Register button and the `organizer` in the event's
+   * structured data, which previously claimed HMC ran every event listed.
+   */
+  hostOrg?: string;
+  /**
+   * Phone, email, or instructions for an `external` event whose host has no
+   * registration page. Plenty of orgs take an RSVP by phone or take none at all.
+   */
+  rsvpContact?: string;
 }
 
 export interface PartnerEventRequest {
@@ -68,6 +103,10 @@ export interface PartnerEventRequest {
   location: string;
   /** Partner's own registration page, when the event does not use HMC RSVP. */
   websiteUrl?: string;
+  /** How the partner wants RSVPs handled. See RsvpMode. */
+  rsvpMode?: RsvpMode;
+  /** Phone or email to RSVP with, for a partner who has no registration page. */
+  rsvpContact?: string;
   submittedAt: string;
 }
 
@@ -97,6 +136,13 @@ export interface RSVPPayload {
   needs?: string[];
   lang: Language;
   source: string;
+
+  /**
+   * The organization the RSVP is being collected for, when HMC is collecting on a
+   * partner's behalf. Recorded so a partner-owned registration is distinguishable
+   * from an HMC-owned one in the RSVPs sheet rather than looking like our own.
+   */
+  hostOrg?: string;
 
   // Ambassador/referral tracking
   referralCode?: string;

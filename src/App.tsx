@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { EVENTS, I18N } from './constants';
 import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, STORAGE_KEYS, fetchAdBanners, AdBanner } from './config';
-import { ClinicEvent, Language } from './types';
+import { ClinicEvent, Language, RsvpMode } from './types';
 import { Button } from './components/Button';
 import { translateDescription, translateEventTitle, translateProgram } from './utils/translation';
 import AdBannerComponent from './components/AdBanner';
@@ -101,8 +101,45 @@ const eventIsBookable = (e: ClinicEvent): boolean =>
   (!e.saveTheDate ||
     Boolean(e.time && e.time !== 'TBD' && (e.isVirtual === true || e.locationTBD === true || (e.address && e.address.length > 15))));
 
+/**
+ * Who owns this event's RSVP.
+ *
+ * Records written before `rsvpMode` existed carry no value, and the honest reading
+ * of those is the behaviour they were created under: a registration link meant the
+ * host organization owned the signup, and a blank one meant HMC's own form. That is
+ * exactly the default this field exists to end, so it is applied only as a
+ * migration for old rows, never as a default for new ones. `unsetRsvpMode` finds
+ * the rows still relying on it so they can be set deliberately.
+ */
+const resolveRsvpMode = (e: ClinicEvent): RsvpMode => {
+  switch (e.rsvpMode) {
+    case 'hmc':
+    case 'hmc-for-partner':
+    case 'external':
+    case 'none':
+      return e.rsvpMode;
+    default:
+      return e.websiteUrl ? 'external' : 'hmc';
+  }
+};
+
+/** True while an event has never been told who owns its RSVP. */
+const unsetRsvpMode = (e: ClinicEvent): boolean =>
+  !['hmc', 'hmc-for-partner', 'external', 'none'].includes(String(e.rsvpMode || ''));
+
+/** True when the RSVP reaches HMC's own sheet, whoever the event belongs to. */
+const collectsToHmc = (e: ClinicEvent): boolean => {
+  const mode = resolveRsvpMode(e);
+  return mode === 'hmc' || mode === 'hmc-for-partner';
+};
+
+/** The organization to name on an outbound Register button. */
+const hostLabel = (e: ClinicEvent, lang: Language): string =>
+  (e.hostOrg || '').trim() || (lang === 'es' ? 'la organizacion' : 'the organizer');
+
 /** True when the primary button is an outbound Register link rather than HMC RSVP. */
-const showsRegisterButton = (e: ClinicEvent): boolean => Boolean(eventIsBookable(e) && e.websiteUrl);
+const showsRegisterButton = (e: ClinicEvent): boolean =>
+  Boolean(eventIsBookable(e) && resolveRsvpMode(e) === 'external' && e.websiteUrl);
 
 /**
  * A partner-hosted registration page is the one point in the funnel where the
@@ -174,7 +211,7 @@ const mergeEventData = (base: ClinicEvent, incoming: ClinicEvent): ClinicEvent =
   // That is what made switching an event to Virtual impossible: clearing the
   // address brought the old address straight back, and the format, which was
   // derived from address, flipped to in-person again.
-  (['title', 'dateDisplay', 'time', 'location', 'city', 'address', 'program', 'description', 'flyerUrl', 'websiteUrl'] as const)
+  (['title', 'dateDisplay', 'time', 'location', 'city', 'address', 'program', 'description', 'flyerUrl', 'websiteUrl', 'hostOrg', 'rsvpContact'] as const)
     .forEach((key) => {
       if (incoming[key] === undefined || incoming[key] === null) merged[key] = base[key] as any;
     });
@@ -238,6 +275,13 @@ const sanitizeEvent = (e: any): ClinicEvent | null => {
       return raw;
     })(),
     sessions: Array.isArray(e.sessions) ? e.sessions : [],
+    // Left undefined when the sheet holds nothing recognisable, so the record reads
+    // as "never set" rather than silently becoming one of the four modes.
+    rsvpMode: (['hmc', 'hmc-for-partner', 'external', 'none'] as const).includes(e.rsvpMode)
+      ? (e.rsvpMode as ClinicEvent['rsvpMode'])
+      : undefined,
+    hostOrg: e.hostOrg ? String(e.hostOrg).trim() : '',
+    rsvpContact: e.rsvpContact ? String(e.rsvpContact).trim() : '',
   };
 };
 
@@ -287,6 +331,7 @@ const mergeWithBundledEvents = (raw: any[]): ClinicEvent[] => {
       const merged = mergeEventData(existing, { ...existing, ...REQUIRED_EVENT_OVERRIDES[id], id } as ClinicEvent);
       // Force HMC RSVP modal, these events use HMC registration, not external links
       merged.websiteUrl = '';
+      merged.rsvpMode = 'hmc';
       byId.set(id, merged);
     }
   });
@@ -596,7 +641,10 @@ const App: React.FC = () => {
         if (!hasRsvp && document.referrer) {
           try { hasRsvp = new URL(document.referrer).searchParams.get('rsvp') === 'true'; } catch {}
         }
-        if (hasRsvp && !foundEvent.websiteUrl) {
+        // ?rsvp=true must not force HMC's form open on an event whose RSVP belongs to
+        // someone else. The link is shared and outlives whatever the event was when
+        // it was written.
+        if (hasRsvp && collectsToHmc(foundEvent)) {
           setIsRSVPOpen(true);
         }
         setPendingEventSlug(null);
@@ -916,7 +964,11 @@ const App: React.FC = () => {
               ...(e.lat && e.lng ? { geo: { '@type': 'GeoCoordinates', latitude: e.lat, longitude: e.lng } } : {}),
             },
         description: e.description || `${e.title}, a wellness event from Health Matters Clinic.`,
-        organizer: { '@type': 'Organization', name: 'Health Matters Clinic', url: 'https://www.healthmatters.clinic' },
+        // The listing carries other organizations' events, so naming HMC as organizer
+        // on all of them was a false claim in machine-readable form.
+        organizer: (e.hostOrg || '').trim()
+          ? { '@type': 'Organization', name: (e.hostOrg as string).trim() }
+          : { '@type': 'Organization', name: 'Health Matters Clinic', url: 'https://www.healthmatters.clinic' },
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: eventUrl },
         image: e.flyerUrl || 'https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png',
       };
@@ -1117,9 +1169,20 @@ const App: React.FC = () => {
                 )}
               </div>
 
-              <h3 className="text-2xl font-semibold text-[#1a1a1a] mb-6 pr-6 leading-tight">
+              <h3 className={`text-2xl font-semibold text-[#1a1a1a] pr-6 leading-tight ${
+                (selectedEvent.hostOrg || '').trim() ? 'mb-1.5' : 'mb-6'
+              }`}>
                 {translateEventTitle(selectedEvent.title, lang, selectedEvent)}
               </h3>
+              {/* Attribution for the events HMC lists but does not run. Without it the
+                  whole modal reads as an HMC event, which is how the RSVP form came to
+                  look like the natural next step on someone else's event. */}
+              {(selectedEvent.hostOrg || '').trim() && (
+                <p className="text-sm text-gray-500 mb-6 pr-6">
+                  {lang === 'es' ? 'Organizado por ' : 'Hosted by '}
+                  <span className="font-semibold text-gray-700">{(selectedEvent.hostOrg as string).trim()}</span>
+                </p>
+              )}
 
               <div className="space-y-6 mb-8">
                 {/* Flyer Image */}
@@ -1221,21 +1284,68 @@ const App: React.FC = () => {
 
               <div className="flex flex-col gap-3">
                 {eventIsBookable(selectedEvent) ? (
-                  selectedEvent.websiteUrl ? (
-                  <a
-                    href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => trackExternalRsvp(selectedEvent, 'register')}
-                  >
-                    <Button className="w-full justify-center h-12">
-                      {lang === 'es' ? 'Registrarse' : 'Register'}
-                    </Button>
-                  </a>
+                  // Four registration routes, read from the event rather than guessed
+                  // from whether a link happens to be filled in. See resolveRsvpMode.
+                  resolveRsvpMode(selectedEvent) === 'none' ? (
+                    <div className="bg-[#f0f4ff] border border-[#233dff]/20 rounded-xl px-4 py-3.5 text-center">
+                      <p className="text-sm font-semibold text-[#233dff]">
+                        {lang === 'es' ? 'No se necesita registro' : 'No RSVP needed'}
+                      </p>
+                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                        {lang === 'es'
+                          ? 'Invitacion abierta. Solo preséntate.'
+                          : 'Open invite. Just show up.'}
+                      </p>
+                    </div>
+                  ) : resolveRsvpMode(selectedEvent) === 'external' ? (
+                    selectedEvent.websiteUrl ? (
+                      <a
+                        href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => trackExternalRsvp(selectedEvent, 'register')}
+                      >
+                        <Button className="w-full justify-center h-12">
+                          {lang === 'es'
+                            ? `Registrarse con ${hostLabel(selectedEvent, lang)}`
+                            : `RSVP with ${hostLabel(selectedEvent, lang)}`}
+                        </Button>
+                      </a>
+                    ) : selectedEvent.rsvpContact ? (
+                      // No registration page, but a real way to reach the host. A dead
+                      // button would be worse than the contact details themselves.
+                      <div className="bg-white border-[1.5px] border-gray-200 rounded-xl px-4 py-3.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
+                          {lang === 'es'
+                            ? `Registrarse con ${hostLabel(selectedEvent, lang)}`
+                            : `RSVP with ${hostLabel(selectedEvent, lang)}`}
+                        </p>
+                        <p className="text-sm font-semibold text-[#1a1a1a] whitespace-pre-line leading-relaxed">
+                          {selectedEvent.rsvpContact}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-center text-sm text-gray-600 leading-relaxed">
+                        {lang === 'es'
+                          ? `${hostLabel(selectedEvent, lang)} gestiona el registro de este evento.`
+                          : `${hostLabel(selectedEvent, lang)} handles registration for this event.`}
+                      </div>
+                    )
                   ) : (
-                  <Button onClick={() => setIsRSVPOpen(true)} className="w-full justify-center h-12">
-                    {t.submit_btn}
-                  </Button>
+                    <>
+                      <Button onClick={() => setIsRSVPOpen(true)} className="w-full justify-center h-12">
+                        {t.submit_btn}
+                      </Button>
+                      {resolveRsvpMode(selectedEvent) === 'hmc-for-partner' && (
+                        // Say plainly whose event this is when the form is ours but the
+                        // event is not, so nobody assumes HMC is running it.
+                        <p className="text-xs text-gray-500 text-center leading-relaxed -mt-1">
+                          {lang === 'es'
+                            ? `Health Matters Clinic recoge los registros para ${hostLabel(selectedEvent, lang)}.`
+                            : `Health Matters Clinic is collecting RSVPs for ${hostLabel(selectedEvent, lang)}.`}
+                        </p>
+                      )}
+                    </>
                   )
                 ) : (
                   <div className="bg-gray-100 text-gray-500 rounded-full py-3 text-center text-base font-normal border border-gray-200">
@@ -1583,6 +1693,12 @@ const App: React.FC = () => {
                         ? (event.city || (lang === 'es' ? 'Lugar por anunciar' : 'Location TBA'))
                         : event.city}
                     </div>
+                    {(event.hostOrg || '').trim() && (
+                      <div className="text-[11px] text-gray-400 font-medium truncate">
+                        {lang === 'es' ? 'Organizado por ' : 'Hosted by '}
+                        {(event.hostOrg as string).trim()}
+                      </div>
+                    )}
                   </div>
                 </div>
                 );

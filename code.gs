@@ -284,7 +284,12 @@ function doGet(e) {
       location: p.location || '',
       flyerUrl: p.flyerUrl || '',
       lang: p.lang || 'en',
-      notificationEmail: p.notificationEmail || ''
+      notificationEmail: p.notificationEmail || '',
+      // These were never read off the request, which is where the partner's own
+      // registration link went missing between the form and the sheet.
+      websiteUrl: p.websiteUrl || '',
+      rsvpMode: p.rsvpMode || '',
+      rsvpContact: p.rsvpContact || ''
     };
     handlePartnerRequest(payload);
     return HtmlService.createHtmlOutput('OK');
@@ -800,7 +805,10 @@ function doPost(e) {
           location: params.location || '',
           flyerUrl: params.flyerUrl || '',
           lang: params.lang || 'en',
-          notificationEmail: params.notificationEmail || ''
+          notificationEmail: params.notificationEmail || '',
+          websiteUrl: params.websiteUrl || '',
+          rsvpMode: params.rsvpMode || '',
+          rsvpContact: params.rsvpContact || ''
         });
         result = { success: true };
         break;
@@ -870,7 +878,7 @@ function getEvents() {
     }
 
     // Read all columns explicitly — getDataRange() can miss trailing empty columns
-    var numEventCols = Math.max(sheet.getLastColumn(), 19);
+    var numEventCols = Math.max(sheet.getLastColumn(), 22);
     var headers = sheet.getRange(1, 1, 1, numEventCols).getValues()[0];
     var data = sheet.getRange(1, 1, lastRow, numEventCols).getValues();
     var events = [];
@@ -978,7 +986,8 @@ function saveEvent(event) {
       sheet.appendRow([
         'id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
         'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-        'isPromoted', 'isSponsored', 'createdAt', 'sessions', 'notificationEmail'
+        'isPromoted', 'isSponsored', 'createdAt', 'sessions', 'notificationEmail',
+        'rsvpMode', 'hostOrg', 'rsvpContact'
       ]);
     }
 
@@ -994,9 +1003,19 @@ function saveEvent(event) {
       sheet.getRange(1, sheet.getLastColumn() + 1).setValue('notificationEmail');
     }
 
+    // Ensure the RSVP-ownership columns exist (migration for existing sheets).
+    // Existing rows stay blank, which reads as "never set" everywhere and is what
+    // EventOps flags, rather than being backfilled into a guess.
+    ['rsvpMode', 'hostOrg', 'rsvpContact'].forEach(function(col) {
+      headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      if (headerRow.indexOf(col) === -1) {
+        sheet.getRange(1, sheet.getLastColumn() + 1).setValue(col);
+      }
+    });
+
     // Read all columns explicitly — getDataRange() can miss trailing empty columns
     var lastRow = sheet.getLastRow();
-    var numEventCols = Math.max(sheet.getLastColumn(), 19);
+    var numEventCols = Math.max(sheet.getLastColumn(), 22);
     var headers = sheet.getRange(1, 1, 1, numEventCols).getValues()[0];
     var data = sheet.getRange(1, 1, lastRow, numEventCols).getValues();
 
@@ -1116,11 +1135,12 @@ function saveAllEvents(events) {
       sheet.appendRow([
         'id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
         'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-        'isPromoted', 'isSponsored', 'createdAt', 'sessions', 'notificationEmail'
+        'isPromoted', 'isSponsored', 'createdAt', 'sessions', 'notificationEmail',
+        'rsvpMode', 'hostOrg', 'rsvpContact'
       ]);
     }
 
-    var headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 19)).getValues()[0];
+    var headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 22)).getValues()[0];
 
     // Clear existing data (keep headers)
     var lastRow = sheet.getLastRow();
@@ -1165,6 +1185,49 @@ function saveAllEvents(events) {
   }
 }
 
+/**
+ * Who owns an event's RSVP, read from the Events sheet.
+ *
+ * A row saved before the rsvpMode column existed carries no value, and is read the
+ * way it behaved at the time: a registration link meant the host organization owned
+ * the signup, a blank one meant HMC's form. That fallback is deliberately identical
+ * to the front end's, so the two never disagree about a given event.
+ *
+ * An unknown event id returns 'hmc' rather than blocking. Some RSVPs arrive for
+ * Webflow-only events that were never written to this sheet, and refusing those
+ * would break registration for them.
+ */
+function rsvpOwner(eventId) {
+  var unknown = { mode: 'hmc', hostOrg: '', websiteUrl: '', rsvpContact: '' };
+  try {
+    var result = getEvents();
+    if (!result || !result.success || !result.events) return unknown;
+
+    var wanted = normalizeId(eventId);
+    for (var i = 0; i < result.events.length; i++) {
+      var ev = result.events[i];
+      if (normalizeId(ev.id) !== wanted) continue;
+
+      var mode = String(ev.rsvpMode || '').trim();
+      var known = ['hmc', 'hmc-for-partner', 'external', 'none'];
+      if (known.indexOf(mode) === -1) {
+        mode = String(ev.websiteUrl || '').trim() ? 'external' : 'hmc';
+      }
+      return {
+        mode: mode,
+        hostOrg: String(ev.hostOrg || '').trim(),
+        websiteUrl: String(ev.websiteUrl || '').trim(),
+        rsvpContact: String(ev.rsvpContact || '').trim()
+      };
+    }
+    return unknown;
+  } catch (e) {
+    // A sheet read failure must not take registration down for HMC's own events.
+    Logger.log('rsvpOwner failed for ' + eventId + ': ' + e);
+    return unknown;
+  }
+}
+
 // ========================================
 // RSVP HANDLER
 // ========================================
@@ -1180,6 +1243,25 @@ function handleRSVP(payload) {
   if (!payload.eventId) {
     return { success: false, error: 'Event ID is required.' };
   }
+
+  // An event whose RSVP belongs to the host organization must not be able to write
+  // into HMC's sheet, whatever asked. The front end already routes these elsewhere,
+  // but a cached bundle, a stale shared ?rsvp=true link, and the embeddable Webflow
+  // widget all post here directly, so the rule is enforced where the write happens.
+  var ownerCheck = rsvpOwner(payload.eventId);
+  if (ownerCheck.mode === 'external' || ownerCheck.mode === 'none') {
+    return {
+      success: false,
+      error: ownerCheck.mode === 'none'
+        ? 'This event does not take RSVPs. It is an open invite.'
+        : 'RSVPs for this event are handled by ' + (ownerCheck.hostOrg || 'the host organization') + '.',
+      rsvpMode: ownerCheck.mode,
+      hostOrg: ownerCheck.hostOrg,
+      websiteUrl: ownerCheck.websiteUrl,
+      rsvpContact: ownerCheck.rsvpContact
+    };
+  }
+
   // Basic email format check if provided
   if (payload.email) {
     var emailStr = String(payload.email).trim();
@@ -1496,7 +1578,8 @@ function handlePartnerRequest(payload) {
       sheet.appendRow([
         'Timestamp', 'Name', 'Email', 'Organization', 'Event Title',
         'Event Description', 'Proposed Date', 'Event Time', 'Location',
-        'Flyer URL', 'Language', 'Status', 'Notification Email'
+        'Flyer URL', 'Language', 'Status', 'Notification Email',
+        'Website URL', 'RSVP Mode', 'RSVP Contact'
       ]);
     } else {
       // Migration: add Notification Email column if it doesn't exist yet
@@ -1504,6 +1587,15 @@ function handlePartnerRequest(payload) {
       if (prHeaders.indexOf('Notification Email') === -1) {
         sheet.getRange(1, sheet.getLastColumn() + 1).setValue('Notification Email');
       }
+      // The submission form has asked for a registration link for months and the row
+      // had nowhere to put it, so every partner's own signup page was discarded on
+      // arrival and the event went live pointing at HMC's form instead.
+      ['Website URL', 'RSVP Mode', 'RSVP Contact'].forEach(function(col) {
+        prHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+        if (prHeaders.indexOf(col) === -1) {
+          sheet.getRange(1, sheet.getLastColumn() + 1).setValue(col);
+        }
+      });
     }
 
     // Check for a duplicate submission in the last 60 seconds
@@ -1546,7 +1638,10 @@ function handlePartnerRequest(payload) {
       payload.flyerUrl || '',
       payload.lang,
       'pending',
-      payload.notificationEmail || ''
+      payload.notificationEmail || '',
+      payload.websiteUrl || '',
+      payload.rsvpMode || '',
+      payload.rsvpContact || ''
     ]);
 
     SpreadsheetApp.flush();
@@ -1570,7 +1665,8 @@ function handlePartnerRequest(payload) {
  * Returns all pending partner requests (status blank or "pending").
  * Column map (0-indexed): 0=Timestamp, 1=Name, 2=Email, 3=Organization,
  *   4=Event Title, 5=Event Description, 6=Proposed Date, 7=Event Time,
- *   8=Location, 9=Flyer URL, 10=Language, 11=Status, 12=Notification Email
+ *   8=Location, 9=Flyer URL, 10=Language, 11=Status, 12=Notification Email,
+ *   13=Website URL, 14=RSVP Mode, 15=RSVP Contact
  */
 function getPartnerRequests() {
   try {
@@ -1579,8 +1675,9 @@ function getPartnerRequests() {
     if (!sheet || sheet.getLastRow() < 2) {
       return { success: true, requests: [] };
     }
-    // Read up to 13 columns; if sheet only has 12 (pre-migration), the 13th will be empty string
-    var numCols = Math.min(sheet.getLastColumn(), 13);
+    // Read up to 16 columns; a pre-migration sheet is shorter and the missing ones
+    // come back as empty strings.
+    var numCols = Math.min(sheet.getLastColumn(), 16);
     var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, numCols).getValues();
     var requests = [];
     for (var i = 0; i < data.length; i++) {
@@ -1601,7 +1698,10 @@ function getPartnerRequests() {
         flyerUrl: String(row[9] || ''),
         lang: String(row[10] || 'en'),
         status: status || 'pending',
-        notificationEmail: String(row[12] || '')
+        notificationEmail: String(row[12] || ''),
+        websiteUrl: String(row[13] || ''),
+        rsvpMode: String(row[14] || ''),
+        rsvpContact: String(row[15] || '')
       });
     }
     return { success: true, requests: requests };
@@ -2375,7 +2475,8 @@ function setupSheets() {
     eventsSheet.appendRow([
       'id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
       'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-      'isPromoted', 'isSponsored', 'createdAt', 'sessions', 'notificationEmail'
+      'isPromoted', 'isSponsored', 'createdAt', 'sessions', 'notificationEmail',
+      'rsvpMode', 'hostOrg', 'rsvpContact'
     ]);
     Logger.log('Created Events sheet with headers');
   } else {
@@ -2730,7 +2831,7 @@ function restoreOriginalEvents() {
     sheet.appendRow([
       'id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
       'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-      'isPromoted', 'isSponsored', 'createdAt'
+      'isPromoted', 'isSponsored', 'createdAt', 'rsvpMode', 'hostOrg', 'rsvpContact'
     ]);
   }
 
@@ -2741,9 +2842,12 @@ function restoreOriginalEvents() {
   }
 
   // Add all events
+  // The restored seeds leave rsvpMode blank on purpose. This is a break-glass restore,
+  // and a blank reads as "never set", which EventOps flags for review, rather than
+  // asserting an owner for events nobody has looked at since the restore.
   var headers = ['id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
     'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-    'isPromoted', 'isSponsored', 'createdAt'];
+    'isPromoted', 'isSponsored', 'createdAt', 'rsvpMode', 'hostOrg', 'rsvpContact'];
 
   var rows = [];
   for (var i = 0; i < events.length; i++) {

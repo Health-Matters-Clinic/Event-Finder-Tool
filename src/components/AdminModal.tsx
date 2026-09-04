@@ -49,9 +49,20 @@ interface PartnerRequest {
   eventTime: string;
   location: string;
   flyerUrl: string;
+  websiteUrl: string;
+  rsvpMode: string;
+  rsvpContact: string;
   lang: string;
   status: string;
 }
+
+/**
+ * Events still carrying no answer about who owns their RSVP. Those fall back to the
+ * pre-field behaviour (a link means the org, a blank means HMC's own form), which is
+ * the very default this field replaces, so they are surfaced rather than left to sit.
+ */
+const rsvpModeUnset = (e: ClinicEvent): boolean =>
+  !['hmc', 'hmc-for-partner', 'external', 'none'].includes(String(e.rsvpMode || ''));
 
 const PROGRAM_OPTIONS = [
   'Unstoppable Workshop',
@@ -580,6 +591,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       program: approveFormData.program || 'Partner Event',
       description: approveFormData.description || req.eventDescription,
       flyerUrl: req.flyerUrl || '',
+      // A partner request is by definition someone else's event, so the submitting
+      // organization is the host and their answer about registration is carried
+      // through. These used to be dropped on approval, which is how a partner event
+      // with its own Eventbrite page arrived on the listing pointing at HMC's form.
+      hostOrg: req.organization || '',
+      rsvpMode: (['hmc', 'hmc-for-partner', 'external', 'none'].includes(req.rsvpMode)
+        ? req.rsvpMode
+        : req.websiteUrl
+        ? 'external'
+        : 'none') as ClinicEvent['rsvpMode'],
+      websiteUrl: req.websiteUrl || '',
+      rsvpContact: req.rsvpContact || '',
       lat: approveFormData.lat || 33.9719,
       lng: approveFormData.lng || -118.2108,
       isPromoted: false,
@@ -718,9 +741,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     return { label: 'PAST', color: 'text-gray-500', bg: 'bg-gray-100' };
   };
 
+  /** Today or later. Past events are not worth chasing for an RSVP owner. */
+  const eventHasPassedAdmin = (ev: ClinicEvent): boolean => daysBetween(ev.date, today) < 0;
+
   // ---- Share link ----
+  // rsvp=true opens HMC's form on arrival, so it only belongs on an event whose RSVP
+  // HMC actually takes. On anyone else's event the app ignores it; the link should
+  // not carry the claim either.
   const getShareLink = (ev: ClinicEvent) =>
-    SHARE_BASE_URL + encodeURIComponent(ev.id) + '&rsvp=true';
+    SHARE_BASE_URL +
+    encodeURIComponent(ev.id) +
+    (ev.rsvpMode === 'external' || ev.rsvpMode === 'none' ? '' : '&rsvp=true');
 
   const handleCopyShareLink = async (ev: ClinicEvent) => {
     const link = getShareLink(ev);
@@ -942,6 +973,31 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
     if (!eventToSave.location && eventToSave.city) {
       eventToSave.location = eventToSave.city;
+    }
+
+    // Required rather than defaulted. Every event on this listing now states who owns
+    // its RSVP; leaving it unanswered is what used to quietly route another
+    // organization's attendees into HMC's own registration sheet.
+    if (!['hmc', 'hmc-for-partner', 'external', 'none'].includes(String(eventToSave.rsvpMode || ''))) {
+      setSaveError(lang === 'es'
+        ? 'Elige quien recibe los registros de este evento.'
+        : 'Choose who receives RSVPs for this event.');
+      setIsSaving(false);
+      return;
+    }
+    if (eventToSave.rsvpMode === 'hmc-for-partner' && !(eventToSave.hostOrg || '').trim()) {
+      setSaveError(lang === 'es'
+        ? 'Nombra la organizacion para la que recoges los registros.'
+        : 'Name the organization you are collecting RSVPs for.');
+      setIsSaving(false);
+      return;
+    }
+    if (eventToSave.rsvpMode === 'external' && !(eventToSave.websiteUrl || '').trim() && !(eventToSave.rsvpContact || '').trim()) {
+      setSaveError(lang === 'es'
+        ? 'Agrega el enlace o el contacto de registro de la organizacion.'
+        : "Add the organization's registration link or contact.");
+      setIsSaving(false);
+      return;
     }
 
     try {
@@ -1554,6 +1610,34 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   : `${events.length} ${lang === 'es' ? 'Eventos' : 'Events'}`}
               </div>
 
+              {/* ---- RSVP ownership backlog ---- */}
+              {events.filter((e) => rsvpModeUnset(e) && !eventHasPassedAdmin(e)).length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-red-700">
+                    {events.filter((e) => rsvpModeUnset(e) && !eventHasPassedAdmin(e)).length}{' '}
+                    {events.filter((e) => rsvpModeUnset(e) && !eventHasPassedAdmin(e)).length === 1
+                      ? (lang === 'es'
+                          ? 'evento proximo sin responsable de registro'
+                          : 'upcoming event has no RSVP owner set')
+                      : (lang === 'es'
+                          ? 'eventos proximos sin responsable de registro'
+                          : 'upcoming events have no RSVP owner set')}
+                  </p>
+                  <p className="text-[11px] text-red-600 mt-1 leading-relaxed">
+                    {lang === 'es'
+                      ? 'Hasta que se definan, los eventos sin enlace recogen registros en la hoja de HMC. Editalos y elige quien recibe los registros.'
+                      : 'Until they are set, an event with no link collects RSVPs into the HMC sheet. Open each one and choose who receives RSVPs.'}
+                  </p>
+                  <p className="text-[11px] text-red-700 font-semibold mt-1.5 leading-relaxed">
+                    {events
+                      .filter((e) => rsvpModeUnset(e) && !eventHasPassedAdmin(e))
+                      .slice(0, 8)
+                      .map((e) => e.title)
+                      .join(' - ')}
+                  </p>
+                </div>
+              )}
+
               {/* ---- Events List ---- */}
               <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
                 {isRefreshing && sortedEvents.length === 0 && (
@@ -1588,6 +1672,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${status.bg} ${status.color}`}>
                             {status.label}
                           </span>
+                          {/* Nobody has said who owns this event's RSVP yet. */}
+                          {rsvpModeUnset(event) && (
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-red-100 text-red-700"
+                              title={event.websiteUrl
+                                ? 'Falls back to sending people to the external link'
+                                : 'Falls back to collecting the RSVP into the HMC sheet'}
+                            >
+                              {lang === 'es' ? 'SIN REGISTRO' : 'RSVP UNSET'}
+                            </span>
+                          )}
                           {/* Draft */}
                           {event.saveTheDate && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-yellow-100 text-yellow-700">
@@ -2106,31 +2201,164 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     )}
                   </div>
 
-                  {/* External registration link. Leaving this blank is what keeps an
-                      event on HMC's own RSVP flow, so the consequence is spelled out
-                      rather than left for someone to discover after the fact. */}
+                </div>
+              </FormSection>
+
+              {/* Section: Registration. Replaces the old lone "external registration
+                  link" field, where a blank meant HMC collects the RSVP. That default
+                  was wrong for a listing carrying other organizations' events, and it
+                  could not express an open invite at all. */}
+              <FormSection
+                title={lang === 'es' ? 'Registro' : 'Registration'}
+                defaultOpen={!formData.rsvpMode || formData.rsvpMode !== 'hmc'}
+              >
+                <div className="space-y-4">
                   <div>
                     <label className={labelCls}>
-                      {lang === 'es' ? 'Enlace de Registro Externo' : 'External Registration Link'}{' '}
-                      <span className="text-gray-300">(optional)</span>
+                      {lang === 'es' ? 'Quien recibe los registros' : 'Who receives RSVPs'} *
                     </label>
-                    <input
-                      name="websiteUrl"
-                      value={formData.websiteUrl || ''}
-                      onChange={handleFormChange}
-                      placeholder="https://eventbrite.com/..."
-                      className={inputCls}
-                    />
-                    <p className={`text-xs mt-1.5 ${formData.websiteUrl ? 'text-amber-700' : 'text-gray-400'}`}>
-                      {formData.websiteUrl
+                    <select
+                      value={formData.rsvpMode || ''}
+                      onChange={(e) => {
+                        const mode = e.target.value as ClinicEvent['rsvpMode'];
+                        setFormData((prev) => ({
+                          ...prev,
+                          rsvpMode: mode,
+                          // Dropped rather than carried invisibly: a stale link on an
+                          // event switched to HMC RSVP would still have won the button.
+                          ...(mode === 'hmc' || mode === 'hmc-for-partner' || mode === 'none'
+                            ? { rsvpContact: '' }
+                            : {}),
+                        }));
+                      }}
+                      className={`${inputCls} appearance-none cursor-pointer`}
+                    >
+                      <option value="" disabled>
+                        {lang === 'es' ? '- Elegir -' : '- Choose -'}
+                      </option>
+                      <option value="hmc">
+                        {lang === 'es' ? 'HMC recoge el registro' : 'HMC collects the RSVP'}
+                      </option>
+                      <option value="hmc-for-partner">
+                        {lang === 'es'
+                          ? 'HMC recoge en nombre de la organizacion'
+                          : "HMC collects on the org's behalf"}
+                      </option>
+                      <option value="external">
+                        {lang === 'es'
+                          ? 'Registrarse con la organizacion'
+                          : 'RSVP with the org'}
+                      </option>
+                      <option value="none">
+                        {lang === 'es'
+                          ? 'No se necesita registro - invitacion abierta'
+                          : 'No RSVP needed - open invite'}
+                      </option>
+                    </select>
+                    <p className="text-xs mt-1.5 text-gray-400 leading-relaxed">
+                      {formData.rsvpMode === 'hmc'
                         ? (lang === 'es'
-                            ? 'Este evento enviara a la gente a ese enlace. HMC no recibira ninguna confirmacion ni correo.'
-                            : 'This event will send people to that link instead. HMC will not capture the RSVP, and no confirmation email is sent.')
+                            ? 'El formulario de HMC. Los registros llegan a la hoja de HMC y enviamos el correo de confirmacion.'
+                            : "HMC's own form. Registrations land in the HMC sheet and we send the confirmation email.")
+                        : formData.rsvpMode === 'hmc-for-partner'
+                        ? (lang === 'es'
+                            ? 'El formulario de HMC, pero el evento es de otra organizacion. Se lo decimos a la persona y el registro queda marcado como suyo.'
+                            : "HMC's own form, but the event belongs to another organization. We say so on the form and the registration is recorded as theirs.")
+                        : formData.rsvpMode === 'external'
+                        ? (lang === 'es'
+                            ? 'HMC no recibe nada. Enviamos a la persona al enlace o al contacto de la organizacion.'
+                            : "HMC receives nothing. We send the person to the organization's link or contact.")
+                        : formData.rsvpMode === 'none'
+                        ? (lang === 'es'
+                            ? 'Sin formulario y sin enlace. La pagina dice que la invitacion es abierta.'
+                            : 'No form and no link. The page says the invite is open.')
                         : (lang === 'es'
-                            ? 'Dejar en blanco para usar el registro de HMC.'
-                            : 'Leave blank to use HMC RSVP and capture registrations here.')}
+                            ? 'Obligatorio. Nada se recoge por defecto.'
+                            : 'Required. Nothing is collected by default.')}
                     </p>
                   </div>
+
+                  {formData.rsvpMode !== 'hmc' && (
+                    <div>
+                      <label className={labelCls}>
+                        {lang === 'es' ? 'Organizado por' : 'Hosted by'}
+                        {formData.rsvpMode === 'hmc-for-partner' ? ' *' : ' '}
+                        {formData.rsvpMode !== 'hmc-for-partner' && (
+                          <span className="text-gray-300">(optional)</span>
+                        )}
+                      </label>
+                      <input
+                        name="hostOrg"
+                        value={formData.hostOrg || ''}
+                        onChange={handleFormChange}
+                        placeholder={lang === 'es' ? 'ej. LASPN' : 'e.g. LASPN'}
+                        className={inputCls}
+                      />
+                      <p className="text-xs mt-1.5 text-gray-400 leading-relaxed">
+                        {lang === 'es'
+                          ? 'Se muestra en la tarjeta y en el boton ("Registrarse con LASPN"), y nombra al organizador en los datos estructurados del evento.'
+                          : 'Shown on the card and on the button ("RSVP with LASPN"), and names the organizer in the event\u2019s structured data.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {formData.rsvpMode === 'external' && (
+                    <>
+                      <div>
+                        <label className={labelCls}>
+                          {lang === 'es' ? 'Enlace de registro de la organizacion' : "Organization's registration link"}
+                        </label>
+                        <input
+                          name="websiteUrl"
+                          value={formData.websiteUrl || ''}
+                          onChange={handleFormChange}
+                          placeholder="https://eventbrite.com/..."
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>
+                          {lang === 'es' ? 'O contacto de registro' : 'Or registration contact'}
+                        </label>
+                        <textarea
+                          name="rsvpContact"
+                          value={formData.rsvpContact || ''}
+                          onChange={handleFormChange}
+                          rows={2}
+                          placeholder={lang === 'es' ? 'ej. Angelise Williams, (310) 714-3684' : 'e.g. Angelise Williams, (310) 714-3684'}
+                          className={inputCls}
+                        />
+                        <p className="text-xs mt-1.5 text-gray-400 leading-relaxed">
+                          {lang === 'es'
+                            ? 'Para una organizacion que toma registros por telefono o correo en vez de una pagina. Se necesita el enlace o el contacto.'
+                            : 'For an organization that takes RSVPs by phone or email rather than a page. One of link or contact is required.'}
+                        </p>
+                      </div>
+                    </>
+                  )}
+
+                  {/* An informational link is still worth carrying for an event nobody
+                      registers for, so this stays available outside `external`. */}
+                  {(formData.rsvpMode === 'hmc' || formData.rsvpMode === 'hmc-for-partner' || formData.rsvpMode === 'none') && (
+                    <div>
+                      <label className={labelCls}>
+                        {lang === 'es' ? 'Enlace de mas informacion' : 'More info link'}{' '}
+                        <span className="text-gray-300">(optional)</span>
+                      </label>
+                      <input
+                        name="websiteUrl"
+                        value={formData.websiteUrl || ''}
+                        onChange={handleFormChange}
+                        placeholder="https://..."
+                        className={inputCls}
+                      />
+                      <p className="text-xs mt-1.5 text-gray-400 leading-relaxed">
+                        {lang === 'es'
+                          ? 'Aparece como "Mas Informacion". Ya no cambia quien recibe los registros.'
+                          : 'Appears as "More Info". It no longer changes who receives RSVPs.'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </FormSection>
 
