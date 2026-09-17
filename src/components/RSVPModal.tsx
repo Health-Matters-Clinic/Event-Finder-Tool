@@ -650,7 +650,21 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                 })}
               </div>
 
-              {/* Consent */}
+              {/* Consent
+                *
+                * Carrier vetting for A2P 10DLC reads this box, not our intentions. Four
+                * disclosures have to be visible at the point of consent or the campaign is
+                * rejected: what kind of messages arrive, how often, that carrier rates may
+                * apply, and how to stop. The links matter too: a reviewer has to be able to
+                * reach the privacy policy and the terms from the same screen as the checkbox.
+                * The previous wording, "I consent to receive reminders and updates from
+                * Health Matters Clinic", carried none of the four and cited nothing, and it
+                * is named in the rejection notes for errors 30896, 30924 and 30882.
+                *
+                * The last line is not boilerplate. Consent to texting is never a condition of
+                * attending an event or receiving anything from HMC, and saying so is both the
+                * truth and the thing carriers look for.
+                */}
               <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
                 <input
                   type="checkbox"
@@ -658,9 +672,30 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                   className="h-3.5 w-3.5 mt-0.5 rounded border-gray-300 text-[#233dff] focus:ring-[#233dff]"
                 />
                 <span>
-                  {lang === 'es'
-                    ? 'Acepto recibir recordatorios y actualizaciones de Health Matters Clinic.'
-                    : 'I consent to receive reminders and updates from Health Matters Clinic.'}
+                  {lang === 'es' ? (
+                    <>
+                      Al marcar esta casilla, acepto recibir mensajes de texto de Health Matters Clinic
+                      sobre este evento, incluidas confirmaciones de registro, recordatorios y avisos
+                      sobre eventos y servicios de salud. La frecuencia de los mensajes varía. Pueden
+                      aplicarse tarifas de mensajes y datos. Responda STOP para cancelar o HELP para
+                      obtener ayuda. Consulte nuestra{' '}
+                      <a href="https://www.healthmatters.clinic/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline text-[#233dff] font-semibold">Política de Privacidad</a>
+                      {' '}y nuestros{' '}
+                      <a href="https://www.healthmatters.clinic/terms" target="_blank" rel="noopener noreferrer" className="underline text-[#233dff] font-semibold">Términos de Servicio</a>.
+                      El consentimiento no es requisito para asistir a un evento ni para recibir servicios.
+                    </>
+                  ) : (
+                    <>
+                      By checking this box, I agree to receive text messages from Health Matters Clinic
+                      about this event, including RSVP confirmations, reminders, and updates about health
+                      events and services. Message frequency varies. Message and data rates may apply.
+                      Reply STOP to unsubscribe or HELP for help. See our{' '}
+                      <a href="https://www.healthmatters.clinic/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline text-[#233dff] font-semibold">Privacy Policy</a>
+                      {' '}and{' '}
+                      <a href="https://www.healthmatters.clinic/terms" target="_blank" rel="noopener noreferrer" className="underline text-[#233dff] font-semibold">Terms of Service</a>.
+                      Consent is not a condition of attending an event or receiving services.
+                    </>
+                  )}
                 </span>
               </label>
 
