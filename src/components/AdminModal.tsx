@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from './Button';
 import { ClinicEvent, EventSession, Language } from '../types';
 import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, hashPasscode, postGasJson, AdBanner } from '../config';
@@ -164,12 +164,23 @@ const daysBetween = (a: string, b: string): number => {
 };
 
 // Collapsible section component for the edit form
-const FormSection: React.FC<{ title: string; defaultOpen?: boolean; children: React.ReactNode }> = ({
+const FormSection: React.FC<{
+  title: string;
+  defaultOpen?: boolean;
+  /** Bumped by the parent to force this section open, e.g. when a failed save
+   *  needs to point at a field that is collapsed out of the DOM. */
+  openKey?: number;
+  children: React.ReactNode;
+}> = ({
   title,
   defaultOpen = true,
+  openKey = 0,
   children,
 }) => {
   const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => {
+    if (openKey > 0) setOpen(true);
+  }, [openKey]);
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
       <button
@@ -279,6 +290,34 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [showImport, setShowImport] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  // Where a failed save should send the person. The only error surface used to be the
+  // banner at the very top of a scrolling body, while Save is pinned to the bottom of
+  // it, so a rejected save read as the button doing nothing at all.
+  const [errorFocus, setErrorFocus] = useState<{ field: string; n: number }>({ field: '', n: 0 });
+  const [registrationOpenKey, setRegistrationOpenKey] = useState(0);
+  const saveErrorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!saveError) return;
+    // Wait for the section to re-open and paint before measuring.
+    const t = window.setTimeout(() => {
+      const target = errorFocus.field
+        ? document.querySelector<HTMLElement>(`[data-admin-field="${errorFocus.field}"]`)
+        : null;
+      const el = target || saveErrorRef.current;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target?.focus({ preventScroll: true });
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, [saveError, errorFocus.n, errorFocus.field]);
+
+  // Reject a save loudly: banner, plus the field that caused it scrolled into view.
+  const failSave = (message: string, field = '') => {
+    setSaveError(message);
+    setIsSaving(false);
+    if (field) setRegistrationOpenKey((k) => k + 1);
+    setErrorFocus((prev) => ({ field, n: prev.n + 1 }));
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [showUtilityMenu, setShowUtilityMenu] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
@@ -957,6 +996,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     e.preventDefault();
     setIsSaving(true);
     setSaveError('');
+    setErrorFocus((prev) => ({ field: '', n: prev.n }));
 
     let eventToSave = { ...formData, sessions: sessions.length > 0 ? sessions : undefined };
     if (eventToSave.date && !eventToSave.dateDisplay) {
@@ -979,24 +1019,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     // its RSVP; leaving it unanswered is what used to quietly route another
     // organization's attendees into HMC's own registration sheet.
     if (!['hmc', 'hmc-for-partner', 'external', 'none'].includes(String(eventToSave.rsvpMode || ''))) {
-      setSaveError(lang === 'es'
+      failSave(lang === 'es'
         ? 'Elige quien recibe los registros de este evento.'
-        : 'Choose who receives RSVPs for this event.');
-      setIsSaving(false);
+        : 'Choose who receives RSVPs for this event.', 'rsvpMode');
       return;
     }
     if (eventToSave.rsvpMode === 'hmc-for-partner' && !(eventToSave.hostOrg || '').trim()) {
-      setSaveError(lang === 'es'
+      failSave(lang === 'es'
         ? 'Nombra la organizacion para la que recoges los registros.'
-        : 'Name the organization you are collecting RSVPs for.');
-      setIsSaving(false);
+        : 'Name the organization you are collecting RSVPs for.', 'hostOrg');
       return;
     }
     if (eventToSave.rsvpMode === 'external' && !(eventToSave.websiteUrl || '').trim() && !(eventToSave.rsvpContact || '').trim()) {
-      setSaveError(lang === 'es'
+      failSave(lang === 'es'
         ? 'Agrega el enlace o el contacto de registro de la organizacion.'
-        : "Add the organization's registration link or contact.");
-      setIsSaving(false);
+        : "Add the organization's registration link or contact.", 'websiteUrl');
       return;
     }
 
@@ -1004,8 +1041,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       await saveEventToBackend(eventToSave);
     } catch (error) {
       console.error('Backend save failed:', error);
-      setSaveError(lang === 'es' ? 'Error al guardar' : `Save failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setIsSaving(false);
+      failSave(lang === 'es' ? 'Error al guardar' : `Save failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return;
     }
 
@@ -1242,7 +1278,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             </div>
           )}
           {saveError && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+            <div ref={saveErrorRef} className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between scroll-mt-4">
               <span className="text-sm font-semibold text-yellow-800">{saveError}</span>
               <button onClick={() => setSaveError('')} className="text-yellow-600 hover:text-yellow-800 text-xs font-bold">
                 {lang === 'es' ? 'Cerrar' : 'Dismiss'}
@@ -2211,13 +2247,32 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               <FormSection
                 title={lang === 'es' ? 'Registro' : 'Registration'}
                 defaultOpen={!formData.rsvpMode || formData.rsvpMode !== 'hmc'}
+                openKey={registrationOpenKey}
               >
                 <div className="space-y-4">
+                  {/* Every event listed here predates this field, so an edit of any of
+                      them is blocked until it is answered. Say that up front rather
+                      than only at the moment Save is pressed. */}
+                  {rsvpModeUnset(formData) && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                      <p className="text-sm font-semibold text-yellow-800">
+                        {lang === 'es'
+                          ? 'Este evento aun no dice quien recibe los registros.'
+                          : 'This event does not yet say who receives its RSVPs.'}
+                      </p>
+                      <p className="text-xs text-yellow-700 mt-1 leading-relaxed">
+                        {lang === 'es'
+                          ? 'Elige una opcion abajo. No se puede guardar ningun cambio hasta entonces.'
+                          : 'Choose an option below. No change to this event can be saved until you do.'}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <label className={labelCls}>
                       {lang === 'es' ? 'Quien recibe los registros' : 'Who receives RSVPs'} *
                     </label>
                     <select
+                      data-admin-field="rsvpMode"
                       value={formData.rsvpMode || ''}
                       onChange={(e) => {
                         const mode = e.target.value as ClinicEvent['rsvpMode'];
@@ -2231,7 +2286,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             : {}),
                         }));
                       }}
-                      className={`${inputCls} appearance-none cursor-pointer`}
+                      className={`${inputCls} appearance-none cursor-pointer${
+                        errorFocus.field === 'rsvpMode' ? ' border-red-400 ring-2 ring-red-100' : ''
+                      }`}
                     >
                       <option value="" disabled>
                         {lang === 'es' ? '- Elegir -' : '- Choose -'}
@@ -2288,11 +2345,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         )}
                       </label>
                       <input
+                        data-admin-field="hostOrg"
                         name="hostOrg"
                         value={formData.hostOrg || ''}
                         onChange={handleFormChange}
                         placeholder={lang === 'es' ? 'ej. LASPN' : 'e.g. LASPN'}
-                        className={inputCls}
+                        className={`${inputCls}${
+                          errorFocus.field === 'hostOrg' ? ' border-red-400 ring-2 ring-red-100' : ''
+                        }`}
                       />
                       <p className="text-xs mt-1.5 text-gray-400 leading-relaxed">
                         {lang === 'es'
@@ -2309,11 +2369,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           {lang === 'es' ? 'Enlace de registro de la organizacion' : "Organization's registration link"}
                         </label>
                         <input
+                          data-admin-field="websiteUrl"
                           name="websiteUrl"
                           value={formData.websiteUrl || ''}
                           onChange={handleFormChange}
                           placeholder="https://eventbrite.com/..."
-                          className={inputCls}
+                          className={`${inputCls}${
+                            errorFocus.field === 'websiteUrl' ? ' border-red-400 ring-2 ring-red-100' : ''
+                          }`}
                         />
                       </div>
                       <div>
