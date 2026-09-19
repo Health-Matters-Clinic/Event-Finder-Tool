@@ -519,6 +519,45 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   };
 
+  // Uploading the banner image here is the only workable route for most designs.
+  // The instructions used to end at "upload to Google Drive and build a uc?export=view
+  // link", which Google no longer serves reliably for hotlinking, so a banner that was
+  // saved correctly still rendered as a broken image and the strip hid itself. The
+  // flyer store already accepts an image and hands back a permanent URL; ads use it too.
+  const [adUploading, setAdUploading] = useState<'' | 'desktop' | 'mobile'>('');
+
+  const uploadAdImage = async (file: File, slot: 'desktop' | 'mobile') => {
+    setAdsError('');
+    setAdUploading(slot);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Could not read that file'));
+        reader.readAsDataURL(file);
+      });
+      // Sent as-is rather than redrawn through a canvas: a leaderboard is mostly type,
+      // and re-encoding it softens the lettering at the one size it is ever shown.
+      const res = await fetch(`${PORTAL_API_URL}/api/public/upload-flyer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId: `ad-${slot}-${adForm.id || 'new'}-${Date.now()}`,
+          imageData: dataUrl,
+          mimeType: file.type || 'image/png',
+        }),
+      });
+      const data = await res.json();
+      if (!data.success || !data.url) throw new Error(data.error || 'Upload failed');
+      setAdForm((f) => (slot === 'desktop' ? { ...f, imageUrl: data.url } : { ...f, mobileImageUrl: data.url }));
+      showAdsToast(slot === 'desktop' ? 'Desktop image uploaded.' : 'Mobile image uploaded.');
+    } catch (err) {
+      setAdsError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setAdUploading('');
+    }
+  };
+
   const handleSaveAd = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdSaving(true);
@@ -2906,8 +2945,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
                   {/* Helper text */}
                   <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700 leading-relaxed space-y-1">
-                    <p><strong>Direct image URL required.</strong> The URL must point directly to a PNG, JPG, GIF, or WebP image file, not a webpage.</p>
-                    <p><strong>Canva:</strong> Do NOT use "Share → Copy link" (that gives a canva.link URL which will not load). Instead: Share → Download → PNG, then upload the file to Google Drive.</p>
+                    <p><strong>Easiest:</strong> use Upload image below. The file is hosted for you and the URL is filled in.</p>
+                    <p><strong>Canva:</strong> Share → Download → PNG, then upload that file here. Do NOT use "Share → Copy link": a canva.link URL is a webpage, not an image, and will never load.</p>
+                    <p><strong>Pasting a URL instead?</strong> It must point directly at a PNG, JPG, GIF or WebP file.</p>
                     <p><strong>Google Drive:</strong> Upload your image, right-click → Share → Anyone with the link. Copy the file ID from the URL and use: <code>https://drive.google.com/uc?export=view&amp;id=FILE_ID</code></p>
                     <p><strong>Dropbox:</strong> Share link and change <code>dl=0</code> to <code>raw=1</code> at the end of the URL.</p>
                     <p><strong>Sizes:</strong> Desktop 728×90px · Mobile 320×50px</p>
@@ -2919,6 +2959,25 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       DESKTOP IMAGE URL *
                       <span className="ml-2 font-normal normal-case text-gray-400">728 x 90 pixels (leaderboard)</span>
                     </label>
+                    <div className="flex items-center gap-3 mb-2">
+                      <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full font-normal text-sm leading-[1.2] border border-gray-200 bg-white text-gray-600 hover:border-[#233dff] hover:text-[#233dff] hover:bg-blue-50 transition-all ${adUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {adUploading === 'desktop' ? 'Uploading...' : 'Upload image'}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif,image/webp"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = '';
+                            if (file) uploadAdImage(file, 'desktop');
+                          }}
+                        />
+                      </label>
+                      <span className="text-[11px] text-gray-400">PNG or JPG, up to 5 MB. Or paste a direct image URL below.</span>
+                    </div>
                     <input
                       required
                       type="url"
@@ -2951,6 +3010,25 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       MOBILE IMAGE URL
                       <span className="ml-2 font-normal normal-case text-gray-400">320 x 50 pixels (optional, the desktop image will scale if not provided)</span>
                     </label>
+                    <div className="flex items-center gap-3 mb-2">
+                      <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full font-normal text-sm leading-[1.2] border border-gray-200 bg-white text-gray-600 hover:border-[#233dff] hover:text-[#233dff] hover:bg-blue-50 transition-all ${adUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {adUploading === 'mobile' ? 'Uploading...' : 'Upload image'}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif,image/webp"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = '';
+                            if (file) uploadAdImage(file, 'mobile');
+                          }}
+                        />
+                      </label>
+                      <span className="text-[11px] text-gray-400">Optional. The desktop image scales down if you skip this.</span>
+                    </div>
                     <input
                       type="url"
                       value={adForm.mobileImageUrl}
