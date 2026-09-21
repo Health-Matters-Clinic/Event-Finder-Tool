@@ -75,11 +75,19 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
   // Non-errored banners for dot nav
   const visibleBanners = activeBanners.filter((_, i) => !erroredIndices.has(i));
 
-  // Pick the correct image source and dimensions based on viewport
+  // Pick the correct image source and dimensions based on viewport.
+  //
+  // objectFit matters most when no mobile image was supplied. Width and height are both
+  // pinned here, so without it the browser stretches whatever it is given to fill the
+  // box: a 728x90 leaderboard forced into the 320x50 mobile slot came out squeezed about
+  // a fifth narrower than it was drawn, which on a banner that is mostly lettering reads
+  // as a condensed, slightly wrong typeface. 'contain' keeps the proportions and
+  // letterboxes the difference instead, so skipping the mobile upload is the graceful
+  // fallback the form already promises it is.
   const imgSrc = isMobile && banner.mobileImageUrl ? banner.mobileImageUrl : banner.imageUrl;
   const imgStyle = isMobile
-    ? { maxWidth: '320px', height: '50px', width: '100%', display: 'block' as const }
-    : { maxWidth: '728px', height: '90px', width: '100%', display: 'block' as const };
+    ? { maxWidth: '320px', height: '50px', width: '100%', objectFit: 'contain' as const, display: 'block' as const }
+    : { maxWidth: '728px', height: '90px', width: '100%', objectFit: 'contain' as const, display: 'block' as const };
 
   return (
     <div

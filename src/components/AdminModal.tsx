@@ -3008,7 +3008,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   <div>
                     <label className={labelCls}>
                       MOBILE IMAGE URL
-                      <span className="ml-2 font-normal normal-case text-gray-400">320 x 50 pixels (optional, the desktop image will scale if not provided)</span>
+                      <span className="ml-2 font-normal normal-case text-gray-400">320 x 50 pixels. Optional: skip it and the desktop image is scaled down to fit, keeping its proportions</span>
                     </label>
                     <div className="flex items-center gap-3 mb-2">
                       <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full font-normal text-sm leading-[1.2] border border-gray-200 bg-white text-gray-600 hover:border-[#233dff] hover:text-[#233dff] hover:bg-blue-50 transition-all ${adUploading ? 'opacity-50 pointer-events-none' : ''}`}>
