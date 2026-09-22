@@ -423,12 +423,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const fetchPartnerAds = async () => {
-    const hash = sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '';
-    if (!hash) return;
+    // Partner ad review used the shared passcode hash, in a query string. The portal
+    // compared it against ADMIN_PASSCODE_HASH, which is not set on the service, so
+    // every one of these calls came back 403 and the queue could never be worked.
+    // It now uses the same named admin session as the rest of this panel.
+    const token = sessionStorage.getItem(STORAGE_KEYS.ADMIN_TOKEN) || '';
+    if (!token) return;
     setPartnerAdsLoading(true);
     setPartnerAdsError('');
     try {
-      const res = await fetch(`${PORTAL_API_URL}/api/public/partner-ads-pending?hash=${encodeURIComponent(hash)}`);
+      const res = await fetch(`${PORTAL_API_URL}/api/public/partner-ads-pending`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.ads)) {
         setPartnerAds(data.ads.map((d: any) => ({
@@ -453,13 +459,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const handleApprovePartnerAd = async (ad: PartnerAdSubmission) => {
-    const hash = sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '';
-    if (!hash) return;
+    const token = sessionStorage.getItem(STORAGE_KEYS.ADMIN_TOKEN) || '';
+    if (!token) return;
     try {
       const res = await fetch(`${PORTAL_API_URL}/api/public/partner-ads/${ad.id}/approve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hash }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({}),
       });
       const data = await res.json();
       if (data.success) {
@@ -476,13 +482,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const handleRejectPartnerAd = async (ad: PartnerAdSubmission) => {
     const reason = window.prompt('Reason for rejection (optional):') ?? null;
     if (reason === null) return; // user cancelled prompt
-    const hash = sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '';
-    if (!hash) return;
+    const token = sessionStorage.getItem(STORAGE_KEYS.ADMIN_TOKEN) || '';
+    if (!token) return;
     try {
       const res = await fetch(`${PORTAL_API_URL}/api/public/partner-ads/${ad.id}/reject`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hash, reason }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason }),
       });
       const data = await res.json();
       if (data.success) {
