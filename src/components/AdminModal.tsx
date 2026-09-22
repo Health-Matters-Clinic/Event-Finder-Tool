@@ -866,17 +866,30 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setPasscodeError('');
     try {
       const hash = await hashPasscode(passcode);
-      let data: any;
+      let data: any = null;
       try {
         const res = await fetch(`${PORTAL_API_URL}/api/public/admin-auth`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'verifyPasscode', hash }),
         });
-        if (!res.ok) throw new Error('Portal auth failed');
-        data = await res.json();
+        if (res.ok) data = await res.json();
       } catch {
-        data = await postGasJson({ action: 'verifyPasscode', hash });
+        // fall through to the script itself
+      }
+
+      // Confirm a refusal against Apps Script before believing it. A proxy that
+      // cannot reach the script can only report a generic failure, and a generic
+      // failure is indistinguishable from a wrong passcode, so trusting it means
+      // telling someone their correct passcode is wrong. Only a positive answer
+      // from the proxy is taken at face value; anything else is re-asked here,
+      // where the call to the script goes direct from the browser.
+      if (!data || data.success !== true) {
+        try {
+          data = await postGasJson({ action: 'verifyPasscode', hash });
+        } catch {
+          if (!data) throw new Error('Auth unreachable');
+        }
       }
       if (data.success === true && !('events' in data)) {
         sessionStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, 'true');
