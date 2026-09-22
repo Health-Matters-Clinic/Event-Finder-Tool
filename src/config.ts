@@ -82,7 +82,12 @@ export const RECAPTCHA_SITE_KEY =
 export const STORAGE_KEYS = {
   EVENTS_CACHE: 'event-finder-events-cache',
   ADMIN_AUTH: 'event-finder-admin-auth',
+  // The Apps Script shared credential. Still what every admin action sends, but it is
+  // now handed out by the portal after a verified sign-in rather than typed by a person.
   ADMIN_HASH: 'event-finder-admin-hash',
+  // Who is signed in, and the session that proves it.
+  ADMIN_TOKEN: 'event-finder-admin-token',
+  ADMIN_USER: 'event-finder-admin-user',
 } as const;
 
 export function buildGasUrl(params: URLSearchParams): string {

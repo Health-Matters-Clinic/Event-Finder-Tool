@@ -11,7 +11,10 @@ interface AdminModalProps {
   onEventsUpdate: (events: ClinicEvent[]) => void;
 }
 
-type AdminView = 'passcode' | 'main' | 'edit' | 'reset-request' | 'reset-confirm' | 'partner-requests' | 'ads';
+type AdminView = 'passcode' | 'main' | 'edit' | 'reset-request' | 'reset-confirm' | 'partner-requests' | 'ads' | 'admins';
+
+type AdminRole = 'owner' | 'editor';
+interface AdminUser { email: string; name: string; role: AdminRole; createdAt?: string; lastLoginAt?: string }
 
 interface AdRow {
   id: string;            // row number as string
@@ -855,6 +858,222 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   };
 
+  // ---- Sign-in by email and one-time code ----
+  //
+  // The shared passcode is kept below as a way in, deliberately. Email delivery is the
+  // one dependency this screen cannot retry its way out of, and locking the only admin
+  // out of the tool that publishes the events is worse than keeping a fallback around.
+  // Retire it once codes have been arriving reliably for a while.
+  const [signInStep, setSignInStep] = useState<'email' | 'code'>('email');
+  const [signInEmail, setSignInEmail] = useState('');
+  const [signInCode, setSignInCode] = useState('');
+  const [signInBusy, setSignInBusy] = useState(false);
+  const [signInError, setSignInError] = useState('');
+  const [signInNotice, setSignInNotice] = useState('');
+  const [showLegacyPasscode, setShowLegacyPasscode] = useState(false);
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
+
+  // Roster management
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUsersError, setAdminUsersError] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminRole, setNewAdminRole] = useState<AdminRole>('editor');
+  const [adminUserBusy, setAdminUserBusy] = useState(false);
+
+  const adminApi = (path: string, init: RequestInit = {}) =>
+    fetch(`${PORTAL_API_URL}/api/public/event-admin${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionStorage.getItem(STORAGE_KEYS.ADMIN_TOKEN) || ''}`,
+        ...(init.headers || {}),
+      },
+    });
+
+  const applySignedIn = (token: string, user: AdminUser, gasHash: string) => {
+    sessionStorage.setItem(STORAGE_KEYS.ADMIN_TOKEN, token);
+    sessionStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(user));
+    sessionStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, 'true');
+    // Apps Script still guards its own actions with the shared hash, so every existing
+    // admin call keeps working untouched.
+    if (gasHash) sessionStorage.setItem(STORAGE_KEYS.ADMIN_HASH, gasHash);
+    setAdminUser(user);
+    setView('main');
+  };
+
+  // Restore a sign-in across a reload, and drop it if access was removed meanwhile.
+  useEffect(() => {
+    const token = sessionStorage.getItem(STORAGE_KEYS.ADMIN_TOKEN);
+    if (!token) return;
+    (async () => {
+      try {
+        const res = await adminApi('/session');
+        if (!res.ok) throw new Error('expired');
+        const data = await res.json();
+        if (data.success && data.user) {
+          setAdminUser(data.user);
+          sessionStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(data.user));
+          if (data.gasHash) sessionStorage.setItem(STORAGE_KEYS.ADMIN_HASH, data.gasHash);
+          setView('main');
+        }
+      } catch {
+        sessionStorage.removeItem(STORAGE_KEYS.ADMIN_TOKEN);
+        sessionStorage.removeItem(STORAGE_KEYS.ADMIN_USER);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleRequestSignInCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = signInEmail.trim().toLowerCase();
+    if (!email) return;
+    setSignInBusy(true);
+    setSignInError('');
+    setSignInNotice('');
+    try {
+      const res = await fetch(`${PORTAL_API_URL}/api/public/event-admin/request-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 429) {
+        setSignInError(lang === 'es'
+          ? 'Demasiados intentos. Espera unos minutos.'
+          : 'Too many requests. Wait a few minutes and try again.');
+        return;
+      }
+      if (!res.ok || !data.success) {
+        setSignInError(data.error === 'send_failed'
+          ? (lang === 'es' ? 'No se pudo enviar el correo. Usa el codigo compartido.' : 'The email could not be sent. Use the shared passcode below.')
+          : (lang === 'es' ? 'No se pudo enviar el codigo.' : 'Could not send the code.'));
+        return;
+      }
+      // The same answer is given whether or not the address has access, so this
+      // screen cannot be used to find out who does.
+      setSignInStep('code');
+      setSignInNotice(lang === 'es'
+        ? `Si ${email} tiene acceso, el codigo llega en un momento.`
+        : `If ${email} has access, a code is on its way.`);
+    } catch {
+      setSignInError(lang === 'es' ? 'Error de conexion' : 'Connection error. Try again.');
+    } finally {
+      setSignInBusy(false);
+    }
+  };
+
+  const handleVerifySignInCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = signInEmail.trim().toLowerCase();
+    const code = signInCode.replace(/\D/g, '');
+    if (code.length !== 6) {
+      setSignInError(lang === 'es' ? 'Ingresa los 6 digitos' : 'Enter all six digits');
+      return;
+    }
+    setSignInBusy(true);
+    setSignInError('');
+    try {
+      const res = await fetch(`${PORTAL_API_URL}/api/public/event-admin/verify-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.success && data.token) {
+        setSignInCode('');
+        setSignInNotice('');
+        applySignedIn(data.token, data.user, data.gasHash || '');
+        return;
+      }
+      const messages: Record<string, [string, string]> = {
+        code_expired: ['El codigo vencio. Pide uno nuevo.', 'That code has expired. Ask for a new one.'],
+        code_incorrect: ['Codigo incorrecto.', 'That code is not right.'],
+        code_not_found: ['Pide un codigo primero.', 'Ask for a code first.'],
+        too_many_attempts: ['Demasiados intentos. Pide un codigo nuevo.', 'Too many tries. Ask for a new code.'],
+        access_removed: ['Esta cuenta ya no tiene acceso.', 'This account no longer has access.'],
+      };
+      const pair = messages[data.error as string];
+      setSignInError(pair ? (lang === 'es' ? pair[0] : pair[1]) : (lang === 'es' ? 'No se pudo verificar' : 'Could not verify that code.'));
+    } catch {
+      setSignInError(lang === 'es' ? 'Error de conexion' : 'Connection error. Try again.');
+    } finally {
+      setSignInBusy(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try { await adminApi('/logout', { method: 'POST' }); } catch { /* best effort */ }
+    sessionStorage.removeItem(STORAGE_KEYS.ADMIN_TOKEN);
+    sessionStorage.removeItem(STORAGE_KEYS.ADMIN_USER);
+    sessionStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
+    sessionStorage.removeItem(STORAGE_KEYS.ADMIN_HASH);
+    setAdminUser(null);
+    setSignInStep('email');
+    setSignInCode('');
+    setShowLegacyPasscode(false);
+    setView('passcode');
+  };
+
+  const fetchAdminUsers = async () => {
+    setAdminUsersLoading(true);
+    setAdminUsersError('');
+    try {
+      const res = await adminApi('/users');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || 'Could not load the list');
+      setAdminUsers(data.users || []);
+    } catch (err) {
+      setAdminUsersError(err instanceof Error ? err.message : 'Could not load the list');
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  };
+
+  const saveAdminUser = async (email: string, name: string, role: AdminRole) => {
+    setAdminUserBusy(true);
+    setAdminUsersError('');
+    try {
+      const res = await adminApi('/users', { method: 'POST', body: JSON.stringify({ email, name, role }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error === 'last_owner'
+          ? 'There has to be at least one owner.'
+          : data.error === 'valid_email_required'
+          ? 'That does not look like an email address.'
+          : 'Could not save that person.');
+      }
+      setNewAdminEmail('');
+      setNewAdminName('');
+      setNewAdminRole('editor');
+      await fetchAdminUsers();
+    } catch (err) {
+      setAdminUsersError(err instanceof Error ? err.message : 'Could not save that person.');
+    } finally {
+      setAdminUserBusy(false);
+    }
+  };
+
+  const removeAdminUser = async (email: string) => {
+    if (!window.confirm(`Remove ${email}? They lose access immediately, including any session they have open.`)) return;
+    setAdminUserBusy(true);
+    setAdminUsersError('');
+    try {
+      const res = await adminApi(`/users/${encodeURIComponent(email)}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error === 'last_owner' ? 'There has to be at least one owner.' : 'Could not remove that person.');
+      }
+      await fetchAdminUsers();
+    } catch (err) {
+      setAdminUsersError(err instanceof Error ? err.message : 'Could not remove that person.');
+    } finally {
+      setAdminUserBusy(false);
+    }
+  };
+
   // ---- Auth handlers (unchanged logic) ----
   const handlePasscodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1258,7 +1477,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         <div className="bg-[#fafbff] border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3">
             {/* Back arrow when in edit, partner-requests, or ads view */}
-            {(view === 'edit' || view === 'partner-requests' || view === 'ads') && (
+            {(view === 'edit' || view === 'partner-requests' || view === 'ads' || view === 'admins') && (
               <button
                 onClick={() => {
                   setView('main');
@@ -1296,6 +1515,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   ? editingEvent
                     ? lang === 'es' ? 'Editar Evento' : 'Edit Event'
                     : lang === 'es' ? 'Nuevo Evento' : 'New Event'
+                  : view === 'admins'
+                  ? lang === 'es' ? 'Administradores' : 'Admins'
                   : view === 'partner-requests'
                   ? lang === 'es' ? 'Solicitudes de Socios' : 'Partner Requests'
                   : view === 'ads'
@@ -1306,6 +1527,27 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Who is signed in. Worth showing on every screen now that actions are
+              attributable to a person rather than to one shared passcode. */}
+          {adminUser && view !== 'passcode' && (
+            <div className="flex items-center gap-3 ml-auto mr-1">
+              <div className="text-right leading-tight hidden sm:block">
+                <div className="text-xs font-bold text-gray-700">{adminUser.name || adminUser.email}</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                  {adminUser.role === 'owner'
+                    ? lang === 'es' ? 'Propietario' : 'Owner'
+                    : lang === 'es' ? 'Editor' : 'Editor'}
+                </div>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="h-8 px-3 rounded-full text-xs font-semibold border border-gray-200 text-gray-500 hover:border-[#233dff] hover:text-[#233dff] hover:bg-blue-50 transition-all"
+              >
+                {lang === 'es' ? 'Salir' : 'Sign out'}
+              </button>
+            </div>
+          )}
 
           <button
             onClick={onClose}
@@ -1351,45 +1593,112 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   {lang === 'es' ? 'Acceso a EventOps' : 'EventOps Access'}
                 </h2>
                 <p className="text-sm text-gray-400 mt-1">
-                  {lang === 'es' ? 'Ingresa tu codigo para continuar' : 'Enter your passcode to continue'}
+                  {signInStep === 'email'
+                    ? lang === 'es' ? 'Te enviamos un codigo por correo' : 'We will email you a sign-in code'
+                    : lang === 'es' ? 'Ingresa el codigo que recibiste' : 'Enter the code we just sent'}
                 </p>
               </div>
-              <form onSubmit={handlePasscodeSubmit} className="space-y-5">
-                <div>
-                  <label className={labelCls}>
-                    {lang === 'es' ? 'Codigo de Acceso' : 'Passcode'}
-                  </label>
-                  <input
-                    type="password"
-                    value={passcode}
-                    onChange={(e) => setPasscode(e.target.value)}
-                    className={inputCls}
-                    placeholder={lang === 'es' ? 'Ingresa el codigo' : 'Enter passcode'}
-                    autoFocus
-                    required
-                    minLength={4}
-                    disabled={passcodeLoading}
-                  />
-                  {passcodeError && (
-                    <p className="text-red-500 text-sm font-semibold mt-2">{passcodeError}</p>
+
+              {signInStep === 'email' ? (
+                <form onSubmit={handleRequestSignInCode} className="space-y-5">
+                  <div>
+                    <label className={labelCls}>{lang === 'es' ? 'Correo' : 'Email'}</label>
+                    <input
+                      type="email"
+                      value={signInEmail}
+                      onChange={(e) => setSignInEmail(e.target.value)}
+                      className={inputCls}
+                      placeholder="you@healthmatters.clinic"
+                      autoFocus
+                      required
+                      disabled={signInBusy}
+                    />
+                    {signInError && <p className="text-red-500 text-sm font-semibold mt-2">{signInError}</p>}
+                  </div>
+                  <Button type="submit" className="w-full justify-center h-12" disabled={signInBusy || !signInEmail.trim()}>
+                    {signInBusy
+                      ? lang === 'es' ? 'Enviando...' : 'Sending...'
+                      : lang === 'es' ? 'Enviarme un codigo' : 'Send me a code'}
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifySignInCode} className="space-y-5">
+                  {signInNotice && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
+                      <p className="text-xs text-blue-700 leading-relaxed">{signInNotice}</p>
+                    </div>
                   )}
-                </div>
-                <Button type="submit" className="w-full justify-center h-12" disabled={passcodeLoading || !passcode.trim()}>
-                  {passcodeLoading
-                    ? lang === 'es' ? 'Verificando...' : 'Verifying...'
-                    : lang === 'es' ? 'Ingresar' : 'Enter'}
-                </Button>
-                <button
-                  type="button"
-                  onClick={handleRequestReset}
-                  disabled={passcodeLoading}
-                  className="w-full text-center text-sm font-semibold text-[#233dff] hover:underline disabled:opacity-50"
-                >
-                  {passcodeLoading
-                    ? lang === 'es' ? 'Enviando...' : 'Sending...'
-                    : lang === 'es' ? 'Restablecer Codigo' : 'Reset Passcode'}
-                </button>
-              </form>
+                  <div>
+                    <label className={labelCls}>{lang === 'es' ? 'Codigo de 6 digitos' : 'Six-digit code'}</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={signInCode}
+                      onChange={(e) => setSignInCode(e.target.value.replace(/\D/g, ''))}
+                      className={`${inputCls} text-center tracking-[0.5em] text-xl`}
+                      placeholder="000000"
+                      autoFocus
+                      disabled={signInBusy}
+                    />
+                    {signInError && <p className="text-red-500 text-sm font-semibold mt-2">{signInError}</p>}
+                  </div>
+                  <Button type="submit" className="w-full justify-center h-12" disabled={signInBusy || signInCode.length !== 6}>
+                    {signInBusy
+                      ? lang === 'es' ? 'Verificando...' : 'Verifying...'
+                      : lang === 'es' ? 'Ingresar' : 'Sign in'}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => { setSignInStep('email'); setSignInCode(''); setSignInError(''); setSignInNotice(''); }}
+                    disabled={signInBusy}
+                    className="w-full text-center text-sm font-semibold text-[#233dff] hover:underline disabled:opacity-50"
+                  >
+                    {lang === 'es' ? 'Usar otro correo' : 'Use a different email'}
+                  </button>
+                </form>
+              )}
+
+              {/* Kept as a way in while email delivery proves itself. */}
+              <div className="mt-8 pt-5 border-t border-gray-100">
+                {!showLegacyPasscode ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowLegacyPasscode(true)}
+                    className="w-full text-center text-xs font-semibold text-gray-400 hover:text-[#233dff]"
+                  >
+                    {lang === 'es' ? 'Usar el codigo compartido' : 'Use the shared passcode instead'}
+                  </button>
+                ) : (
+                  <form onSubmit={handlePasscodeSubmit} className="space-y-3">
+                    <label className={labelCls}>
+                      {lang === 'es' ? 'Codigo compartido' : 'Shared passcode'}
+                    </label>
+                    <input
+                      type="password"
+                      value={passcode}
+                      onChange={(e) => setPasscode(e.target.value)}
+                      className={inputCls}
+                      placeholder={lang === 'es' ? 'Ingresa el codigo' : 'Enter passcode'}
+                      autoFocus
+                      minLength={4}
+                      disabled={passcodeLoading}
+                    />
+                    {passcodeError && <p className="text-red-500 text-sm font-semibold">{passcodeError}</p>}
+                    <div className="flex gap-2">
+                      <Button type="submit" variant="outline" className="flex-1 justify-center h-11" disabled={passcodeLoading || !passcode.trim()}>
+                        {passcodeLoading
+                          ? lang === 'es' ? 'Verificando...' : 'Verifying...'
+                          : lang === 'es' ? 'Ingresar' : 'Enter'}
+                      </Button>
+                      <Button type="button" variant="outline" className="h-11" onClick={handleRequestReset} disabled={passcodeLoading}>
+                        {lang === 'es' ? 'Restablecer' : 'Reset'}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </div>
             </div>
           )}
 
@@ -1578,6 +1887,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </svg>
                   Ads
                 </button>
+
+                {/* Admins button. Owners only: an editor has no owner-only action to
+                    reach here, and the endpoints refuse them anyway. */}
+                {adminUser?.role === 'owner' && (
+                  <button
+                    onClick={() => { setView('admins'); fetchAdminUsers(); }}
+                    className="h-10 px-4 rounded-full text-sm font-semibold border border-gray-200 text-gray-600 hover:border-[#233dff] hover:text-[#233dff] hover:bg-blue-50 transition-all inline-flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    {lang === 'es' ? 'Administradores' : 'Admins'}
+                  </button>
+                )}
 
                 {/* Utility dropdown */}
                 <div className="relative">
@@ -2628,6 +2951,127 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </div>
             </form>
           )}
+          {/* ===== ADMINS VIEW ===== */}
+          {view === 'admins' && (
+            <div className="space-y-5">
+              <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700 leading-relaxed space-y-1">
+                <p><strong>Editors</strong> add and edit events, upload flyers, manage ad banners and see RSVPs.</p>
+                <p><strong>Owners</strong> do all of that and decide who has access.</p>
+                <p>People sign in with their own email and a one-time code. Nothing is shared, and removing someone here ends any session they have open.</p>
+              </div>
+
+              {adminUsersError && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-red-700">{adminUsersError}</span>
+                  <button onClick={() => setAdminUsersError('')} className="text-red-500 hover:text-red-700 text-xs font-bold">
+                    {lang === 'es' ? 'Cerrar' : 'Dismiss'}
+                  </button>
+                </div>
+              )}
+
+              {/* Add someone */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveAdminUser(newAdminEmail.trim().toLowerCase(), newAdminName.trim(), newAdminRole);
+                }}
+                className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3"
+              >
+                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                  {lang === 'es' ? 'Dar acceso' : 'Give someone access'}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input
+                    type="email"
+                    required
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    placeholder="name@healthmatters.clinic"
+                    className={inputCls}
+                  />
+                  <input
+                    value={newAdminName}
+                    onChange={(e) => setNewAdminName(e.target.value)}
+                    placeholder={lang === 'es' ? 'Nombre' : 'Name'}
+                    className={inputCls}
+                  />
+                  <select
+                    value={newAdminRole}
+                    onChange={(e) => setNewAdminRole(e.target.value as AdminRole)}
+                    className={`${inputCls} appearance-none cursor-pointer`}
+                  >
+                    <option value="editor">{lang === 'es' ? 'Editor' : 'Editor'}</option>
+                    <option value="owner">{lang === 'es' ? 'Propietario' : 'Owner'}</option>
+                  </select>
+                </div>
+                <Button type="submit" className="h-11" disabled={adminUserBusy || !newAdminEmail.trim()}>
+                  {adminUserBusy
+                    ? lang === 'es' ? 'Guardando...' : 'Saving...'
+                    : lang === 'es' ? 'Dar acceso' : 'Give access'}
+                </Button>
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  {lang === 'es'
+                    ? 'No se envia invitacion. Diles que entren con su correo y pidan un codigo.'
+                    : 'No invitation is sent. Tell them to open EventOps, enter this email and ask for a code.'}
+                </p>
+              </form>
+
+              {/* The roster */}
+              {adminUsersLoading ? (
+                <div className="space-y-2">
+                  <SkeletonCard />
+                  <SkeletonCard />
+                </div>
+              ) : adminUsers.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">
+                  {lang === 'es' ? 'Nadie todavia.' : 'Nobody yet.'}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {adminUsers.map((u) => {
+                    const isSelf = adminUser?.email === u.email;
+                    return (
+                      <div key={u.email} className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 flex-wrap">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm text-[#1a1a1a] truncate">
+                            {u.name || u.email.split('@')[0]}
+                            {isSelf && (
+                              <span className="ml-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                                {lang === 'es' ? 'tu' : 'you'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">
+                            {u.lastLoginAt
+                              ? `${lang === 'es' ? 'Ultimo acceso' : 'Last signed in'} ${new Date(u.lastLoginAt).toLocaleDateString()}`
+                              : lang === 'es' ? 'Nunca ha entrado' : 'Has not signed in yet'}
+                          </div>
+                        </div>
+                        <select
+                          value={u.role}
+                          disabled={adminUserBusy}
+                          onChange={(e) => saveAdminUser(u.email, u.name, e.target.value as AdminRole)}
+                          className="border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold bg-white focus:border-[#233dff] outline-none cursor-pointer"
+                        >
+                          <option value="editor">{lang === 'es' ? 'Editor' : 'Editor'}</option>
+                          <option value="owner">{lang === 'es' ? 'Propietario' : 'Owner'}</option>
+                        </select>
+                        <button
+                          onClick={() => removeAdminUser(u.email)}
+                          disabled={adminUserBusy}
+                          className="h-9 px-3 rounded-full text-xs font-semibold border border-red-200 text-red-600 hover:bg-red-50 transition-all disabled:opacity-50"
+                        >
+                          {lang === 'es' ? 'Quitar' : 'Remove'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ===== PARTNER REQUESTS VIEW ===== */}
           {view === 'partner-requests' && (
             <div className="space-y-4">
