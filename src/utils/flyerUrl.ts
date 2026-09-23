@@ -28,8 +28,11 @@ export const isShareLinkNotImage = (raw: string): boolean => {
 export const displayableFlyerUrl = (value: unknown): string => {
   const raw = value ? String(value) : '';
   if (!raw) return '';
-  const lower = raw.trim().toLowerCase();
-  if (lower.startsWith('javascript:') || lower.startsWith('vbscript:') || lower.startsWith('data:text/')) return '';
+  // An allowlist, not a list of schemes to refuse: only a web address, or a
+  // path on this site such as /flyers/<name>.png, is ever used as an image.
+  let parsed: URL;
+  try { parsed = new URL(raw.trim(), 'https://eventfinder.healthmatters.clinic'); } catch { return ''; }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return '';
   if (isShareLinkNotImage(raw)) return '';
   return raw;
 };
