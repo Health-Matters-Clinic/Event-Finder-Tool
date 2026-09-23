@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
+import { displayableFlyerUrl } from './utils/flyerUrl';
 import { EVENTS, I18N } from './constants';
 import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, STORAGE_KEYS, fetchAdBanners, AdBanner } from './config';
 import { ClinicEvent, Language, RsvpMode } from './types';
@@ -260,13 +261,8 @@ const sanitizeEvent = (e: any): ClinicEvent | null => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return undefined;
       return raw >= String(e.date).split('T')[0] ? raw : undefined;
     })(),
-    flyerUrl: (() => {
-      const raw = e.flyerUrl ? String(e.flyerUrl) : '';
-      if (!raw) return '';
-      const lower = raw.trim().toLowerCase();
-      if (lower.startsWith('javascript:') || lower.startsWith('vbscript:') || lower.startsWith('data:text/')) return '';
-      return raw;
-    })(),
+    // Share pages (Drive, Dropbox, Canva) are never shown as an image. See utils/flyerUrl.
+    flyerUrl: displayableFlyerUrl(e.flyerUrl),
     websiteUrl: (() => {
       const raw = e.websiteUrl ? String(e.websiteUrl) : '';
       if (!raw) return '';
