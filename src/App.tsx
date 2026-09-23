@@ -738,15 +738,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!mapRef.current && mapContainerRef.current) {
-      // minZoom 12 is a floor, not a preference. fitBounds always rounds its computed
-      // zoom DOWN to the nearest whole level, to guarantee the box fully fits. A cluster
-      // that is much taller than it is wide (LA basin up to a Santa Clarita-area event, say)
-      // gets its zoom set by the taller dimension, which leaves the shorter dimension with
-      // slack Leaflet fills by simply showing more width — verified against live event data,
-      // that overshoot alone was enough to pull Orange County and Catalina Island into view
-      // for a cluster that never included anything south of Downey. Capping how far out the
-      // map can ever go stops that regardless of the cluster's shape.
-      mapRef.current = L.map(mapContainerRef.current, { zoomControl: false, minZoom: 12 }).setView(
+      mapRef.current = L.map(mapContainerRef.current, { zoomControl: false }).setView(
         DEFAULT_CENTER,
         10
       );
