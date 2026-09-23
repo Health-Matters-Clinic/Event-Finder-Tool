@@ -54,7 +54,6 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
       proposedDate: formData.proposedDate,
       eventTime: formData.eventTime,
       location: formData.location,
-      flyerUrl: formData.flyerUrl || '',
       websiteUrl: formData.websiteUrl || '',
       rsvpMode: formData.rsvpMode || '',
       rsvpContact: formData.rsvpContact || '',
@@ -237,24 +236,14 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                 </p>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                  {lang === 'es' ? 'Enlace del Flyer' : 'Flyer Link'}
-                </label>
-                <input
-                  name="flyerUrl"
-                  type="url"
-                  value={formData.flyerUrl}
-                  onChange={handleChange}
-                  placeholder="https://drive.google.com/..."
-                  className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
-                />
-                <p className="text-[9px] text-gray-400 mt-1">
-                  {lang === 'es'
-                    ? 'Suba su flyer a Google Drive, Dropbox o Canva y pegue el enlace público. Las notificaciones de RSVP están disponibles con una cuenta de socio HMC gratuita.'
-                    : 'Upload your flyer to Google Drive, Dropbox, or Canva and paste the public link. RSVP notifications are available with a free HMC Partner account.'}
-                </p>
-              </div>
+              {/* Flyers come from approved HMC Partner accounts, which upload the file to
+                  HMC. This form used to ask for a Drive, Dropbox or Canva link instead;
+                  those are share pages, not images. */}
+              <p className="text-[10px] leading-relaxed text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                {lang === 'es'
+                  ? 'Para agregar un flyer a su evento, publíquelo desde su cuenta de socio HMC en partner.healthmatters.clinic.'
+                  : 'To add a flyer to your event, post it from your HMC Partner account at partner.healthmatters.clinic.'}
+              </p>
 
               {/* How the RSVP is handled. Previously a lone optional link whose blank
                   state silently meant "HMC will collect the RSVP for you", which is not
@@ -373,7 +362,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                     <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 text-[10px] leading-relaxed text-blue-800">
                       {lang === 'es' ? (
                         <>
-                          Para recibir notificaciones de RSVP necesitas una cuenta gratuita de socio HMC.{' '}
+                          Para recibir notificaciones de RSVP necesitas una cuenta de socio HMC.{' '}
                           <a
                             href="https://partner.healthmatters.clinic"
                             target="_blank"
@@ -386,7 +375,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                         </>
                       ) : (
                         <>
-                          To receive RSVP notifications, you need a free HMC Partner account.{' '}
+                          To receive RSVP notifications, you need an HMC Partner account.{' '}
                           <a
                             href="https://partner.healthmatters.clinic"
                             target="_blank"
