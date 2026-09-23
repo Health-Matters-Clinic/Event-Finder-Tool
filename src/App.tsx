@@ -171,18 +171,6 @@ const trackExternalRsvp = (e: ClinicEvent, label: 'register' | 'more_info'): voi
 };
 
 const DEFAULT_CENTER: [number, number] = [33.9719, -118.2108];
-// How far a marker can sit from the median event before it's treated as outside
-// the main cluster for auto-fit purposes. ~0.35 degrees is about 24 miles at
-// this latitude: wide enough to hold the whole LA basin, tight enough to leave
-// out the Antelope Valley (Palmdale is ~40 miles north). A real event out there
-// still gets a pin; it just doesn't force the initial view to zoom out to fit it.
-const AUTOFIT_CLUSTER_RADIUS_DEG = 0.35;
-const median = (nums: number[]): number => {
-  if (nums.length === 0) return 0;
-  const sorted = [...nums].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-};
 const REQUIRED_DEEP_LINK_EVENT_IDS = ['event-1772064063990', 'event-1773943614235'];
 const PUBLIC_EVENTFINDER_URL = 'https://www.healthmatters.clinic/resources/eventfinder';
 const REQUIRED_EVENT_OVERRIDES: Record<string, Partial<ClinicEvent>> = {
@@ -812,22 +800,7 @@ const App: React.FC = () => {
 
     if (filteredEvents.length > 0 && !selectedEvent) {
       try {
-        const allMarkers = Object.values(markersRef.current) as any[];
-        const latLngs = allMarkers.map((m) => m.getLatLng());
-        const medianLat = median(latLngs.map((p) => p.lat));
-        const medianLng = median(latLngs.map((p) => p.lng));
-        const clusterMarkers = allMarkers.filter((m) => {
-          const { lat, lng } = m.getLatLng();
-          return (
-            Math.abs(lat - medianLat) <= AUTOFIT_CLUSTER_RADIUS_DEG &&
-            Math.abs(lng - medianLng) <= AUTOFIT_CLUSTER_RADIUS_DEG
-          );
-        });
-        // Fit to the main cluster only, so one far-flung event (Antelope Valley,
-        // say) doesn't force the map to zoom out until the rest of the pins are
-        // squeezed into a corner. Fall back to everything if the cluster filter
-        // somehow leaves nothing, so the map is never fit to an empty set.
-        const group = L.featureGroup(clusterMarkers.length > 0 ? clusterMarkers : allMarkers);
+        const group = L.featureGroup(Object.values(markersRef.current));
         mapRef.current.fitBounds(group.getBounds().pad(0.2));
       } catch (e) {
         console.warn('fitBounds deferred:', e);
