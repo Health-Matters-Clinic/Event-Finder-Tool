@@ -55,6 +55,9 @@ interface PartnerRequest {
   websiteUrl: string;
   rsvpMode: string;
   rsvpContact: string;
+  acceptingVolunteers?: string | boolean;
+  volunteerLink?: string;
+  volunteerContact?: string;
   lang: string;
   status: string;
 }
@@ -690,6 +693,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         : 'none') as ClinicEvent['rsvpMode'],
       websiteUrl: req.websiteUrl || '',
       rsvpContact: req.rsvpContact || '',
+      // Carried through the same way as the RSVP fields above: a partner who already
+      // said this event needs volunteers shouldn't have that answer dropped on approval.
+      acceptingVolunteers: req.acceptingVolunteers === true || req.acceptingVolunteers === 'true',
+      volunteerLink: req.volunteerLink || '',
+      volunteerContact: req.volunteerContact || '',
       lat: approveFormData.lat || 33.9719,
       lng: approveFormData.lng || -118.2108,
       isPromoted: false,
@@ -2802,6 +2810,66 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           : 'Appears as "More Info". It no longer changes who receives RSVPs.'}
                       </p>
                     </div>
+                  )}
+                </div>
+              </FormSection>
+
+              {/* Section: Volunteer Opportunity. Every synced event used to show up in
+                  the portal's My Missions tab as if it were a volunteer opportunity,
+                  because nothing distinguished "come attend this" from "come help run
+                  this." Unchecked by default: most events are not volunteer opportunities. */}
+              <FormSection
+                title={lang === 'es' ? 'Oportunidad de Voluntariado' : 'Volunteer Opportunity'}
+                defaultOpen={!!formData.acceptingVolunteers}
+              >
+                <div className="space-y-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      name="acceptingVolunteers"
+                      type="checkbox"
+                      checked={formData.acceptingVolunteers || false}
+                      onChange={handleFormChange}
+                      className="w-5 h-5 rounded border-2 border-gray-300 text-[#233dff] focus:ring-[#233dff]"
+                    />
+                    <span className="text-sm font-semibold text-gray-700">
+                      {lang === 'es' ? 'Aceptando voluntarios' : 'Accepting Volunteers'}
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    {lang === 'es'
+                      ? 'Marca esto solo si este evento tiene una oportunidad real de voluntariado. Si se marca, aparece en la pestana Mis Misiones del portal de voluntarios.'
+                      : "Check this only if the event has an actual volunteer opportunity attached. When checked, it appears in the volunteer portal's My Missions tab."}
+                  </p>
+                  {formData.acceptingVolunteers && (
+                    <>
+                      <div>
+                        <label className={labelCls}>
+                          {lang === 'es' ? 'Enlace para voluntarios' : 'Volunteer sign-up link'}{' '}
+                          <span className="text-gray-300">(optional)</span>
+                        </label>
+                        <input
+                          name="volunteerLink"
+                          value={formData.volunteerLink || ''}
+                          onChange={handleFormChange}
+                          placeholder="https://..."
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>
+                          {lang === 'es' ? 'O contacto para voluntarios' : 'Or volunteer contact'}{' '}
+                          <span className="text-gray-300">(optional)</span>
+                        </label>
+                        <textarea
+                          name="volunteerContact"
+                          value={formData.volunteerContact || ''}
+                          onChange={handleFormChange}
+                          rows={2}
+                          placeholder={lang === 'es' ? 'ej. Jordan R., (323) 990-4325' : 'e.g. Jordan R., (323) 990-4325'}
+                          className={inputCls}
+                        />
+                      </div>
+                    </>
                   )}
                 </div>
               </FormSection>
