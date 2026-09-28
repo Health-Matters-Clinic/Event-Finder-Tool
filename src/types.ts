@@ -91,6 +91,17 @@ export interface ClinicEvent {
    * registration page. Plenty of orgs take an RSVP by phone or take none at all.
    */
   rsvpContact?: string;
+  /**
+   * Whether this event has an actual volunteer opportunity attached to it, distinct
+   * from an RSVP. Absent/false for the vast majority of events, which are just things
+   * to attend. The volunteer portal's My Missions tab used to treat every synced
+   * event as a volunteer opportunity because there was no field to say otherwise.
+   */
+  acceptingVolunteers?: boolean;
+  /** Link to the volunteer sign-up/info page, when acceptingVolunteers is true. */
+  volunteerLink?: string;
+  /** Phone, email, or instructions for volunteering, when there's no link. */
+  volunteerContact?: string;
 }
 
 export interface PartnerEventRequest {
@@ -107,6 +118,12 @@ export interface PartnerEventRequest {
   rsvpMode?: RsvpMode;
   /** Phone or email to RSVP with, for a partner who has no registration page. */
   rsvpContact?: string;
+  /** Whether this event has a volunteer opportunity attached to it. See ClinicEvent. */
+  acceptingVolunteers?: boolean;
+  /** Link to the volunteer sign-up/info page, when acceptingVolunteers is true. */
+  volunteerLink?: string;
+  /** Phone, email, or instructions for volunteering, when there's no link. */
+  volunteerContact?: string;
   submittedAt: string;
 }
 

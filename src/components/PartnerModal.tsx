@@ -24,6 +24,9 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
     websiteUrl: '',
     rsvpMode: '',
     rsvpContact: '',
+    acceptingVolunteers: false,
+    volunteerLink: '',
+    volunteerContact: '',
   });
   const [notifyOnRsvp, setNotifyOnRsvp] = useState(false);
   const [notificationEmail, setNotificationEmail] = useState('');
@@ -57,6 +60,9 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
       websiteUrl: formData.websiteUrl || '',
       rsvpMode: formData.rsvpMode || '',
       rsvpContact: formData.rsvpContact || '',
+      acceptingVolunteers: formData.acceptingVolunteers ? 'true' : 'false',
+      volunteerLink: formData.volunteerLink || '',
+      volunteerContact: formData.volunteerContact || '',
       ...(notifyOnRsvp && notificationEmail ? { notificationEmail } : {}),
       lang,
       timestamp: new Date().toISOString(),
@@ -323,6 +329,45 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                   </div>
                 </>
               )}
+
+              {/* Volunteer opportunity. Distinct from RSVP: an event can have people
+                  attending, people volunteering to help run it, or both. Unchecked by
+                  default — most events are not volunteer opportunities, and this used
+                  to be assumed true for every event synced into the volunteer portal. */}
+              <div className="border-t border-gray-100 pt-3">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formData.acceptingVolunteers}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, acceptingVolunteers: e.target.checked }))}
+                    className="w-4 h-4 rounded border-2 border-gray-300 accent-[#233dff] cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-gray-700">
+                    {lang === 'es'
+                      ? 'Este evento tambien acepta voluntarios'
+                      : 'This event is also accepting volunteers'}
+                  </span>
+                </label>
+                {formData.acceptingVolunteers && (
+                  <div className="mt-2 space-y-2">
+                    <input
+                      name="volunteerLink"
+                      type="url"
+                      value={formData.volunteerLink}
+                      onChange={handleChange}
+                      placeholder={lang === 'es' ? 'Enlace para voluntarios (opcional)' : 'Volunteer sign-up link (optional)'}
+                      className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    />
+                    <input
+                      name="volunteerContact"
+                      value={formData.volunteerContact}
+                      onChange={handleChange}
+                      placeholder={lang === 'es' ? 'O contacto para voluntarios (opcional)' : 'Or volunteer contact (optional)'}
+                      className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-base font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all placeholder:text-gray-400 placeholder:font-normal"
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* RSVP Notifications. Only meaningful when HMC is the one collecting;
                   there is nothing to notify anyone about on an event whose signups
