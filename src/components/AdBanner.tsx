@@ -186,7 +186,7 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
           })}
         </div>
       )}
-      <p style={{ fontSize: '9px', color: '#9ca3af', margin: '2px 0 0', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Sponsored</p>
+      <p style={{ fontSize: '9px', color: '#9ca3af', margin: '8px 0 0', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Sponsored</p>
     </div>
   );
 };
