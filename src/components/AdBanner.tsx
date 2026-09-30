@@ -4,11 +4,17 @@ import { AdBanner } from '../config';
 interface AdBannerProps {
   banners: AdBanner[];
   className?: string;
+  // Which active ad this placement starts on, so two placements rendering the same
+  // banners list don't both open on the same ad when 3+ are active. Repeating is fine
+  // (and expected) when fewer active ads exist than there are placements.
+  startOffset?: number;
 }
 
-const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' }) => {
+const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '', startOffset = 0 }) => {
   const activeBanners = banners.filter(b => b.isActive);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(() =>
+    activeBanners.length > 0 ? startOffset % activeBanners.length : 0
+  );
   const [visible, setVisible] = useState(true);
   // Track which banner indices have broken images
   const [erroredIndices, setErroredIndices] = useState<Set<number>>(new Set());
@@ -56,9 +62,10 @@ const AdBannerComponent: React.FC<AdBannerProps> = ({ banners, className = '' })
 
   // Reset state when banners prop changes
   useEffect(() => {
-    setCurrentIndex(0);
+    setCurrentIndex(activeBanners.length > 0 ? startOffset % activeBanners.length : 0);
     setErroredIndices(new Set());
     setVisible(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [banners]);
 
   // Hide entirely if no banners or all images errored

@@ -3395,7 +3395,9 @@ function saveAd(params) {
 }
 
 /**
- * Soft-deletes an ad by setting Active to FALSE.
+ * Permanently removes an ad row from the sheet. IDs are row numbers recomputed fresh
+ * on every getAds() call (id: String(i + 2)), so a deleted row's number is simply gone
+ * on the next read — nothing else needs to shift or be recomputed.
  * params.id: row number (string)
  */
 function deleteAd(id) {
@@ -3408,8 +3410,7 @@ function deleteAd(id) {
     if (rowNum > sheet.getLastRow()) {
       return { success: false, error: 'Row not found' };
     }
-    // Set Active column (col 5) to FALSE
-    sheet.getRange(rowNum, 5).setValue('FALSE');
+    sheet.deleteRow(rowNum);
     return { success: true };
   } catch (err) {
     return { success: false, error: String(err) };
