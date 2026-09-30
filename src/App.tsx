@@ -1590,7 +1590,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="px-4 sm:px-4 pt-3 pb-1 bg-white">
-            <AdBannerComponent banners={adBanners} />
+            <AdBannerComponent banners={adBanners} startOffset={0} />
           </div>
 
           <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-4 space-y-3 bg-white">
@@ -1702,7 +1702,13 @@ const App: React.FC = () => {
                 if ((index + 1) % 6 === 0 && index < filteredEvents.length - 1) {
                   acc.push(
                     <div key={`ad-${index}`} style={{ margin: '4px 0' }}>
-                      <AdBannerComponent banners={adBanners} />
+                      {/* +1 so the first in-list ad never opens on the same ad as the
+                          header placement (startOffset 0), and each subsequent in-list
+                          insertion (index varies per insertion) diverges from the ones
+                          before it too, as long as there are at least as many active ads
+                          as simultaneous placements. Fewer active ads than that is fine —
+                          repeating is expected in that case. */}
+                      <AdBannerComponent banners={adBanners} startOffset={index + 1} />
                     </div>
                   );
                 }

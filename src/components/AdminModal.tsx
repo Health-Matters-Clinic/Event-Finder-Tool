@@ -606,27 +606,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const handleDeleteAd = async (id: string) => {
     const ad = ads.find(a => a.id === id);
     if (!ad) return;
-    if (!window.confirm('Remove this ad? It will be deactivated and hidden from the Event Finder.')) return;
+    if (!window.confirm('Permanently delete this ad? This cannot be undone.')) return;
     setAdsError('');
     try {
       const params = new URLSearchParams({
-        action: 'save_ad',
+        action: 'delete_ad',
         hash: sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '',
         id: ad.id,
-        imageUrl: ad.imageUrl,
-        mobileImageUrl: ad.mobileImageUrl,
-        linkUrl: ad.linkUrl,
-        altText: ad.altText,
-        active: 'FALSE',
-        order: String(ad.order),
       });
       const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
-        showAdsToast('Ad removed.');
+        showAdsToast('Ad deleted.');
         await fetchAds();
       } else {
-        setAdsError(data.error || 'Failed to remove ad');
+        setAdsError(data.error || 'Failed to delete ad');
       }
     } catch {
       setAdsError('Connection error');
