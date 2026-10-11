@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>MOVE: Live Unstoppable Walk/Run | Liability Waiver</title>
+<title>Event Check-in | Liability Waiver</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -570,8 +570,8 @@
     <div class="header">
       <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="Health Matters Clinic">
       <div class="header-eyebrow">Health Matters Clinic Presents</div>
-      <h1 id="gateEventName">MOVE: Live Unstoppable Walk/Run</h1>
-      <div class="header-meta" id="gateEventMeta">Curtis Tucker Center for Community Wellness<br>Inglewood, CA &nbsp;|&nbsp; May 9, 2026 &nbsp;|&nbsp; 8:00 AM</div>
+      <h1 id="gateEventName">Event Check-in</h1>
+      <div class="header-meta" id="gateEventMeta">Loading event details</div>
     </div>
     <div class="gate-body">
       <div class="gate-icon not-yet" id="gateIcon">
@@ -580,9 +580,9 @@
           <path d="M14 9v5l3 3" stroke="#233dff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
-      <div class="gate-pill not-yet" id="gatePill">Not Yet Open</div>
-      <div class="gate-title" id="gateTitle">Check-in opens at 7:15 AM</div>
-      <div class="gate-subtitle" id="gateSubtitle">Come back when you arrive at the event. This page activates at 7:15 AM on May 9.</div>
+      <div class="gate-pill not-yet" id="gatePill">One Moment</div>
+      <div class="gate-title" id="gateTitle">Loading your event</div>
+      <div class="gate-subtitle" id="gateSubtitle"></div>
       <div class="gate-clock" id="gateClock"></div>
     </div>
   </div>
@@ -592,12 +592,8 @@
     <div class="header">
       <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/6912e29e5710650a4f45f53f_Untitled%20(256%20x%20256%20px).png" alt="Health Matters Clinic">
       <div class="header-eyebrow">Health Matters Clinic Presents</div>
-      <h1 id="formEventName">MOVE: Live Unstoppable Walk/Run</h1>
-      <div class="header-meta" id="formEventMeta">
-        Curtis Tucker Center for Community Wellness<br>
-        Inglewood, CA &nbsp;|&nbsp; May 9, 2026 &nbsp;|&nbsp; 8:00 AM - 10:00 AM<br>
-        Coordinator: Health Matters Clinic
-      </div>
+      <h1 id="formEventName">Event Check-in</h1>
+      <div class="header-meta" id="formEventMeta">Coordinator: Health Matters Clinic</div>
     </div>
 
     <div class="body">
@@ -636,9 +632,9 @@
         <div class="waiver-text" id="adultWaiverText">
           By completing and signing this form, I hereby agree to the following:
           <ol>
-            <li>I am voluntarily participating in an event/activity held at the Los Angeles County Department of Public Health Curtis Tucker Center for Community Wellness. I understand that my participation in this event/activity may involve risk of injury.</li>
+            <li>I am voluntarily participating in an event/activity held at <span class="waiver-location">the event location</span>. I understand that my participation in this event/activity may involve risk of injury.</li>
             <li>I understand that it is my responsibility to consult with a physician before participating in any physical exercise.</li>
-            <li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my voluntary participation in this event/activity. Additionally, I hereby release Los Angeles County, its employees and agents from any claim for such injuries, damages or death resulting from my participation in this event/activity.</li>
+            <li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my voluntary participation in this event/activity. Additionally, I hereby release <span class="waiver-releasee">Health Matters Clinic and the owner and operator of the event location, and their employees and agents</span> from any claim for such injuries, damages or death resulting from my participation in this event/activity.</li>
           </ol>
           <div class="waiver-attestation">I have read the above release and waiver of liability and fully understand its contents. I am 18 years of age or older and voluntarily agree to the terms and conditions stated above.</div>
         </div>
@@ -706,9 +702,9 @@
         <div class="waiver-text" id="minorWaiverText">
           By completing and signing this form, I hereby agree to the following:
           <ol>
-            <li>I am voluntarily authorizing the participation of <span id="waiverChildName" style="font-weight:600;">[Child Name]</span> who is <span id="waiverChildAge" style="font-weight:600;">[Age]</span> years old in an event/activity held at the Los Angeles County Department of Public Health Curtis Tucker Center for Community Wellness. I understand that their participation in this event/activity may involve risk of injury.</li>
+            <li>I am voluntarily authorizing the participation of <span id="waiverChildName" style="font-weight:600;">[Child Name]</span> who is <span id="waiverChildAge" style="font-weight:600;">[Age]</span> years old in an event/activity held at <span class="waiver-location">the event location</span>. I understand that their participation in this event/activity may involve risk of injury.</li>
             <li>I understand that it is my responsibility to consult with a physician before authorizing my child's participation in any physical exercise.</li>
-            <li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my child's participation in this event/activity. Additionally, I hereby release Los Angeles County, its employees and agents from any claim for such injuries, damages or death resulting from my child's participation in this event/activity.</li>
+            <li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my child's participation in this event/activity. Additionally, I hereby release <span class="waiver-releasee">Health Matters Clinic and the owner and operator of the event location, and their employees and agents</span> from any claim for such injuries, damages or death resulting from my child's participation in this event/activity.</li>
           </ol>
           <div class="waiver-attestation">I have read and completed the above release and waiver of liability and fully understand its contents. I am 18 years of age or older and voluntarily agree to the terms and conditions stated above.</div>
         </div>
@@ -811,75 +807,132 @@
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxPpn0Q8jiyZ5ftR1uLcb3BJwPI-C2zyEdm1xJT-7iX3dDIYIV5kZwR_nrsl2PC7ExSvg/exec';
 
 // =============================================
-// URL PARAMS (must come before EVENT_INFO lookup)
+// URL PARAMS (read before the event details load)
 // =============================================
 var _urlParams     = new URLSearchParams(window.location.search);
 var CHECKIN_TOKEN  = _urlParams.get('checkin') || '';
 var EVENT_ID       = _urlParams.get('event')   || '';
 
-var EVENT_INFO = {
-  'event-1772063101013': { name: 'MOVE: Live Unstoppable Walk/Run',   date: 'May 9, 2026',  venue: 'Curtis Tucker Center for Community Wellness', address: 'Inglewood, CA', time: '8:00 AM - 10:00 AM' },
-  'event-1772064063990': { name: 'HEAL: Unstoppable Wellness Meetup', date: 'May 20, 2026', venue: 'Curtis Tucker Center for Community Wellness', address: 'Inglewood, CA', time: '5:45 PM - 7:15 PM' },
-  'event-1773943614235': { name: 'TRANSFORM: Unstoppable Experience', date: 'May 27, 2026', venue: 'Virtual on Zoom',                             address: '',             time: '7:00 PM - 8:00 PM' }
-};
-var _eventInfo = EVENT_INFO[EVENT_ID] || EVENT_INFO['event-1772063101013'];
-var EVENT_NAME = _eventInfo.name;
-var EVENT_DATE = _eventInfo.date;
+// ---- Event details come from the event itself ----------------------------
+// This page used to carry three hard-coded May 2026 events and fall back to the
+// first of them for any other id, so every other event's check-in link showed the
+// wrong event name and a closed gate. It now reads the event from the same feed the
+// Event Finder uses.
+var EVENTS_API = 'https://volunteer.healthmatters.clinic/api/public/events';
+var COUNTY_VENUE_PATTERN = /curtis\s+tucker|123\s+w\.?\s+manchester/i;
 
-// Events that skip the waiver and go straight to check-in
-var NO_WAIVER_EVENTS = ['event-1773943614235'];
+var EVENT_NAME = '';
+var EVENT_DATE = '';          // display form, e.g. "Monday, October 26, 2026"
+var EVENT_ISO = '';           // YYYY-MM-DD, first day
+var EVENT_END_ISO = '';       // YYYY-MM-DD, last day (empty for a single day)
+var EVENT_TIME = '';
+var EVENT_LOCATION = '';      // address as listed, or "Online"
+var EVENT_IS_VIRTUAL = false;
+var EVENT_AT_COUNTY_VENUE = false;
+var EVENT_READY = false;      // false until the event has loaded (or failed to)
 
-if (NO_WAIVER_EVENTS.indexOf(EVENT_ID) !== -1 && CHECKIN_TOKEN) {
-  // Fire check-in and show confirmation immediately, no waiver needed
+function todayPacific() {
+  // en-CA formats as YYYY-MM-DD
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
+
+/**
+ * Where "today" sits against the event: 'early', 'open' or 'closed'.
+ * Matches the rule the server applies to a check-in (the day of, or the day before),
+ * counted in Pacific time. An event with no readable date is treated as open, so a
+ * missing date never locks someone out of signing.
+ */
+function gateState(today, startISO, endISO) {
+  if (!startISO) return 'open';
+  var last = endISO || startISO;
+  if (today < startISO) return 'early';
+  if (today > last) return 'closed';
+  return 'open';
+}
+
+/** The words that go into the waiver where the venue and the released party are named. */
+function waiverLocationText() {
+  // The approved wording for the County venue is kept exactly as written.
+  if (EVENT_AT_COUNTY_VENUE) return 'the Los Angeles County Department of Public Health Curtis Tucker Center for Community Wellness';
+  if (EVENT_IS_VIRTUAL) return 'an online event';
+  return EVENT_LOCATION || 'the event location';
+}
+function waiverReleaseeText() {
+  if (EVENT_AT_COUNTY_VENUE) return 'Los Angeles County, its employees and agents';
+  return 'Health Matters Clinic and the owner and operator of the event location, and their employees and agents';
+}
+
+function applyEventDetails() {
+  var title = EVENT_NAME || 'Health Matters Clinic Event';
+  var where = EVENT_LOCATION || (EVENT_IS_VIRTUAL ? 'Online' : '');
+  var bits = [where, EVENT_DATE, EVENT_TIME].filter(Boolean);
+  var metaHtml = bits.map(esc).join(' &nbsp;|&nbsp; ');
+  var gn = document.getElementById('gateEventName');
+  var gm = document.getElementById('gateEventMeta');
+  var fn = document.getElementById('formEventName');
+  var fm = document.getElementById('formEventMeta');
+  if (gn) gn.textContent = title;
+  if (gm) gm.innerHTML  = metaHtml;
+  if (fn) fn.textContent = title;
+  if (fm) fm.innerHTML  = metaHtml + (metaHtml ? '<br>' : '') + 'Coordinator: Health Matters Clinic';
+  document.title = title + ' | Liability Waiver';
+
+  var locEls = document.querySelectorAll('.waiver-location');
+  for (var i = 0; i < locEls.length; i++) locEls[i].textContent = waiverLocationText();
+  var relEls = document.querySelectorAll('.waiver-releasee');
+  for (var j = 0; j < relEls.length; j++) relEls[j].textContent = waiverReleaseeText();
+}
+
+function loadEventDetails() {
+  var done = function() { EVENT_READY = true; applyEventDetails(); startNoWaiverFlow(); updateGate(); };
+  if (!EVENT_ID) { done(); return; }
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, 8000);
+  fetch(EVENTS_API, { signal: controller.signal })
+    .then(function(r) { return r.ok ? r.json() : []; })
+    .then(function(list) {
+      clearTimeout(timer);
+      var ev = (Array.isArray(list) ? list : []).filter(function(e) { return e && String(e.id) === EVENT_ID; })[0];
+      if (ev) {
+        var addr = String(ev.address || '').trim();
+        EVENT_NAME = String(ev.title || '');
+        EVENT_ISO = String(ev.date || '').split('T')[0];
+        EVENT_END_ISO = String(ev.endDate || '').split('T')[0];
+        EVENT_DATE = String(ev.dateDisplay || '');
+        EVENT_TIME = String(ev.time || '');
+        EVENT_IS_VIRTUAL = ev.isVirtual === true || /^https?:\/\//i.test(addr);
+        // An online event's address is its join link: never print that on this page.
+        EVENT_LOCATION = EVENT_IS_VIRTUAL ? 'Online' : [addr, ev.city].filter(Boolean).join(', ');
+        EVENT_AT_COUNTY_VENUE = !EVENT_IS_VIRTUAL && COUNTY_VENUE_PATTERN.test([ev.title, ev.location, addr].join(' '));
+      }
+    })
+    .catch(function() { clearTimeout(timer); })
+    .then(done);
+}
+
+// An online event has no waiver: record the check-in and go straight to feedback.
+var _noWaiverStarted = false;
+function startNoWaiverFlow() {
+  if (_noWaiverStarted || !EVENT_IS_VIRTUAL || !CHECKIN_TOKEN) return;
+  _noWaiverStarted = true;
   fetch(GAS_URL, {
     method: 'POST', mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action: 'checkin', checkinToken: CHECKIN_TOKEN })
   }).catch(function() {});
-  document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('formPage').style.display    = 'none';
-    document.getElementById('gatePage').style.display    = 'none';
-    document.getElementById('confirmPage').style.display = 'none';
-    document.getElementById('feedbackPage').style.display = '';
-  });
+  document.getElementById('formPage').style.display     = 'none';
+  document.getElementById('gatePage').style.display     = 'none';
+  document.getElementById('confirmPage').style.display  = 'none';
+  document.getElementById('feedbackPage').style.display = '';
 }
 
-// Per-event check-in windows run 7:15 AM to 11:00 AM PDT on event day
-// PDT = UTC-7, so 7:15 AM PDT = 14:15 UTC, 11:00 AM PDT = 18:00 UTC
-var EVENT_GATES = {
-  'event-1772063101013': { open: '2026-05-09T14:15:00Z', close: '2026-05-09T18:00:00Z', label: 'May 9',  openLabel: '7:15 AM' },
-  'event-1772064063990': { open: '2026-05-21T00:15:00Z', close: '2026-05-21T02:15:00Z', label: 'May 20', openLabel: '5:15 PM' },
-  'event-1773943614235': { open: '2026-05-28T01:50:00Z', close: '2026-05-28T03:15:00Z', label: 'May 27', openLabel: '6:50 PM' }
-};
-
-var _eventGate  = EVENT_GATES[EVENT_ID] || EVENT_GATES['event-1772063101013'];
-var GATE_OPEN   = new Date(_eventGate.open);
-var GATE_CLOSE  = new Date(_eventGate.close);
-var GATE_LABEL  = _eventGate.label;
-var GATE_OPEN_LABEL = _eventGate.openLabel;
-
-document.addEventListener('DOMContentLoaded', function() {
-  var metaHtml = _eventInfo.address
-    ? _eventInfo.venue + '<br>' + _eventInfo.address + ' &nbsp;|&nbsp; ' + _eventInfo.date + ' &nbsp;|&nbsp; ' + _eventInfo.time
-    : _eventInfo.venue + ' &nbsp;|&nbsp; ' + _eventInfo.date + ' &nbsp;|&nbsp; ' + _eventInfo.time;
-  var formMetaHtml = metaHtml + '<br>Coordinator: Health Matters Clinic';
-  var gn = document.getElementById('gateEventName');
-  var gm = document.getElementById('gateEventMeta');
-  var fn = document.getElementById('formEventName');
-  var fm = document.getElementById('formEventMeta');
-  if (gn) gn.textContent = EVENT_NAME;
-  if (gm) gm.innerHTML  = metaHtml;
-  if (fn) fn.textContent = EVENT_NAME;
-  if (fm) fm.innerHTML  = formMetaHtml;
-  document.title = EVENT_NAME + ' | Liability Waiver';
-});
-
 function updateGate() {
-  var now      = new Date();
+  if (_noWaiverStarted) return;
   var formPage = document.getElementById('formPage');
   var gatePage = document.getElementById('gatePage');
+  var state = EVENT_READY ? gateState(todayPacific(), EVENT_ISO, EVENT_END_ISO) : 'loading';
 
-  if (now >= GATE_OPEN && now <= GATE_CLOSE) {
+  if (state === 'open') {
     gatePage.style.display = 'none';
     formPage.style.display = '';
     return;
@@ -888,7 +941,7 @@ function updateGate() {
   gatePage.style.display = '';
   formPage.style.display = 'none';
 
-  var ptTime = now.toLocaleTimeString('en-US', {
+  var ptTime = new Date().toLocaleTimeString('en-US', {
     hour: 'numeric', minute: '2-digit',
     timeZone: 'America/Los_Angeles', hour12: true
   }) + ' PT';
@@ -899,26 +952,33 @@ function updateGate() {
   var subtitle = document.getElementById('gateSubtitle');
   var clock    = document.getElementById('gateClock');
 
-  if (now < GATE_OPEN) {
+  if (state === 'loading') {
+    pill.textContent = 'One Moment';
+    title.textContent = 'Loading your event';
+    subtitle.textContent = '';
+  } else if (state === 'early') {
     icon.className = 'gate-icon not-yet';
     icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="10" stroke="#233dff" stroke-width="2"/><path d="M14 9v5l3 3" stroke="#233dff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     pill.className   = 'gate-pill not-yet';
     pill.textContent = 'Not Yet Open';
-    title.textContent    = 'Check-in opens at ' + GATE_OPEN_LABEL;
-    subtitle.textContent = 'Come back when you arrive at the event. Check-in activates at ' + GATE_OPEN_LABEL + ' on ' + GATE_LABEL + '.';
+    title.textContent    = EVENT_DATE ? 'Check-in opens on ' + EVENT_DATE : 'Check-in opens on the day of the event';
+    subtitle.textContent = 'Come back on the day of the event. This page activates then.';
   } else {
     icon.className = 'gate-icon closed';
     icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M8 8l12 12M20 8L8 20" stroke="#888" stroke-width="2" stroke-linecap="round"/></svg>';
     pill.className   = 'gate-pill closed';
     pill.textContent = 'Check-In Closed';
     title.textContent    = 'Check-in is now closed';
-    subtitle.textContent = 'Thank you for being part of the Unstoppable Season 2026.';
+    subtitle.textContent = 'Thank you for joining us.';
   }
 
   if (clock) clock.textContent = 'Current time: ' + ptTime;
 }
 
-updateGate();
+document.addEventListener('DOMContentLoaded', function() {
+  updateGate();
+  loadEventDetails();
+});
 setInterval(updateGate, 30000);
 
 // =============================================
@@ -1169,7 +1229,7 @@ function showConfirmation(payload, sigData) {
   var rows = [];
   rows.push(['Event', EVENT_NAME]);
   rows.push(['Date', EVENT_DATE]);
-  rows.push(['Location', 'Curtis Tucker Center for Community Wellness, Inglewood, CA']);
+  rows.push(['Location', EVENT_LOCATION || (EVENT_IS_VIRTUAL ? 'Online' : 'See event listing')]);
   rows.push(['Submitted', payload.submittedAt]);
   _attendeeName = payload.signerFirstName + ' ' + payload.signerLastName;
   rows.push(['Signer', _attendeeName]);
@@ -1191,15 +1251,15 @@ function showConfirmation(payload, sigData) {
     var childName = payload.minorFirstName + ' ' + payload.minorLastName;
     var age = payload.minorAge;
     waiverHTML = 'By completing and signing this form, I hereby agree to the following:<ol>' +
-      '<li>I am voluntarily authorizing the participation of <strong>' + esc(childName) + '</strong> who is <strong>' + esc(age) + '</strong> years old in an event/activity held at the Los Angeles County Department of Public Health Curtis Tucker Center for Community Wellness. I understand that their participation in this event/activity may involve risk of injury.</li>' +
+      '<li>I am voluntarily authorizing the participation of <strong>' + esc(childName) + '</strong> who is <strong>' + esc(age) + '</strong> years old in an event/activity held at ' + esc(waiverLocationText()) + '. I understand that their participation in this event/activity may involve risk of injury.</li>' +
       '<li>I understand that it is my responsibility to consult with a physician before authorizing my child\'s participation in any physical exercise.</li>' +
-      '<li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my child\'s participation in this event/activity. Additionally, I hereby release Los Angeles County, its employees and agents from any claim for such injuries, damages or death resulting from my child\'s participation in this event/activity.</li>' +
+      '<li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my child\'s participation in this event/activity. Additionally, I hereby release ' + esc(waiverReleaseeText()) + ' from any claim for such injuries, damages or death resulting from my child\'s participation in this event/activity.</li>' +
       '</ol><p style="margin-top:10px;font-style:italic;">I have read and completed the above release and waiver of liability and fully understand its contents. I am 18 years of age or older and voluntarily agree to the terms and conditions stated above.</p>';
   } else {
     waiverHTML = 'By completing and signing this form, I hereby agree to the following:<ol>' +
-      '<li>I am voluntarily participating in an event/activity held at the Los Angeles County Department of Public Health Curtis Tucker Center for Community Wellness. I understand that my participation in this event/activity may involve risk of injury.</li>' +
+      '<li>I am voluntarily participating in an event/activity held at ' + esc(waiverLocationText()) + '. I understand that my participation in this event/activity may involve risk of injury.</li>' +
       '<li>I understand that it is my responsibility to consult with a physician before participating in any physical exercise.</li>' +
-      '<li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my voluntary participation in this event/activity. Additionally, I hereby release Los Angeles County, its employees and agents from any claim for such injuries, damages or death resulting from my participation in this event/activity.</li>' +
+      '<li>I assume full responsibility for any risks, injuries or damages, that may happen as a result of my voluntary participation in this event/activity. Additionally, I hereby release ' + esc(waiverReleaseeText()) + ' from any claim for such injuries, damages or death resulting from my participation in this event/activity.</li>' +
       '</ol><p style="margin-top:10px;font-style:italic;">I have read the above release and waiver of liability and fully understand its contents. I am 18 years of age or older and voluntarily agree to the terms and conditions stated above.</p>';
   }
   document.getElementById('confirmWaiverText').innerHTML = waiverHTML;
@@ -1229,7 +1289,6 @@ function showConfirmation(payload, sigData) {
 // =============================================
 var _selectedRating = 0;
 var _attendeeName = '';
-var SURVEY_URL = 'https://calmhsa.my.site.com/SAMHSAdatacollection/apex/b3f__formcomplete?id=a1kJw000008HL1qIAG&LA-PEI-TA-26=KLT';
 
 function showFeedbackPage() {
   document.getElementById('confirmPage').style.display = 'none';
@@ -1262,11 +1321,21 @@ function submitFeedbackRating() {
       comments: comment
     })
   }).catch(function() {});
-  window.location.href = SURVEY_URL;
+  showFeedbackDone();
 }
 
 function skipFeedback() {
-  window.location.href = SURVEY_URL;
+  showFeedbackDone();
+}
+
+// Ends on this page's own thank-you panel. It used to send everyone on to the Take
+// Action LA data-collection survey, whichever event they had just attended.
+function showFeedbackDone() {
+  var form = document.getElementById('feedbackForm');
+  var done = document.getElementById('feedbackDone');
+  if (form) form.style.display = 'none';
+  if (done) done.style.display = 'block';
+  window.scrollTo(0, 0);
 }
 
 function esc(str) {

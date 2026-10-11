@@ -181,36 +181,7 @@ const trackExternalRsvp = (e: ClinicEvent, label: 'register' | 'more_info'): voi
 };
 
 const DEFAULT_CENTER: [number, number] = [33.9719, -118.2108];
-const REQUIRED_DEEP_LINK_EVENT_IDS = ['event-1772064063990', 'event-1773943614235'];
 const PUBLIC_EVENTFINDER_URL = 'https://www.healthmatters.clinic/resources/eventfinder';
-const REQUIRED_EVENT_OVERRIDES: Record<string, Partial<ClinicEvent>> = {
-  'event-1772064063990': {
-    title: 'Unstoppable Wellness Meetup',
-    date: '2026-05-20',
-    dateDisplay: 'Wednesday, May 20, 2026',
-    time: '5:45 PM - 7:15 PM',
-    location: 'Inglewood',
-    city: 'Los Angeles',
-    address: '123 W. Manchester Blvd, Inglewood, CA 90301',
-    program: 'Community Wellness',
-    lat: 33.9614,
-    lng: -118.3528,
-    isSponsored: true,
-  },
-  'event-1773943614235': {
-    title: 'UNSTOPPABLE Experience',
-    date: '2026-05-27',
-    dateDisplay: 'Wednesday, May 27, 2026',
-    time: '7:00 PM - 8:00 PM',
-    location: 'Online',
-    city: 'Online',
-    address: 'Virtual',
-    program: 'Community Wellness',
-    lat: 0,
-    lng: 0,
-    isSponsored: true,
-  },
-};
 
 const mergeEventData = (base: ClinicEvent, incoming: ClinicEvent): ClinicEvent => {
   const merged = { ...base, ...incoming };
@@ -316,29 +287,24 @@ const sanitizeEvents = (raw: any[]): ClinicEvent[] => {
   return deduped;
 };
 
+/**
+ * The backend's events, merged over the bundled list.
+ *
+ * The bundled list is what fills the Past Events tab: the portal's events feed only
+ * returns events from today onward (its `all` parameter is declared and never applied),
+ * so without this list that tab is empty. It is also the floor that keeps a partial
+ * backend response from wiping the calendar. Remove it once the feed can serve past
+ * events.
+ */
 const mergeWithBundledEvents = (raw: any[]): ClinicEvent[] => {
   const bundled = sanitizeEvents(EVENTS);
   const incoming = sanitizeEvents(raw);
   const byId = new Map<string, ClinicEvent>();
 
-  // Bundled events are the safety floor so a partial backend response cannot wipe the calendar.
   bundled.forEach((event) => byId.set(event.id, event));
   incoming.forEach((event) => {
     const existing = byId.get(event.id);
     byId.set(event.id, existing ? mergeEventData(existing, event) : event);
-  });
-
-  // These two links were publicly mandated and must always resolve.
-  REQUIRED_DEEP_LINK_EVENT_IDS.forEach((id) => {
-    const fallback = bundled.find((event) => event.id === id);
-    const existing = byId.get(id) || fallback;
-    if (existing) {
-      const merged = mergeEventData(existing, { ...existing, ...REQUIRED_EVENT_OVERRIDES[id], id } as ClinicEvent);
-      // Force HMC RSVP modal, these events use HMC registration, not external links
-      merged.websiteUrl = '';
-      merged.rsvpMode = 'hmc';
-      byId.set(id, merged);
-    }
   });
 
   return sanitizeEvents(Array.from(byId.values()));
@@ -564,7 +530,7 @@ const App: React.FC = () => {
         console.warn('Portal events fetch failed:', e.name === 'AbortError' ? 'timed out' : e.message);
       }
 
-      // If backend failed and no cache, fall back to hardcoded events (includes critical Unstoppable Season events)
+      // If the backend failed and there is no cache, fall back to the bundled list.
       if (isMounted) {
         setEvents(prev => prev.length > 0 ? prev : EVENTS);
         setEventsLoading(false);
@@ -602,8 +568,9 @@ const App: React.FC = () => {
         return false;
       });
 
-      // Second pass: Unstoppable Season keyword matching, prefer future events
-      // These short slugs AND original Eventbrite IDs have been publicly shared and must keep working.
+      // Second pass: short slugs from the May 2026 flyers and QR codes, plus the original
+      // Eventbrite IDs, keep resolving. Prefers an upcoming event over a past one, so an
+      // old "unstoppable-transform" link lands on the next Unstoppable Experience.
       if (!foundEvent) {
         const keywordMatch = (e: ClinicEvent) => {
           const titleLower = e.title.toLowerCase();

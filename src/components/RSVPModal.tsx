@@ -27,7 +27,6 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   const [checkinToken, setCheckinToken] = useState<string>('');
   const [submittedEmail, setSubmittedEmail] = useState<string>('');
   const [emailMayBeDelayed, setEmailMayBeDelayed] = useState<boolean>(false);
-  const [tshirtSize, setTshirtSize] = useState<string>('');
 
   // Minor exception (allows same guardian email/phone to preregister multiple minors)
   const [isMinor, setIsMinor] = useState<boolean>(false);
@@ -36,17 +35,6 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
   const [waitlistLoading, setWaitlistLoading] = useState<string | null>(null);
 
   const t = I18N[lang];
-
-  const UNSTOPPABLE_EVENT_IDS = ['event-1773943614235', 'event-1772063101013', 'event-1772064063990'];
-  const isUnstoppableEvent = useMemo(() => {
-    if (!event) return false;
-    return UNSTOPPABLE_EVENT_IDS.includes(event.id) || event.title.toLowerCase().includes('unstoppable');
-  }, [event]);
-
-  const isEarlyRegistrant = useMemo(() => {
-    // Registrations before May 2, 2026 qualify for on-site tee pickup
-    return new Date() < new Date('2026-05-02T00:00:00');
-  }, []);
 
   const isToday = useMemo(() => {
     if (!event) return false;
@@ -117,8 +105,6 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
           lang: payload.lang,
           referralCode: payload.referralCode,
           sessionIds: payload.sessionIds,
-          tshirtSize: payload.tshirtSize,
-          earlyRegistrant: payload.earlyRegistrant,
           isMinor: payload.isMinor,
           minorName: payload.minorName,
           contactPreference: payload.contact_method,
@@ -305,8 +291,6 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
       source: isToday ? 'Live Event (Pre-register)' : 'Planning Ahead (Pre-register)',
       referralCode: referralCode || undefined,
       sessionIds: selectedSessions.length > 0 ? selectedSessions : undefined,
-      tshirtSize: isUnstoppableEvent && tshirtSize ? tshirtSize : undefined,
-      earlyRegistrant: isUnstoppableEvent && isEarlyRegistrant ? true : undefined,
       guests: guestCount > 0 ? guestCount : undefined,
       accessibilityNeeds: accessibilityNeeds.trim() || undefined,
       // Recorded so an RSVP HMC took on a partner's behalf is identifiable as theirs
@@ -717,36 +701,6 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                   )}
                 </span>
               </label>
-
-              {/* T-shirt size for Unstoppable events, early registrants only (before May 2) */}
-              {isUnstoppableEvent && isEarlyRegistrant && (
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                    {lang === 'es' ? 'Talla de camiseta (para los primeros registrados)' : 'T-Shirt Size (for early registrants)'}
-                  </label>
-                  <select
-                    value={tshirtSize}
-                    onChange={(e) => setTshirtSize(e.target.value)}
-                    className="w-full bg-white border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold focus:border-[#233dff] focus:bg-[#f0f4ff] outline-none transition-all text-gray-700"
-                  >
-                    <option value="">{lang === 'es' ? 'Seleccionar talla' : 'Select size'}</option>
-                    <option value="XS">XS</option>
-                    <option value="S">S</option>
-                    <option value="M">M</option>
-                    <option value="L">L</option>
-                    <option value="XL">XL</option>
-                    <option value="2XL">2XL</option>
-                    <option value="3XL">3XL</option>
-                  </select>
-                  {isEarlyRegistrant && (
-                    <p className="text-[10px] text-[#233dff] font-semibold mt-1">
-                      {lang === 'es'
-                        ? 'Registrado antes del 2 de mayo, elegible para recoger camiseta en el evento'
-                        : 'Registered before May 2, eligible for on-site tee pickup'}
-                    </p>
-                  )}
-                </div>
-              )}
 
               {/* Needs, optional, used only to help HMC staff support you */}
               <div className="flex items-center gap-2 flex-wrap">

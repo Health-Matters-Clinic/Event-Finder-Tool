@@ -261,8 +261,6 @@ function doGet(e) {
       needs: p.needs || '',
       lang: p.lang || 'en',
       source: p.source || '',
-      tshirtSize: p.tshirtSize || '',
-      earlyRegistrant: p.earlyRegistrant === 'true',
       guests: p.guests ? parseInt(p.guests) || 0 : 0,
       accessibilityNeeds: p.accessibilityNeeds || '',
       hostOrg: p.hostOrg || ''
@@ -1388,7 +1386,7 @@ function handleRSVP(payload) {
     checkinToken,
     'pre-registered',
     '',
-    payload.tshirtSize || '',
+    '', // formerly the T-shirt size; kept so the columns after it stay where they are
     payload.guests ? String(payload.guests) : '',
     payload.accessibilityNeeds || '',
     ownerCheck.hostOrg || payload.hostOrg || ''
@@ -2177,11 +2175,13 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     }
   }
 
-  var teeLine = '';
-  if (payload.tshirtSize && payload.earlyRegistrant) {
-    var teeLabel = es ? 'Talla de camiseta (recoger en el evento): ' : 'T-shirt size (pick up on-site): ';
-    teeLine = '<p style="margin:8px 0 0;color:#233dff;font-size:13px;font-weight:600;">' + teeLabel + payload.tshirtSize + '</p>';
-  }
+  // An online event is attended through its link. The check-in button opens the
+  // in-person waiver page, which means nothing for someone joining on Zoom, so an
+  // online event's confirmation does not carry one.
+  var checkinBlock = joinLink ? '' :
+    '<div style="text-align:center;margin:0 0 8px;">' +
+    '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' + checkinLabel + '</a>' +
+    '</div>';
 
   var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
     '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
@@ -2196,12 +2196,10 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     '<div style="background:#f0f4ff;padding:20px;border-radius:12px;margin:0 0 28px;border:1.5px solid rgba(35,61,255,0.2);">' +
     '<h2 style="color:#233dff;margin:0 0 12px 0;font-size:18px;font-weight:700;">' + payload.eventTitle + '</h2>' +
     '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + dateLabel + '</strong>' + payload.eventDate + '</p>' +
-    timeLine + venueLine + teeLine +
+    timeLine + venueLine +
     '</div>' +
     joinBlock +
-    '<div style="text-align:center;margin:0 0 8px;">' +
-    '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' + checkinLabel + '</a>' +
-    '</div>' +
+    checkinBlock +
     '<p style="text-align:center;margin:0 0 28px;">' +
     '<a href="' + cancelUrl + '" style="color:#999;font-size:12px;text-decoration:underline;">' + cancelLabel + '</a>' +
     '</p>' +
@@ -2622,6 +2620,7 @@ function sendEventReminders() {
 
   var data = sheet.getDataRange().getValues();
   var sent = 0;
+  var joinLinkByEvent = {}; // one Events-sheet read per event, not per attendee
 
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
@@ -2668,6 +2667,18 @@ function sendEventReminders() {
     var checkinUrl = 'https://eventfinder.healthmatters.clinic/waiver.html?checkin=' + encodeURIComponent(checkinToken) +
       (eventId ? '&event=' + encodeURIComponent(eventId) : '');
 
+    // An online event's reminder carries its join link and no check-in button.
+    if (!(eventId in joinLinkByEvent)) joinLinkByEvent[eventId] = rsvpOwner(eventId).joinLink || '';
+    var joinLink = joinLinkByEvent[eventId];
+    var actionBlock = joinLink
+      ? '<div style="text-align:center;margin:0 0 28px;">' +
+        '<a href="' + escapeHtml(joinLink) + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' +
+          (es ? 'Unirse al evento' : 'Join the event') + '</a>' +
+        '<p style="margin:12px 0 0;font-size:12px;word-break:break-all;"><a href="' + escapeHtml(joinLink) + '" style="color:#233dff;">' + escapeHtml(joinLink) + '</a></p></div>'
+      : '<div style="text-align:center;margin:0 0 28px;">' +
+        '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' +
+          (es ? 'Check-in el Día del Evento' : 'Check-in on Event Day') + '</a></div>';
+
     var subject = es
       ? 'Recordatorio: Tu evento es mañana | Health Matters Clinic'
       : 'Reminder: Your event is tomorrow | Health Matters Clinic';
@@ -2689,9 +2700,7 @@ function sendEventReminders() {
       '<h2 style="color:#233dff;margin:0 0 12px 0;font-size:18px;font-weight:700;">' + eventTitle + '</h2>' +
       '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + (es ? 'Fecha: ' : 'Date: ') + '</strong>' + eventDate + '</p>' +
       '</div>' +
-      '<div style="text-align:center;margin:0 0 8px;">' +
-      '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' +
-        (es ? 'Check-in el Día del Evento' : 'Check-in on Event Day') + '</a></div>' +
+      actionBlock +
       '</div>' +
       '<div style="background:#f5f3ef;padding:20px;border-top:1px solid #e5e5e5;text-align:center;">' +
       '<p style="color:#666;font-size:13px;margin:0;">' + (es ? '¿Preguntas?' : 'Questions?') + ' <a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
@@ -2699,7 +2708,9 @@ function sendEventReminders() {
 
     var plainText = (es ? 'Hola ' : 'Hi ') + firstName + ',\n\n' +
       (es ? 'Tu evento "' + eventTitle + '" es mañana.' : 'Your event "' + eventTitle + '" is tomorrow.') + '\n\n' +
-      (es ? 'Haz check-in aquí: ' : 'Check in here: ') + checkinUrl + '\n\n' +
+      (joinLink
+        ? (es ? 'Únete aquí: ' : 'Join here: ') + joinLink
+        : (es ? 'Haz check-in aquí: ' : 'Check in here: ') + checkinUrl) + '\n\n' +
       '— Health Matters Clinic\n' +
       (es ? 'En crisis? Llama o escribe al 988.' : 'In crisis? Call or text 988.');
 
@@ -2794,7 +2805,6 @@ function testRSVPFlow() {
     lang:       'en',
     source:     'test',
     guests:     0,
-    tshirtSize: '',
     accessibilityNeeds: ''
   };
   var result = handleRSVP(payload);
@@ -2814,7 +2824,7 @@ function testDuplicateGuard() {
     phone:      '4049046355',
     contact_method: 'email',
     sms_consent: false, isMinor: false, minorName: '',
-    needs: '', lang: 'en', source: 'test', guests: 0, tshirtSize: '', accessibilityNeeds: ''
+    needs: '', lang: 'en', source: 'test', guests: 0, accessibilityNeeds: ''
   };
   var result = handleRSVP(payload);
   if (!result.duplicate) throw new Error('Expected duplicate=true for repeat RSVP');
