@@ -1457,7 +1457,13 @@ function sendVolunteerInterestEmail(payload) {
     'Questions? Reply to this email.\n' +
     '— Health Matters Clinic\n\nIn crisis? Call or text 988';
 
-  GmailApp.sendEmail(payload.email, 'Thanks for your interest in volunteering with Health Matters Clinic', plain, {
+  // Sent with MailApp, like every other email in this script. The Gmail service needs
+  // a separate permission this deployment was never authorized for, so these two
+  // follow-ups failed with "script does not have permission" while confirmations sent.
+  MailApp.sendEmail({
+    to: payload.email,
+    subject: 'Thanks for your interest in volunteering with Health Matters Clinic',
+    body: plain,
     htmlBody: html,
     name: 'Health Matters Clinic',
     replyTo: 'volunteer@healthmatters.clinic'
@@ -1492,7 +1498,10 @@ function sendResourcesEmail(payload) {
     'Questions? Reply to this email.\n' +
     '— Health Matters Clinic\n\nIn crisis? Call or text 988';
 
-  GmailApp.sendEmail(payload.email, 'Resources from Health Matters Clinic', plain, {
+  MailApp.sendEmail({
+    to: payload.email,
+    subject: 'Resources from Health Matters Clinic',
+    body: plain,
     htmlBody: html,
     name: 'Health Matters Clinic',
     replyTo: 'contact@healthmatters.clinic'
