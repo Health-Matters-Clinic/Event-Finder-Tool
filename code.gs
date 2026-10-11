@@ -1187,6 +1187,38 @@ function saveAllEvents(events) {
 }
 
 /**
+ * The address of an online event is where to join it: a Zoom, Google Meet, YouTube,
+ * Teams or similar link, held in the same `address` column an in-person event keeps
+ * its street address in. This is the strict test for "that is a link we will put in
+ * an email". https only, no whitespace, no characters that could break out of an
+ * href. The front end applies the same rule when an admin saves the event.
+ */
+function isJoinLink(raw) {
+  var v = String(raw || '').trim();
+  return /^https:\/\/[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+(:\d+)?([\/?#][^\s<>"'`]*)?$/.test(v);
+}
+
+/** The platform behind a join link, or '' for any other site. */
+function joinPlatformName(raw) {
+  var m = String(raw || '').trim().match(/^https:\/\/([^\/:?#]+)/i);
+  var host = m ? m[1].toLowerCase() : '';
+  var known = [
+    { hosts: ['zoom.us', 'zoomgov.com'], name: 'Zoom' },
+    { hosts: ['meet.google.com'], name: 'Google Meet' },
+    { hosts: ['youtube.com', 'youtu.be'], name: 'YouTube' },
+    { hosts: ['teams.microsoft.com', 'teams.live.com'], name: 'Microsoft Teams' },
+    { hosts: ['webex.com'], name: 'Webex' }
+  ];
+  for (var i = 0; i < known.length; i++) {
+    for (var j = 0; j < known[i].hosts.length; j++) {
+      var h = known[i].hosts[j];
+      if (host === h || host.slice(-(h.length + 1)) === '.' + h) return known[i].name;
+    }
+  }
+  return '';
+}
+
+/**
  * Who owns an event's RSVP, read from the Events sheet.
  *
  * A row saved before the rsvpMode column existed carries no value, and is read the
@@ -1199,7 +1231,7 @@ function saveAllEvents(events) {
  * would break registration for them.
  */
 function rsvpOwner(eventId) {
-  var unknown = { mode: 'hmc', hostOrg: '', websiteUrl: '', rsvpContact: '' };
+  var unknown = { mode: 'hmc', hostOrg: '', websiteUrl: '', rsvpContact: '', joinLink: '' };
   try {
     var result = getEvents();
     if (!result || !result.success || !result.events) return unknown;
@@ -1218,7 +1250,10 @@ function rsvpOwner(eventId) {
         mode: mode,
         hostOrg: String(ev.hostOrg || '').trim(),
         websiteUrl: String(ev.websiteUrl || '').trim(),
-        rsvpContact: String(ev.rsvpContact || '').trim()
+        rsvpContact: String(ev.rsvpContact || '').trim(),
+        // Read from the sheet, never from the request: the confirmation email is sent
+        // from HMC's address, so a link in it must be one an admin saved on the event.
+        joinLink: isJoinLink(ev.address) ? String(ev.address).trim() : ''
       };
     }
     return unknown;
@@ -1262,6 +1297,10 @@ function handleRSVP(payload) {
       rsvpContact: ownerCheck.rsvpContact
     };
   }
+
+  // The join link for an online event comes from the saved event, not the request.
+  // Overwritten unconditionally so a client-supplied value can never reach the email.
+  payload.joinLink = ownerCheck.joinLink || '';
 
   // Basic email format check if provided
   if (payload.email) {
@@ -1986,7 +2025,7 @@ function handleCheckinByTokenJSON(token) {
 // EMAIL FUNCTIONS
 // ========================================
 
-function buildICSContent(payload) {
+function buildICSContent(payload, joinLink) {
   var dateISO = payload.eventDateISO || '';
 
   // Fallback: known Unstoppable event dates
@@ -2027,11 +2066,19 @@ function buildICSContent(payload) {
   var location = payload.eventAddress
     ? (payload.eventAddress + (payload.eventCity ? ', ' + payload.eventCity : ''))
     : (payload.eventCity || 'Los Angeles, CA');
+  // An online event is attended at its link. Calendars open the LOCATION and URL as a
+  // link, so the join link goes in both rather than a city the event is not held in.
+  if (joinLink) location = joinLink;
+  var icsEscape = function(t) {
+    return String(t).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,');
+  };
 
   var descLine = (payload.eventDate || '') +
     (payload.eventTime ? ' at ' + payload.eventTime : '') +
-    (payload.eventAddress ? '\\n' + payload.eventAddress : '') +
-    '\\nFree. Register: healthmatters.clinic/takeactionla';
+    (joinLink
+      ? '\\nJoin online: ' + icsEscape(joinLink)
+      : (payload.eventAddress ? '\\n' + payload.eventAddress : '')) +
+    '\\nRegister: healthmatters.clinic/takeactionla';
 
   return [
     'BEGIN:VCALENDAR',
@@ -2044,14 +2091,24 @@ function buildICSContent(payload) {
     'DTEND;TZID=America/Los_Angeles:' + d + 'T' + endTime,
     'SUMMARY:' + (payload.eventTitle || 'Health Matters Clinic Event'),
     'DESCRIPTION:' + descLine,
-    'LOCATION:' + location,
-    'URL:https://www.healthmatters.clinic/takeactionla',
+    'LOCATION:' + (joinLink ? icsEscape(location) : location),
+    'URL:' + (joinLink || 'https://www.healthmatters.clinic/takeactionla'),
     'ORGANIZER;CN=Health Matters Clinic:mailto:events@healthmatters.clinic',
     'STATUS:CONFIRMED',
     'UID:hmc-' + payload.eventId + '-' + Utilities.getUuid() + '@healthmatters.clinic',
     'END:VEVENT',
     'END:VCALENDAR'
-  ].join('\r\n');
+  ].map(foldICSLine).join('\r\n');
+}
+
+// RFC 5545 asks for lines of at most 75 octets, continued with a leading space. A
+// Zoom link with its passcode runs well past that, and strict calendar clients drop
+// or truncate an unfolded line.
+function foldICSLine(line) {
+  if (line.length <= 73) return line;
+  var out = line.slice(0, 73);
+  for (var i = 73; i < line.length; i += 72) out += '\r\n ' + line.slice(i, i + 72);
+  return out;
 }
 
 function sendAccessibilityAlert(payload) {
@@ -2101,8 +2158,27 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     ? '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + timeLabel + '</strong>' + payload.eventTime + '</p>'
     : '';
 
+  // An online event's confirmation tells the attendee how to join, in place of a venue.
+  var joinLink = isJoinLink(payload.joinLink) ? String(payload.joinLink).trim() : '';
+  var joinPlatform = joinLink ? joinPlatformName(joinLink) : '';
+  var joinButtonLabel = es
+    ? (joinPlatform ? 'Unirse por ' + joinPlatform : 'Unirse al evento')
+    : (joinPlatform ? 'Join on ' + joinPlatform : 'Join the event');
+  var joinHint = es
+    ? 'Guarda este correo. Usa este mismo enlace para unirte cuando comience el evento.'
+    : 'Keep this email. Use this same link to join when the event starts.';
+  var joinBlock = '';
+  if (joinLink) {
+    joinBlock =
+      '<div style="text-align:center;margin:0 0 24px;">' +
+      '<a href="' + escapeHtml(joinLink) + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' + joinButtonLabel + '</a>' +
+      '<p style="margin:12px 0 0;color:#555;font-size:13px;">' + joinHint + '</p>' +
+      '<p style="margin:6px 0 0;font-size:12px;word-break:break-all;"><a href="' + escapeHtml(joinLink) + '" style="color:#233dff;">' + escapeHtml(joinLink) + '</a></p>' +
+      '</div>';
+  }
+
   var venueLine = '';
-  if (payload.eventAddress) {
+  if (payload.eventAddress && !joinLink) {
     venueLine = '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + venueLabel + '</strong>' + payload.eventAddress + '</p>';
     if (payload.eventCity) {
       venueLine += '<p style="margin:2px 0 5px 0;color:#555;font-size:14px;padding-left:42px;">' + payload.eventCity + '</p>';
@@ -2130,6 +2206,7 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     '<p style="margin:5px 0;color:#555;font-size:14px;"><strong>' + dateLabel + '</strong>' + payload.eventDate + '</p>' +
     timeLine + venueLine + teeLine +
     '</div>' +
+    joinBlock +
     '<div style="text-align:center;margin:0 0 8px;">' +
     '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' + checkinLabel + '</a>' +
     '</div>' +
@@ -2141,7 +2218,7 @@ function sendRSVPConfirmationEmail(payload, checkinToken) {
     '<p style="color:#666;font-size:13px;margin:0;">' + questionLabel + ' <a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
     '</div></div></body></html>';
 
-  var icsContent = buildICSContent(payload);
+  var icsContent = buildICSContent(payload, joinLink);
   var mailOptions = {
     to: payload.email,
     subject: subject,

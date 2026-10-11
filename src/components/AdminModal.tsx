@@ -3,6 +3,7 @@ import { Button } from './Button';
 import { ClinicEvent, EventSession, Language } from '../types';
 import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, hashPasscode, postGasJson, AdBanner } from '../config';
 import { EVENTS } from '../constants';
+import { isJoinLink, joinPlatform } from '../utils/virtualAddress';
 
 interface AdminModalProps {
   lang: Language;
@@ -1208,7 +1209,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setFormData({ ...event });
     setEditingEvent(event);
     setEventFormat(
-      event.isVirtual === true || (event.isVirtual === undefined && event.locationTBD !== true && !event.address)
+      event.isVirtual === true || (event.isVirtual === undefined && event.locationTBD !== true && (!event.address || isJoinLink(event.address)))
         ? 'virtual'
         : event.locationTBD === true
           ? 'in-person-tba'
@@ -1228,7 +1229,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     });
     setEditingEvent(null);
     setEventFormat(
-      event.isVirtual === true || (event.isVirtual === undefined && event.locationTBD !== true && !event.address)
+      event.isVirtual === true || (event.isVirtual === undefined && event.locationTBD !== true && (!event.address || isJoinLink(event.address)))
         ? 'virtual'
         : event.locationTBD === true
           ? 'in-person-tba'
@@ -1299,6 +1300,26 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     if (!eventToSave.location && eventToSave.city) {
       eventToSave.location = eventToSave.city;
     }
+
+    // An online event is attended through its link, so it must have one. Without it the
+    // confirmation email has nothing to tell the attendee about how to join.
+    if (eventFormat === 'virtual') {
+      const link = (eventToSave.address || '').trim();
+      if (!isJoinLink(link)) {
+        failSave(lang === 'es'
+          ? 'Agrega el enlace para unirse al evento en línea (debe empezar con https://).'
+          : 'Add the join link for this online event (it must start with https://).', 'address');
+        return;
+      }
+      eventToSave.address = link;
+    }
+
+    // The format is stored from the control, not left to whatever the loaded record
+    // happened to carry: an older record has no flag, and an unset one is read as
+    // in-person by the portal, which would turn this event back into one with a link
+    // where its street address belongs.
+    eventToSave.isVirtual = eventFormat === 'virtual';
+    eventToSave.locationTBD = eventFormat === 'in-person-tba';
 
     // Required rather than defaulted. Every event on this listing now states who owns
     // its RSVP; leaving it unanswered is what used to quietly route another
@@ -2377,7 +2398,19 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           // location isn't directly editable, it's derived from city on save
                           // (see handleSaveEvent) and was carrying over the old in-person value
                           // since that fallback only fires when location is still empty.
-                          setFormData((prev) => ({ ...prev, address: '', city: '', location: '', lat: 0, lng: 0 }));
+                          // The address becomes the join link, so a street address is dropped
+                          // but a link already there is kept.
+                          setFormData((prev) => ({
+                            ...prev,
+                            address: isJoinLink(prev.address) ? prev.address.trim() : '',
+                            city: '',
+                            location: '',
+                            lat: 0,
+                            lng: 0,
+                          }));
+                        } else {
+                          // The reverse: a join link is not a street address.
+                          setFormData((prev) => (isJoinLink(prev.address) ? { ...prev, address: '' } : prev));
                         }
                       }}
                       className={`${inputCls} appearance-none cursor-pointer`}
@@ -2391,6 +2424,37 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </div>
                 </div>
               </FormSection>
+
+              {/* Section: Virtual address. An online event's address is where to join it. */}
+              {eventFormat === 'virtual' && (
+                <FormSection title={lang === 'es' ? 'Dirección virtual' : 'Virtual address'}>
+                  <div>
+                    <label className={labelCls}>
+                      {lang === 'es' ? 'Enlace para unirse' : 'Join link'} *
+                    </label>
+                    <input
+                      data-admin-field="address"
+                      name="address"
+                      type="url"
+                      inputMode="url"
+                      value={formData.address}
+                      onChange={handleFormChange}
+                      required
+                      placeholder="https://zoom.us/j/..."
+                      className={`${inputCls}${errorFocus.field === 'address' ? ' border-red-400 ring-2 ring-red-100' : ''}`}
+                    />
+                    <p className="mt-1.5 text-xs text-gray-500 leading-relaxed">
+                      {isJoinLink(formData.address)
+                        ? (lang === 'es'
+                            ? `${joinPlatform(formData.address, 'es') || 'Enlace en línea'}. Se envía en el correo de confirmación y en la invitación de calendario.`
+                            : `${joinPlatform(formData.address) || 'Online link'}. Sent in the confirmation email and the calendar invite.`)
+                        : (lang === 'es'
+                            ? 'Pega el enlace de Zoom, Google Meet, YouTube u otra plataforma. Debe empezar con https://'
+                            : 'Paste the Zoom, Google Meet, YouTube or other link. It must start with https://')}
+                    </p>
+                  </div>
+                </FormSection>
+              )}
 
               {/* Section: Location */}
               {(eventFormat === 'in-person' || eventFormat === 'in-person-tba') && (
