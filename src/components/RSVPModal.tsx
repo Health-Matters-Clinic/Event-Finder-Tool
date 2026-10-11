@@ -4,6 +4,7 @@ import { I18N } from '../constants';
 import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, RECAPTCHA_SITE_KEY, buildGasUrl } from '../config';
 import { Language, ClinicEvent, RSVPPayload } from '../types';
 import { translateEventTitle } from '../utils/translation';
+import { isJoinLink, joinPlatform } from '../utils/virtualAddress';
 
 interface RSVPModalProps {
   event: ClinicEvent | null;
@@ -434,6 +435,12 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
     }
   };
 
+  // An online event's address is its join link. Shown on the confirmation screen so
+  // someone who just registered is not left waiting on the email to find out how
+  // to attend.
+  const joinLink = event.isVirtual !== false && isJoinLink(event.address) ? event.address.trim() : '';
+  const joinPlatformName = joinPlatform(joinLink, lang);
+
   return (
     <div
       className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50"
@@ -506,6 +513,18 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ event, lang, onClose, setL
                     ? 'Si no recibes un correo en 10 minutos, escríbenos a events@healthmatters.clinic'
                     : "If you don't receive a confirmation email within 10 minutes, contact events@healthmatters.clinic"}
                 </p>
+              )}
+              {joinLink && (
+                <a
+                  href={joinLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-block rounded-full bg-[#233dff] px-6 py-2.5 text-sm font-bold text-white no-underline"
+                >
+                  {lang === 'es'
+                    ? joinPlatformName ? `Unirse por ${joinPlatformName}` : 'Unirse al evento'
+                    : joinPlatformName ? `Join on ${joinPlatformName}` : 'Join the event'}
+                </a>
               )}
               <div className="flex gap-2 mt-3 justify-center">
                 <Button variant="outline" className="h-8" onClick={downloadICS}>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { displayableFlyerUrl } from './utils/flyerUrl';
+import { isJoinLink, onlineLabel } from './utils/virtualAddress';
 import { EVENTS, I18N } from './constants';
 import { GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, STORAGE_KEYS, fetchAdBanners, AdBanner } from './config';
 import { ClinicEvent, Language, RsvpMode } from './types';
@@ -80,8 +81,16 @@ const dateRangeDisplay = (e: ClinicEvent): string => {
 const isVirtualEvent = (e: { isVirtual?: boolean; address?: string }): boolean => {
   if (typeof e.isVirtual === 'boolean') return e.isVirtual;
   const a = (e.address || '').toLowerCase();
-  return !e.address || a.includes('online') || a.includes('virtual') || a.includes('zoom');
+  return !e.address || isJoinLink(e.address) || a.includes('online') || a.includes('virtual') || a.includes('zoom');
 };
+
+/**
+ * The join link of an online event, or '' when it has none. An online event's
+ * address is where to join it, so the same field that holds a street address for an
+ * in-person event holds a Zoom, Meet or YouTube link here.
+ */
+const joinLinkOf = (e: { isVirtual?: boolean; address?: string }): string =>
+  isVirtualEvent(e) && isJoinLink(e.address) ? (e.address as string).trim() : '';
 
 /** Street line plus city, so the modal shows a full address rather than a fragment. */
 const fullAddress = (e: { address?: string; city?: string }): string => {
@@ -688,7 +697,7 @@ const App: React.FC = () => {
         const locationMatch =
           !locationSearch ||
           (event.city && event.city.toLowerCase().includes(locQuery)) ||
-          (event.address && event.address.toLowerCase().includes(locQuery));
+          (event.address && !isJoinLink(event.address) && event.address.toLowerCase().includes(locQuery));
 
         const eventIsPast = eventHasPassed(event);
         const archivalMatch = filters.showPast ? eventIsPast : !eventIsPast;
@@ -808,10 +817,7 @@ const App: React.FC = () => {
     if (!mapRef.current) return;
 
     const points = filteredEvents
-      .filter((event) => {
-        const addrLower = (event.address || '').toLowerCase();
-        return event.address && !addrLower.includes('online') && !addrLower.includes('virtual') && !addrLower.includes('zoom') && !(event.lat === 0 && event.lng === 0);
-      })
+      .filter((event) => event.address && !isVirtualEvent(event) && !(event.lat === 0 && event.lng === 0))
       .map(
         (event) =>
           [event.lat, event.lng, selectedEvent?.id === event.id ? 0.9 : 0.5] as [
@@ -844,8 +850,7 @@ const App: React.FC = () => {
 
   const handleSelectEvent = (event: ClinicEvent) => {
     setSelectedEvent(event);
-    const addrLower = (event.address || '').toLowerCase();
-    const isVirtual = !event.address || addrLower.includes('online') || addrLower.includes('virtual') || addrLower.includes('zoom') || (event.lat === 0 && event.lng === 0);
+    const isVirtual = isVirtualEvent(event) || (event.lat === 0 && event.lng === 0);
     if (!isVirtual) mapRef.current?.setView([event.lat, event.lng], 14);
     if (window.innerWidth < 768) {
       setMobileView('map');
@@ -857,7 +862,7 @@ const App: React.FC = () => {
   const handleShare = async () => {
     if (!selectedEvent) return;
     const eventTitle = translateEventTitle(selectedEvent.title, lang, selectedEvent);
-    const shareText = `${eventTitle} - ${dateRangeDisplay(selectedEvent)}${selectedEvent.address ? ` @ ${selectedEvent.address}` : ''}`;
+    const shareText = `${eventTitle} - ${dateRangeDisplay(selectedEvent)}${selectedEvent.address && !joinLinkOf(selectedEvent) ? ` @ ${selectedEvent.address}` : ''}`;
 
     // Create event-specific share URL, always use event ID for reliable deep linking
     const shareUrl = `${PUBLIC_EVENTFINDER_URL}?event=${encodeURIComponent(selectedEvent.id)}&rsvp=true${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
@@ -1228,8 +1233,29 @@ const App: React.FC = () => {
                     {selectedEvent.locationTBD
                       ? [(lang === 'es' ? 'Lugar por anunciar' : 'Location to be announced'), selectedEvent.city]
                           .filter(Boolean).join(' \u00b7 ')
-                      : fullAddress(selectedEvent) || (lang === 'es' ? 'Evento Virtual' : 'Virtual Event')}
+                      : joinLinkOf(selectedEvent)
+                        ? onlineLabel(selectedEvent.address, lang)
+                        : fullAddress(selectedEvent) || (lang === 'es' ? 'Evento Virtual' : 'Virtual Event')}
                   </p>
+                  {joinLinkOf(selectedEvent) && (
+                    resolveRsvpMode(selectedEvent) === 'none' ? (
+                      // An open invite has no sign-up to put the link behind.
+                      <a
+                        href={joinLinkOf(selectedEvent)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-block text-sm font-bold text-[#233dff] underline"
+                      >
+                        {lang === 'es' ? 'Unirse al evento' : 'Join the event'}
+                      </a>
+                    ) : collectsToHmc(selectedEvent) ? (
+                      <p className="mt-1 text-xs font-medium text-gray-500">
+                        {lang === 'es'
+                          ? 'El enlace para unirte llega en tu correo de confirmación.'
+                          : 'The join link comes in your confirmation email.'}
+                      </p>
+                    ) : null
+                  )}
                 </div>
                 {selectedEvent.sessions && selectedEvent.sessions.length > 0 && (
                   <div>
@@ -1383,7 +1409,7 @@ const App: React.FC = () => {
                         `DTEND:${d}T${endTime}`,
                         `SUMMARY:${selectedEvent.title}`,
                         `DESCRIPTION:${selectedEvent.description || ''}`,
-                        `LOCATION:${selectedEvent.address || 'Virtual Event'}`,
+                        `LOCATION:${joinLinkOf(selectedEvent) ? (resolveRsvpMode(selectedEvent) === 'none' ? joinLinkOf(selectedEvent) : 'Online') : (selectedEvent.address || 'Virtual Event')}`,
                         `UID:${selectedEvent.id}@healthmatters.clinic`,
                         'END:VEVENT',
                         'END:VCALENDAR'
