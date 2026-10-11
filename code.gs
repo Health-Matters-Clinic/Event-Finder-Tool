@@ -494,69 +494,22 @@ function doGet(e) {
   }
 
   // ===== SUBMIT FEEDBACK =====
+  // The same handler answers a POST (see doPost). The check-in page reads the reply
+  // and only tells the attendee "thank you" once a row has actually been written.
   if (action === 'submitFeedback') {
-    try {
-      var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-      var fSheet = ss.getSheetByName('Feedback');
-      if (!fSheet) {
-        fSheet = ss.insertSheet('Feedback');
-        fSheet.appendRow(['Timestamp', 'Name', 'Rating', 'Event', 'Comments']);
-      }
-      var ts = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-      var rating = parseInt(p.rating) || 0;
-      if (rating < 1 || rating > 5) {
-        return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Invalid rating' }))
-          .setMimeType(ContentService.MimeType.JSON);
-      }
-      fSheet.appendRow([
-        ts,
-        String(p.name || 'Anonymous'),
-        rating,
-        String(p.event || 'Not specified'),
-        String(p.comments || '')
-      ]);
-      return ContentService.createTextOutput(JSON.stringify({ success: true }))
-        .setMimeType(ContentService.MimeType.JSON);
-    } catch(fErr) {
-      Logger.log('Feedback error: ' + fErr);
-      return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(fErr) }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
+    return ContentService.createTextOutput(JSON.stringify(recordFeedback(p)))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 
   // ===== GET FEEDBACK (admin) =====
   if (action === 'getFeedback') {
-    var ph = p.hash || '';
-    var stored = getConfigValue('passcode_hash');
-    if (!stored || !stored.value || stored.value !== ph) {
-      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Unauthorized' }))
+    var fAuth = verifyAdminRequest(p);
+    if (!fAuth.success) {
+      return ContentService.createTextOutput(JSON.stringify(fAuth))
         .setMimeType(ContentService.MimeType.JSON);
     }
-    try {
-      var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-      var fSheet = ss.getSheetByName('Feedback');
-      if (!fSheet || fSheet.getLastRow() < 2) {
-        return ContentService.createTextOutput(JSON.stringify({ success: true, feedback: [], avgRating: 0, count: 0 }))
-          .setMimeType(ContentService.MimeType.JSON);
-      }
-      var fData = fSheet.getRange(2, 1, fSheet.getLastRow() - 1, 5).getValues();
-      var feedback = fData.map(function(row) {
-        return {
-          timestamp: String(row[0] || ''),
-          name:      String(row[1] || ''),
-          rating:    Number(row[2] || 0),
-          event:     String(row[3] || ''),
-          comments:  String(row[4] || '')
-        };
-      });
-      var total = feedback.reduce(function(sum, f) { return sum + f.rating; }, 0);
-      var avg = feedback.length ? Math.round((total / feedback.length) * 10) / 10 : 0;
-      return ContentService.createTextOutput(JSON.stringify({ success: true, feedback: feedback, avgRating: avg, count: feedback.length }))
-        .setMimeType(ContentService.MimeType.JSON);
-    } catch(fErr2) {
-      return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(fErr2) }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
+    return ContentService.createTextOutput(JSON.stringify(getFeedbackRows()))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 
   // ===== PARTNER REQUEST QUEUE (admin) =====
@@ -816,6 +769,13 @@ function doPost(e) {
         break;
       case 'submitWaiver':
         result = _doSubmitWaiver(params);
+        break;
+      case 'submitFeedback':
+        result = recordFeedback(params);
+        break;
+      case 'getFeedback':
+        result = verifyAdminRequest(params);
+        if (result.success) result = getFeedbackRows();
         break;
       case 'get_ads':
         result = getAds();
@@ -1214,6 +1174,21 @@ function joinPlatformName(raw) {
 }
 
 /**
+ * An event's RSVP mode. A row saved before the rsvpMode column existed carries no
+ * value, and is read the way it behaved at the time: a registration link meant the
+ * host organization owned the signup, a blank one meant HMC's form. Deliberately
+ * identical to the front end's rule, so the two never disagree about a given event.
+ */
+function resolveRsvpMode(ev) {
+  var mode = String((ev && ev.rsvpMode) || '').trim();
+  var known = ['hmc', 'hmc-for-partner', 'external', 'none'];
+  if (known.indexOf(mode) === -1) {
+    mode = String((ev && ev.websiteUrl) || '').trim() ? 'external' : 'hmc';
+  }
+  return mode;
+}
+
+/**
  * Who owns an event's RSVP, read from the Events sheet.
  *
  * A row saved before the rsvpMode column existed carries no value, and is read the
@@ -1236,11 +1211,7 @@ function rsvpOwner(eventId) {
       var ev = result.events[i];
       if (normalizeId(ev.id) !== wanted) continue;
 
-      var mode = String(ev.rsvpMode || '').trim();
-      var known = ['hmc', 'hmc-for-partner', 'external', 'none'];
-      if (known.indexOf(mode) === -1) {
-        mode = String(ev.websiteUrl || '').trim() ? 'external' : 'hmc';
-      }
+      var mode = resolveRsvpMode(ev);
       return {
         mode: mode,
         hostOrg: String(ev.hostOrg || '').trim(),
@@ -2729,6 +2700,399 @@ function sendEventReminders() {
   }
 
   Logger.log('sendEventReminders: sent ' + sent + ' reminder(s) for ' + tomorrowStr);
+
+  // The day-after follow-up for online events rides on this same daily run.
+  try {
+    sendPostEventEmails();
+  } catch (followErr) {
+    Logger.log('Post-event follow-ups failed: ' + followErr);
+  }
+}
+
+// ============================================================
+// FEEDBACK
+// Written by the check-in page and by the link in the post-event email, read by the
+// admin panel's Feedback view.
+// ============================================================
+
+var FEEDBACK_SHEET = 'Feedback';
+
+// A cell that begins with = + - or @ is read by Sheets as a formula. These endpoints
+// are public, so whatever is typed into the comment box is made inert before it is written.
+function safeCell(value, maxLen) {
+  var s = String(value == null ? '' : value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  if (maxLen && s.length > maxLen) s = s.slice(0, maxLen);
+  if (/^[=+\-@\t\r]/.test(s)) s = ' ' + s;
+  return s;
+}
+
+/** The saved title of an event, or '' when it is not in the Events sheet. */
+function eventTitleById(eventId) {
+  var wanted = normalizeId(eventId);
+  if (!wanted) return '';
+  var result = getEvents();
+  if (!result || !result.success || !result.events) return '';
+  for (var i = 0; i < result.events.length; i++) {
+    if (normalizeId(result.events[i].id) === wanted) return String(result.events[i].title || '');
+  }
+  return '';
+}
+
+/**
+ * Writes one rating to the Feedback sheet and says whether it did. The page that
+ * sends it shows "thank you" only on {success: true}.
+ */
+function recordFeedback(p) {
+  try {
+    var rating = parseInt(p.rating, 10) || 0;
+    if (rating < 1 || rating > 5) return { success: false, error: 'Invalid rating' };
+
+    var eventId = String(p.eventId || '').trim();
+    var eventName = String(p.event || '').trim();
+    // The title comes from the saved event when an id is sent: a link opened the day
+    // after an event can no longer find that event in the public (upcoming-only) feed.
+    var saved = eventId ? eventTitleById(eventId) : '';
+    if (saved) eventName = saved;
+    else if (!eventName) eventName = eventId || 'Not specified';
+
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var fSheet = ss.getSheetByName(FEEDBACK_SHEET);
+    if (!fSheet) {
+      fSheet = ss.insertSheet(FEEDBACK_SHEET);
+      fSheet.appendRow(['Timestamp', 'Name', 'Rating', 'Event', 'Comments']);
+    }
+    var ts = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a');
+    fSheet.appendRow([
+      ts,
+      safeCell(p.name, 100) || 'Anonymous',
+      rating,
+      safeCell(eventName, 200),
+      safeCell(p.comments, 1000)
+    ]);
+    return { success: true };
+  } catch (err) {
+    Logger.log('Feedback error: ' + err);
+    return { success: false, error: 'Could not save feedback' };
+  }
+}
+
+/** Every rating on file, for the admin panel. Caller has already checked admin access. */
+function getFeedbackRows() {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var fSheet = ss.getSheetByName(FEEDBACK_SHEET);
+    if (!fSheet || fSheet.getLastRow() < 2) {
+      return { success: true, feedback: [], avgRating: 0, count: 0 };
+    }
+    var fData = fSheet.getRange(2, 1, fSheet.getLastRow() - 1, 5).getValues();
+    var feedback = [];
+    for (var i = 0; i < fData.length; i++) {
+      var row = fData[i];
+      var rating = Number(row[2] || 0);
+      if (!(rating >= 1 && rating <= 5)) continue;
+      var when = row[0] instanceof Date
+        ? Utilities.formatDate(row[0], CONFIG.TIMEZONE, 'M/d/yyyy h:mm a')
+        : String(row[0] || '');
+      feedback.push({
+        timestamp: when,
+        name:      String(row[1] || ''),
+        rating:    rating,
+        event:     String(row[3] || ''),
+        comments:  String(row[4] || '')
+      });
+    }
+    var total = 0;
+    for (var j = 0; j < feedback.length; j++) total += feedback[j].rating;
+    var avg = feedback.length ? Math.round((total / feedback.length) * 10) / 10 : 0;
+    return { success: true, feedback: feedback, avgRating: avg, count: feedback.length };
+  } catch (err) {
+    Logger.log('getFeedbackRows error: ' + err);
+    return { success: false, error: 'Could not read feedback' };
+  }
+}
+
+// ============================================================
+// POST-EVENT FOLLOW-UP (online events)
+// The day after an online event, everyone who registered gets a short thank-you with
+// a feedback link and up to three events to RSVP for next. It runs at the end of
+// sendEventReminders, so the daily trigger that sends reminders sends these too, and
+// it keeps its own log so running it twice never sends anything twice.
+// ============================================================
+
+var FOLLOWUP_SHEET = 'PostEventEmails';
+var FOLLOWUP_CATCHUP_DAYS = 3;   // a missed run is made up for this many days after
+var FOLLOWUP_MAX_UPCOMING = 3;
+var EVENT_FINDER_URL = 'https://eventfinder.healthmatters.clinic/';
+
+function isoDayOnly(value) {
+  var s = String(value || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+}
+
+function shiftIsoDay(iso, days) {
+  var parts = iso.split('-');
+  var t = Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)) + days * 86400000;
+  return Utilities.formatDate(new Date(t), 'UTC', 'yyyy-MM-dd');
+}
+
+/** "unstoppable experience" for every title written "UNSTOPPABLE Experience: ...". */
+function seriesKey(title) {
+  return String(title || '').toLowerCase().split(':')[0].replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
+ * Up to `max` upcoming events to offer after `attended`. The next one in the same
+ * series comes first (the next Unstoppable Experience), then events of the same
+ * program, then whatever is soonest. `skipIds` holds events the person is already
+ * registered for, so nobody is invited to something they have already signed up for.
+ */
+function pickNextEvents(events, attended, todayIso, skipIds, max) {
+  var key = seriesKey(attended.title);
+  var program = String(attended.program || '').trim().toLowerCase();
+  var cands = [];
+  for (var i = 0; i < events.length; i++) {
+    var ev = events[i];
+    var id = normalizeId(ev.id);
+    var iso = isoDayOnly(ev.date);
+    if (!id || !iso || iso < todayIso || skipIds[id]) continue;
+    if (!String(ev.title || '').trim()) continue;
+    var tier = 2;
+    if (key && seriesKey(ev.title) === key) tier = 0;
+    else if (program && String(ev.program || '').trim().toLowerCase() === program) tier = 1;
+    cands.push({ ev: ev, iso: iso, tier: tier });
+  }
+  cands.sort(function(a, b) {
+    return (a.tier - b.tier) || (a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : 0);
+  });
+
+  // One from the series to start, the rest of the series only if there is room left.
+  var picked = [], deferred = [], haveSeries = false;
+  for (var c = 0; c < cands.length; c++) {
+    if (cands[c].tier === 0) {
+      if (haveSeries) { deferred.push(cands[c]); continue; }
+      haveSeries = true;
+    }
+    if (picked.length < max) picked.push(cands[c]);
+  }
+  for (var d = 0; d < deferred.length && picked.length < max; d++) picked.push(deferred[d]);
+
+  picked.sort(function(a, b) {
+    var ta = a.tier === 0 ? 0 : 1, tb = b.tier === 0 ? 0 : 1;
+    return (ta - tb) || (a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : 0);
+  });
+  return picked.map(function(x) { return x.ev; });
+}
+
+/** One line per event for the email: title, when, where, link, button label. */
+function describeNextEvent(ev, es) {
+  var online = isJoinLink(ev.address);
+  var city = String(ev.city || '').trim();
+  var loc = String(ev.location || '').trim();
+  if (/^tbd$/i.test(loc)) loc = '';
+  var where = online ? (es ? 'En línea' : 'Online') : (city || loc);
+  var mode = resolveRsvpMode(ev);
+  var canRsvp = mode === 'hmc' || mode === 'hmc-for-partner';
+  return {
+    title: String(ev.title || '').trim(),
+    dateText: String(ev.dateDisplay || ev.date || '').trim(),
+    timeText: String(ev.time || '').trim(),
+    where: where,
+    url: EVENT_FINDER_URL + '?event=' + encodeURIComponent(String(ev.id)),
+    cta: canRsvp ? (es ? 'Registrarme' : 'RSVP') : (es ? 'Ver detalles' : 'View details')
+  };
+}
+
+/** Subject, HTML and plain text for one follow-up. Pure: nothing is sent or read here. */
+function buildPostEventEmail(o) {
+  var es = o.lang === 'es';
+  var title = String(o.title || '');
+  var first = String(o.name || '').trim().split(/\s+/)[0] || (es ? 'amigo' : 'there');
+  var upcoming = o.upcoming || [];
+
+  var subject = (es ? '¿Cómo estuvo ' : 'How was ') + title + '? | Health Matters Clinic';
+  var intro = es
+    ? 'Gracias por registrarte en <strong>' + escapeHtml(title) + '</strong>. Si pudiste acompañarnos, nos encantaría saber cómo te fue. Toma alrededor de un minuto y nos ayuda a mejorar el próximo.'
+    : 'Thank you for signing up for <strong>' + escapeHtml(title) + '</strong>. If you joined us, we would love to hear how it went. It takes about a minute and helps us shape the next one.';
+  var introText = es
+    ? 'Gracias por registrarte en "' + title + '". Si pudiste acompañarnos, nos encantaría saber cómo te fue. Toma alrededor de un minuto.'
+    : 'Thank you for signing up for "' + title + '". If you joined us, we would love to hear how it went. It takes about a minute.';
+
+  var button = function(href, label) {
+    return '<a href="' + escapeHtml(href) + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' + escapeHtml(label) + '</a>';
+  };
+
+  var nextBlock = '';
+  var nextText = '';
+  if (upcoming.length) {
+    var cards = '';
+    for (var i = 0; i < upcoming.length; i++) {
+      var u = upcoming[i];
+      var when = [u.dateText, u.timeText].filter(Boolean).join(' | ');
+      cards +=
+        '<div style="border:1.5px solid rgba(35,61,255,0.2);background:#f0f4ff;border-radius:12px;padding:16px 18px;margin:0 0 12px;">' +
+        '<div style="color:#233dff;font-weight:700;font-size:16px;margin:0 0 6px;">' + escapeHtml(u.title) + '</div>' +
+        (when ? '<div style="color:#555;font-size:14px;margin:0 0 2px;">' + escapeHtml(when) + '</div>' : '') +
+        (u.where ? '<div style="color:#555;font-size:14px;margin:0 0 12px;">' + escapeHtml(u.where) + '</div>' : '<div style="margin:0 0 12px;"></div>') +
+        '<a href="' + escapeHtml(u.url) + '" style="display:inline-block;background:#233dff;color:#fff;padding:9px 24px;border-radius:24px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:13px;">' + escapeHtml(u.cta) + '</a>' +
+        '</div>';
+      nextText += '\n- ' + u.title + (when ? ' (' + when + ')' : '') + (u.where ? ', ' + u.where : '') + '\n  ' + u.url;
+    }
+    nextBlock =
+      '<div style="border-top:1px solid #e5e5e5;margin:32px 0 0;padding:28px 0 0;">' +
+      '<p style="font-size:18px;color:#1a1a1a;font-weight:700;margin:0 0 4px;">' + (es ? 'Acompáñanos la próxima vez' : 'Join us next') + '</p>' +
+      '<p style="color:#666;margin:0 0 16px;font-size:14px;">' + (es ? 'Reserva tu lugar en lo que viene.' : 'Save your spot at what is coming up.') + '</p>' +
+      cards +
+      '<p style="margin:16px 0 0;font-size:13px;"><a href="' + EVENT_FINDER_URL + '" style="color:#233dff;font-weight:600;">' + (es ? 'Ver todos los eventos' : 'See all events') + '</a></p>' +
+      '</div>';
+  }
+
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
+    '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
+    '<div style="max-width:600px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid #e5e5e5;">' +
+    '<div style="background:#233dff;color:white;padding:24px;text-align:center;">' +
+    '<img src="' + CONFIG.LOGO_URL + '" alt="HMC" style="width:48px;height:48px;border-radius:8px;margin-bottom:12px;">' +
+    '<h1 style="margin:0;font-size:22px;font-weight:700;">Health Matters Clinic</h1>' +
+    '<p style="margin:8px 0 0;opacity:0.9;font-size:14px;">' + (es ? 'Gracias' : 'Thank You') + '</p></div>' +
+    '<div style="padding:32px;">' +
+    '<p style="font-size:18px;color:#1a1a1a;font-weight:600;margin:0 0 8px;">' + (es ? 'Hola ' : 'Hi ') + escapeHtml(first) + '!</p>' +
+    '<p style="color:#444;margin:0 0 24px;font-size:15px;line-height:1.6;">' + intro + '</p>' +
+    '<div style="text-align:center;margin:0 0 8px;">' + button(o.feedbackUrl, es ? 'Comparte tu opinión' : 'Share Your Feedback') + '</div>' +
+    nextBlock +
+    '</div>' +
+    '<div style="background:#f5f3ef;padding:20px;border-top:1px solid #e5e5e5;text-align:center;">' +
+    '<p style="color:#666;font-size:13px;margin:0 0 6px;">' + (es ? '¿Preguntas?' : 'Questions?') + ' <a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
+    '<p style="color:#999;font-size:12px;margin:0;">' + (es ? 'Recibes este correo porque te registraste en ' : 'You are receiving this because you registered for ') + escapeHtml(title) + '.</p>' +
+    '</div></div></body></html>';
+
+  var text = (es ? 'Hola ' : 'Hi ') + first + ',\n\n' + introText + '\n\n' +
+    (es ? 'Comparte tu opinión: ' : 'Share your feedback: ') + o.feedbackUrl + '\n' +
+    (upcoming.length ? '\n' + (es ? 'Acompáñanos la próxima vez:' : 'Join us next:') + nextText + '\n' : '') +
+    '\n' + (es ? 'Todos los eventos: ' : 'All events: ') + EVENT_FINDER_URL + '\n\n' +
+    'Health Matters Clinic\n' +
+    (es ? '¿En crisis? Llama o escribe al 988.' : 'In crisis? Call or text 988.');
+
+  return { subject: subject, html: html, text: text };
+}
+
+/**
+ * Sends the follow-up for every online event that ended in the last few days, to each
+ * registrant who has not already had it. Returns how many were sent.
+ */
+function sendPostEventEmails() {
+  var today = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd');
+  var oldest = shiftIsoDay(today, -FOLLOWUP_CATCHUP_DAYS);
+  var newest = shiftIsoDay(today, -1);
+
+  var result = getEvents();
+  if (!result || !result.success || !result.events) {
+    Logger.log('sendPostEventEmails: could not read events');
+    return 0;
+  }
+  var events = result.events;
+
+  // Online events (their address is a join link) whose last day is in the window.
+  var ended = {};
+  var endedCount = 0;
+  for (var e = 0; e < events.length; e++) {
+    var last = isoDayOnly(events[e].endDate) || isoDayOnly(events[e].date);
+    if (!last || last < oldest || last > newest) continue;
+    if (!isJoinLink(events[e].address)) continue;
+    ended[normalizeId(events[e].id)] = events[e];
+    endedCount++;
+  }
+  if (!endedCount) {
+    Logger.log('sendPostEventEmails: no online event ended between ' + oldest + ' and ' + newest);
+    return 0;
+  }
+
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var rsvpSheet = ss.getSheetByName('RSVPs');
+  if (!rsvpSheet) return 0;
+  var data = rsvpSheet.getDataRange().getValues();
+
+  // What each person is already registered for, so the "next" list never repeats it.
+  var registered = {};
+  for (var r = 1; r < data.length; r++) {
+    var rEmail = String(data[r][5] || '').trim().toLowerCase();
+    if (!rEmail || String(data[r][15] || '').trim().toLowerCase() === 'cancelled') continue;
+    if (!registered[rEmail]) registered[rEmail] = {};
+    registered[rEmail][normalizeId(data[r][1])] = true;
+  }
+
+  var logSheet = ss.getSheetByName(FOLLOWUP_SHEET);
+  if (!logSheet) {
+    logSheet = ss.insertSheet(FOLLOWUP_SHEET);
+    logSheet.appendRow(['Timestamp', 'Event ID', 'Email', 'Name']);
+  }
+  var already = {};
+  if (logSheet.getLastRow() > 1) {
+    var logged = logSheet.getRange(2, 1, logSheet.getLastRow() - 1, 4).getValues();
+    for (var l = 0; l < logged.length; l++) {
+      already[normalizeId(logged[l][1]) + '|' + String(logged[l][2] || '').trim().toLowerCase()] = true;
+    }
+  }
+
+  var quota = MailApp.getRemainingDailyQuota();
+  var sent = 0;
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var eventId = normalizeId(row[1]);
+    var ev = ended[eventId];
+    if (!ev) continue;
+    var email = String(row[5] || '').trim();
+    if (!email || email.indexOf('@') === -1) continue;
+    if (String(row[15] || '').trim().toLowerCase() === 'cancelled') continue;
+    var key = eventId + '|' + email.toLowerCase();
+    if (already[key]) continue;
+    if (quota <= 0) { Logger.log('sendPostEventEmails: out of mail quota, will continue tomorrow'); break; }
+
+    var skip = {};
+    skip[eventId] = true;
+    var mine = registered[email.toLowerCase()] || {};
+    for (var k in mine) skip[k] = true;
+
+    var es = String(row[12] || 'en').trim() === 'es';
+    var next = pickNextEvents(events, ev, today, skip, FOLLOWUP_MAX_UPCOMING)
+      .map(function(x) { return describeNextEvent(x, es); });
+    var mail = buildPostEventEmail({
+      name: String(row[4] || ''),
+      lang: es ? 'es' : 'en',
+      title: String(ev.title || row[2] || ''),
+      feedbackUrl: EVENT_FINDER_URL + 'waiver.html?feedback=1&event=' + encodeURIComponent(String(ev.id)),
+      upcoming: next
+    });
+
+    try {
+      MailApp.sendEmail({
+        to: email,
+        subject: mail.subject,
+        htmlBody: mail.html,
+        body: mail.text,
+        name: 'Health Matters Clinic Events',
+        replyTo: 'events@healthmatters.clinic'
+      });
+    } catch (err) {
+      Logger.log('Post-event email failed for ' + email + ': ' + err);
+      continue;
+    }
+    // Logged after the send, so a failed send is retried on the next run.
+    already[key] = true;
+    quota--;
+    sent++;
+    try {
+      logSheet.appendRow([
+        Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a'),
+        eventId,
+        email,
+        String(row[4] || '')
+      ]);
+    } catch (logErr) {
+      Logger.log('Could not log post-event email for ' + email + ': ' + logErr);
+    }
+  }
+
+  Logger.log('sendPostEventEmails: sent ' + sent + ' follow-up(s)');
+  return sent;
 }
 
 var TEST_EVENT   = 'test-event-000';
@@ -2843,6 +3207,26 @@ function testResourcesEmail() {
 }
 
 // 6. RSVP confirmation email
+// Sends one sample post-event email to TEST_EMAIL, built from the real upcoming events.
+// Writes nothing to any sheet and emails nobody else.
+function testPostEventEmail() {
+  var result = getEvents();
+  var events = (result && result.events) || [];
+  var attended = { id: 'test-event-000', title: 'Unstoppable Experience: Sample Session', program: 'Unstoppable Wellness Meetup' };
+  var today = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd');
+  var next = pickNextEvents(events, attended, today, {}, FOLLOWUP_MAX_UPCOMING)
+    .map(function(x) { return describeNextEvent(x, false); });
+  var mail = buildPostEventEmail({
+    name: TEST_PREFIX + 'Erica',
+    lang: 'en',
+    title: attended.title,
+    feedbackUrl: EVENT_FINDER_URL + 'waiver.html?feedback=1&event=' + encodeURIComponent(attended.id),
+    upcoming: next
+  });
+  MailApp.sendEmail({ to: TEST_EMAIL, subject: '[TEST] ' + mail.subject, htmlBody: mail.html, body: mail.text, name: 'Health Matters Clinic Events' });
+  Logger.log('Sample post-event email sent to ' + TEST_EMAIL + ' with ' + next.length + ' upcoming event(s).');
+}
+
 function testConfirmationEmail() {
   var payload = {
     name: TEST_PREFIX + 'Confirmation',
@@ -2912,6 +3296,17 @@ function cleanupTestData() {
   }
   toDelete.forEach(function(row) { sheet.deleteRow(row); });
   Logger.log('Cleaned up ' + toDelete.length + ' test row(s).');
+
+  // Feedback written while testing the check-in page carries a TEST_ name too.
+  var fSheet = ss.getSheetByName(FEEDBACK_SHEET);
+  if (fSheet && fSheet.getLastRow() > 1) {
+    var fData = fSheet.getDataRange().getValues();
+    var fCount = 0;
+    for (var f = fData.length - 1; f >= 1; f--) {
+      if (String(fData[f][1]).indexOf(TEST_PREFIX) === 0) { fSheet.deleteRow(f + 1); fCount++; }
+    }
+    Logger.log('Cleaned up ' + fCount + ' test feedback row(s).');
+  }
 }
 
 // ========================================

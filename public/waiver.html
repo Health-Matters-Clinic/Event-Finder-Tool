@@ -491,6 +491,11 @@
     transition: background .15s; margin-bottom: 12px;
   }
   .feedback-submit-btn:disabled { background: #aaa; cursor: default; }
+  .feedback-error {
+    display: none; margin: 0 0 12px; padding: 10px 14px; border-radius: 10px;
+    background: #fff1f1; border: 1px solid #f5c2c2; color: #a61b1b;
+    font-size: 13px; line-height: 1.5; text-align: left;
+  }
   .feedback-submit-btn:not(:disabled):hover { background: var(--blue-dark); }
   .feedback-skip {
     display: block; text-align: center; font-size: 13px;
@@ -784,7 +789,8 @@
         <button class="star-btn" data-val="4" onclick="selectStar(4)" aria-label="4 stars">&#9733;</button>
         <button class="star-btn" data-val="5" onclick="selectStar(5)" aria-label="5 stars">&#9733;</button>
       </div>
-      <textarea class="feedback-comment" id="feedbackComment" placeholder="Any comments? (optional)"></textarea>
+      <textarea class="feedback-comment" id="feedbackComment" maxlength="500" placeholder="Any comments? (optional)"></textarea>
+      <div class="feedback-error" id="feedbackError" role="alert">We could not save your feedback. Please check your connection and try again.</div>
       <button class="feedback-submit-btn" id="feedbackSubmitBtn" onclick="submitFeedbackRating()" disabled>Submit Feedback</button>
       <button class="feedback-skip" onclick="skipFeedback()">Skip for now</button>
     </div>
@@ -812,6 +818,10 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbxPpn0Q8jiyZ5ftR1uLcb3BJw
 var _urlParams     = new URLSearchParams(window.location.search);
 var CHECKIN_TOKEN  = _urlParams.get('checkin') || '';
 var EVENT_ID       = _urlParams.get('event')   || '';
+// The post-event email links here with ?feedback=1&event=<id>: just the rating, no
+// waiver and no check-in. The event is already over, so it is no longer in the
+// public (upcoming-only) feed; the script looks its title up from the saved event.
+var FEEDBACK_ONLY  = _urlParams.get('feedback') === '1' && !!EVENT_ID;
 
 // ---- Event details come from the event itself ----------------------------
 // This page used to carry three hard-coded May 2026 events and fall back to the
@@ -923,7 +933,7 @@ function startNoWaiverFlow() {
   document.getElementById('formPage').style.display     = 'none';
   document.getElementById('gatePage').style.display     = 'none';
   document.getElementById('confirmPage').style.display  = 'none';
-  document.getElementById('feedbackPage').style.display = '';
+  document.getElementById('feedbackPage').style.display = 'block';
 }
 
 function updateGate() {
@@ -976,10 +986,11 @@ function updateGate() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  if (FEEDBACK_ONLY) { showFeedbackOnly(); return; }
   updateGate();
   loadEventDetails();
 });
-setInterval(updateGate, 30000);
+setInterval(function() { if (!FEEDBACK_ONLY) updateGate(); }, 30000);
 
 // =============================================
 // TYPE TOGGLE
@@ -1292,7 +1303,7 @@ var _attendeeName = '';
 
 function showFeedbackPage() {
   document.getElementById('confirmPage').style.display = 'none';
-  document.getElementById('feedbackPage').style.display = '';
+  document.getElementById('feedbackPage').style.display = 'block';
   window.scrollTo(0, 0);
 }
 
@@ -1305,31 +1316,57 @@ function selectStar(val) {
   document.getElementById('feedbackSubmitBtn').disabled = false;
 }
 
+function showFeedbackOnly() {
+  document.getElementById('gatePage').style.display     = 'none';
+  document.getElementById('formPage').style.display     = 'none';
+  document.getElementById('confirmPage').style.display  = 'none';
+  document.getElementById('feedbackPage').style.display = 'block';
+  document.title = 'Share Your Feedback | Health Matters Clinic';
+}
+
+// The rating is sent with a request whose reply can be read, and "thank you" appears
+// only when the script says the row was written. A fire-and-forget send showed the
+// thank-you whether or not anything had been saved.
 function submitFeedbackRating() {
   var btn = document.getElementById('feedbackSubmitBtn');
+  var err = document.getElementById('feedbackError');
   btn.disabled = true;
   btn.textContent = 'Submitting...';
+  if (err) err.style.display = 'none';
   var comment = document.getElementById('feedbackComment').value.trim();
-  fetch(GAS_URL, {
-    method: 'POST', mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({
-      action: 'submitFeedback',
-      rating: _selectedRating,
-      name: _attendeeName || 'Anonymous',
-      event: EVENT_NAME,
-      comments: comment
+  var params = new URLSearchParams({
+    action: 'submitFeedback',
+    rating: String(_selectedRating),
+    name: _attendeeName || 'Anonymous',
+    event: EVENT_NAME || EVENT_ID,
+    eventId: EVENT_ID,
+    comments: comment
+  });
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, 20000);
+  fetch(GAS_URL + '?' + params.toString(), { signal: controller.signal })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      clearTimeout(timer);
+      if (res && res.success === true) showFeedbackDone();
+      else feedbackNotSaved();
     })
-  }).catch(function() {});
-  showFeedbackDone();
+    .catch(function() { clearTimeout(timer); feedbackNotSaved(); });
+}
+
+function feedbackNotSaved() {
+  var btn = document.getElementById('feedbackSubmitBtn');
+  var err = document.getElementById('feedbackError');
+  btn.disabled = false;
+  btn.textContent = 'Submit Feedback';
+  if (err) err.style.display = 'block';
 }
 
 function skipFeedback() {
   showFeedbackDone();
 }
 
-// Ends on this page's own thank-you panel. It used to send everyone on to the Take
-// Action LA data-collection survey, whichever event they had just attended.
+// The page ends on its own thank-you panel.
 function showFeedbackDone() {
   var form = document.getElementById('feedbackForm');
   var done = document.getElementById('feedbackDone');
