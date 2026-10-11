@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from './Button';
 import { ClinicEvent, EventSession, Language } from '../types';
 import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, hashPasscode, postGasJson, AdBanner } from '../config';
-import { EVENTS } from '../constants';
 import { isJoinLink, joinPlatform } from '../utils/virtualAddress';
 
 interface AdminModalProps {
@@ -12,7 +11,16 @@ interface AdminModalProps {
   onEventsUpdate: (events: ClinicEvent[]) => void;
 }
 
-type AdminView = 'passcode' | 'main' | 'edit' | 'reset-request' | 'reset-confirm' | 'partner-requests' | 'ads' | 'admins';
+type AdminView = 'passcode' | 'main' | 'edit' | 'reset-request' | 'reset-confirm' | 'partner-requests' | 'ads' | 'admins' | 'feedback';
+
+/** One rating left on the check-in page or through the link in the post-event email. */
+interface FeedbackRow {
+  timestamp: string;
+  name: string;
+  rating: number;
+  event: string;
+  comments: string;
+}
 
 type AdminRole = 'owner' | 'editor';
 interface AdminUser { email: string; name: string; role: AdminRole; createdAt?: string; lastLoginAt?: string }
@@ -102,7 +110,6 @@ const PROGRAM_COLORS: Record<string, string> = {
 };
 
 const SHARE_BASE_URL = 'https://www.healthmatters.clinic/resources/eventfinder?event=';
-const REQUIRED_EVENT_IDS = ['event-1772064063990', 'event-1773943614235'];
 
 // Get default date (2 weeks from now), in local time. See todayStr() below
 // for why toISOString() is the wrong tool for a local calendar date.
@@ -151,17 +158,6 @@ const todayStr = () => {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
-};
-
-const preserveRequiredEvents = (events: ClinicEvent[]) => {
-  const byId = new Map(events.map((event) => [event.id, event]));
-  REQUIRED_EVENT_IDS.forEach((id) => {
-    if (!byId.has(id)) {
-      const fallback = EVENTS.find((event) => event.id === id);
-      if (fallback) byId.set(id, fallback);
-    }
-  });
-  return Array.from(byId.values());
 };
 
 // Helper: days between two YYYY-MM-DD strings
@@ -358,6 +354,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [partnerAdsError, setPartnerAdsError] = useState('');
   const [partnerAdsToast, setPartnerAdsToast] = useState<string | null>(null);
 
+  // Attendee feedback state
+  const [feedbackRows, setFeedbackRows] = useState<FeedbackRow[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
+  const [feedbackLoaded, setFeedbackLoaded] = useState(false);
+  const [feedbackEvent, setFeedbackEvent] = useState('all');
+
   // Trust session auth within the same browser session -- passcode was already verified
   useEffect(() => {
     const auth = sessionStorage.getItem(STORAGE_KEYS.ADMIN_AUTH);
@@ -407,6 +410,35 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       // keep existing list
     } finally {
       setPartnerRequestsLoading(false);
+    }
+  };
+
+  const fetchFeedback = async () => {
+    const hash = sessionStorage.getItem(STORAGE_KEYS.ADMIN_HASH) || '';
+    if (!hash) {
+      setFeedbackError(lang === 'es' ? 'Vuelve a iniciar sesion para ver los comentarios.' : 'Sign in again to see feedback.');
+      return;
+    }
+    setFeedbackLoading(true);
+    setFeedbackError('');
+    try {
+      const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getFeedback&hash=${encodeURIComponent(hash)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.feedback)) {
+        // The sheet is oldest first; show the newest at the top.
+        setFeedbackRows([...data.feedback].reverse());
+        setFeedbackLoaded(true);
+      } else {
+        setFeedbackError(
+          data.error === 'Unauthorized'
+            ? (lang === 'es' ? 'Tu sesion expiro. Cierra sesion y vuelve a entrar.' : 'Your session has expired. Sign out and sign in again.')
+            : (lang === 'es' ? 'No se pudieron cargar los comentarios.' : 'Could not load feedback.')
+        );
+      }
+    } catch {
+      setFeedbackError(lang === 'es' ? 'No se pudieron cargar los comentarios.' : 'Could not load feedback.');
+    } finally {
+      setFeedbackLoading(false);
     }
   };
 
@@ -731,7 +763,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         } catch { /* non-fatal */ }
         // Update local events list
         const updated = [...events, eventData as ClinicEvent];
-        const safeUpdated = preserveRequiredEvents(updated);
+        const safeUpdated = updated;
         onEventsUpdate(safeUpdated);
         localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(safeUpdated));
         setPartnerRequests((prev) => prev.filter((r) => r.id !== req.id));
@@ -1254,7 +1286,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         if (!delResult.success) throw new Error(delResult.error || 'Delete failed');
 
         const updated = events.filter((e) => e.id !== eventId);
-        const safeUpdated = preserveRequiredEvents(updated);
+        const safeUpdated = updated;
         onEventsUpdate(safeUpdated);
         localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(safeUpdated));
       } catch (error) {
@@ -1358,7 +1390,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       updated = [...events, eventToSave];
     }
 
-    const safeUpdated = preserveRequiredEvents(updated);
+    const safeUpdated = updated;
     onEventsUpdate(safeUpdated);
     localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(safeUpdated));
     setView('main');
@@ -1406,7 +1438,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           console.warn('Failed to sync to backend:', e);
         }
 
-        const safeImported = preserveRequiredEvents(imported);
+        const safeImported = imported;
         onEventsUpdate(safeImported);
         localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(safeImported));
         setShowImport(false);
@@ -1472,7 +1504,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         const key = `${String(e.title || '').trim().toLowerCase()}|${String(e.date || '').split('T')[0]}`;
         if (!seen.has(key)) seen.set(key, e);
       }
-      const deduped = preserveRequiredEvents(Array.from(seen.values()));
+      const deduped = Array.from(seen.values());
 
       onEventsUpdate(deduped);
       localStorage.setItem(STORAGE_KEYS.EVENTS_CACHE, JSON.stringify(deduped));
@@ -1512,7 +1544,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         <div className="bg-[#fafbff] border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3">
             {/* Back arrow when in edit, partner-requests, or ads view */}
-            {(view === 'edit' || view === 'partner-requests' || view === 'ads' || view === 'admins') && (
+            {(view === 'edit' || view === 'partner-requests' || view === 'ads' || view === 'admins' || view === 'feedback') && (
               <button
                 onClick={() => {
                   setView('main');
@@ -1556,6 +1588,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   ? lang === 'es' ? 'Solicitudes de Socios' : 'Partner Requests'
                   : view === 'ads'
                   ? 'Ad Banners'
+                  : view === 'feedback'
+                  ? lang === 'es' ? 'Comentarios de Asistentes' : 'Attendee Feedback'
                   : lang === 'es'
                   ? 'Panel de Operaciones de Eventos'
                   : 'Event Operations Dashboard'}
@@ -1921,6 +1955,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                   Ads
+                </button>
+
+                {/* Attendee feedback button */}
+                <button
+                  onClick={() => {
+                    setView('feedback');
+                    setFeedbackEvent('all');
+                    fetchFeedback();
+                  }}
+                  className="h-10 px-4 rounded-full text-sm font-semibold border border-gray-200 text-gray-600 hover:border-[#233dff] hover:text-[#233dff] hover:bg-blue-50 transition-all inline-flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                  {lang === 'es' ? 'Comentarios' : 'Feedback'}
                 </button>
 
                 {/* Admins button. Owners only: an editor has no owner-only action to
@@ -3209,6 +3258,98 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               )}
             </div>
           )}
+
+          {/* ===== FEEDBACK VIEW ===== */}
+          {view === 'feedback' && (() => {
+            const events = Array.from(new Set(feedbackRows.map((f) => f.event || (lang === 'es' ? 'Sin especificar' : 'Not specified'))));
+            const label = (f: FeedbackRow) => f.event || (lang === 'es' ? 'Sin especificar' : 'Not specified');
+            const shown = feedbackEvent === 'all' ? feedbackRows : feedbackRows.filter((f) => label(f) === feedbackEvent);
+            const avg = shown.length ? Math.round((shown.reduce((sum, f) => sum + f.rating, 0) / shown.length) * 10) / 10 : 0;
+            const byEvent = events
+              .map((name) => {
+                const rows = feedbackRows.filter((f) => label(f) === name);
+                return { name, count: rows.length, avg: Math.round((rows.reduce((sum, f) => sum + f.rating, 0) / rows.length) * 10) / 10 };
+              })
+              .sort((a, b) => b.count - a.count);
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <select
+                    value={feedbackEvent}
+                    onChange={(e) => setFeedbackEvent(e.target.value)}
+                    className="border-2 border-gray-200 px-3 py-2 rounded-lg text-sm font-semibold bg-white focus:border-[#233dff] outline-none cursor-pointer max-w-full"
+                    aria-label={lang === 'es' ? 'Filtrar por evento' : 'Filter by event'}
+                  >
+                    <option value="all">{lang === 'es' ? 'Todos los eventos' : 'All events'}</option>
+                    {byEvent.map((e) => (
+                      <option key={e.name} value={e.name}>{e.name} ({e.count})</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={fetchFeedback}
+                    disabled={feedbackLoading}
+                    className="text-xs font-semibold text-[#233dff] hover:underline disabled:opacity-50"
+                  >
+                    {feedbackLoading ? (lang === 'es' ? 'Cargando...' : 'Loading...') : (lang === 'es' ? 'Actualizar' : 'Refresh')}
+                  </button>
+                </div>
+
+                {feedbackError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm font-semibold text-red-700">
+                    {feedbackError}
+                  </div>
+                )}
+
+                {feedbackLoading && !feedbackLoaded && (
+                  <div className="space-y-3">
+                    <SkeletonCard />
+                    <SkeletonCard />
+                  </div>
+                )}
+
+                {feedbackLoaded && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-[#f0f4ff] border border-blue-100 rounded-xl px-4 py-3">
+                      <div className="text-2xl font-bold text-[#233dff] tabular-nums">{shown.length ? avg.toFixed(1) : '-'}<span className="text-sm text-gray-400 font-semibold"> / 5</span></div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{lang === 'es' ? 'Calificacion promedio' : 'Average rating'}</div>
+                    </div>
+                    <div className="bg-[#f0f4ff] border border-blue-100 rounded-xl px-4 py-3">
+                      <div className="text-2xl font-bold text-[#233dff] tabular-nums">{shown.length}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{lang === 'es' ? 'Respuestas' : 'Responses'}</div>
+                    </div>
+                  </div>
+                )}
+
+                {feedbackLoaded && !feedbackLoading && shown.length === 0 && !feedbackError && (
+                  <div className="text-center py-14 text-gray-400">
+                    <p className="text-sm font-medium">
+                      {lang === 'es'
+                        ? 'Aun no hay comentarios. Aparecen aqui cuando alguien califica un evento.'
+                        : 'No feedback yet. It appears here when someone rates an event.'}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+                  {shown.map((f, i) => (
+                    <div key={`${f.timestamp}-${i}`} className="border border-gray-200 rounded-xl px-4 py-3 bg-white">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="text-amber-500 text-base tracking-wider leading-none" aria-label={`${f.rating} / 5`}>
+                          {'\u2605'.repeat(f.rating)}<span className="text-gray-200">{'\u2605'.repeat(5 - f.rating)}</span>
+                        </div>
+                        <div className="text-[11px] text-gray-400 font-medium shrink-0">{f.timestamp}</div>
+                      </div>
+                      <div className="mt-1.5 text-sm font-semibold text-gray-800 break-words">{label(f)}</div>
+                      {f.comments && (
+                        <p className="mt-1 text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words">{f.comments}</p>
+                      )}
+                      <div className="mt-1.5 text-xs text-gray-400">{f.name || (lang === 'es' ? 'Anonimo' : 'Anonymous')}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ===== PARTNER REQUESTS VIEW ===== */}
           {view === 'partner-requests' && (
