@@ -514,7 +514,7 @@ function doGet(e) {
         ts,
         String(p.name || 'Anonymous'),
         rating,
-        String(p.event || 'MOVE — May 9, 2026'),
+        String(p.event || 'Not specified'),
         String(p.comments || '')
       ]);
       return ContentService.createTextOutput(JSON.stringify({ success: true }))
@@ -833,9 +833,6 @@ function doPost(e) {
       case 'init_ads_sheet':
         initAdsSheet();
         result = { success: true };
-        break;
-      case 'submit_giveaway_entry':
-        result = handleGiveawayEntry(params);
         break;
       default:
         result = { success: false, error: 'Unknown action: ' + action };
@@ -2028,16 +2025,6 @@ function handleCheckinByTokenJSON(token) {
 function buildICSContent(payload, joinLink) {
   var dateISO = payload.eventDateISO || '';
 
-  // Fallback: known Unstoppable event dates
-  if (!dateISO) {
-    var knownDates = {
-      'event-1772063101013': '2026-05-09',
-      'event-1772064063990': '2026-05-20',
-      'event-1773943614235': '2026-05-27'
-    };
-    dateISO = knownDates[payload.eventId] || '';
-  }
-
   if (!dateISO) return null;
 
   var d = dateISO.replace(/-/g, '');
@@ -2073,12 +2060,17 @@ function buildICSContent(payload, joinLink) {
     return String(t).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,');
   };
 
+  // The event's own page, not a campaign site: this invite is for whichever event
+  // was registered for.
+  var eventPageUrl = 'https://eventfinder.healthmatters.clinic/' +
+    (payload.eventId ? '?event=' + encodeURIComponent(payload.eventId) : '');
+
   var descLine = (payload.eventDate || '') +
     (payload.eventTime ? ' at ' + payload.eventTime : '') +
     (joinLink
       ? '\\nJoin online: ' + icsEscape(joinLink)
       : (payload.eventAddress ? '\\n' + payload.eventAddress : '')) +
-    '\\nRegister: healthmatters.clinic/takeactionla';
+    '\\nDetails: ' + eventPageUrl;
 
   return [
     'BEGIN:VCALENDAR',
@@ -2092,7 +2084,7 @@ function buildICSContent(payload, joinLink) {
     'SUMMARY:' + (payload.eventTitle || 'Health Matters Clinic Event'),
     'DESCRIPTION:' + descLine,
     'LOCATION:' + (joinLink ? icsEscape(location) : location),
-    'URL:' + (joinLink || 'https://www.healthmatters.clinic/takeactionla'),
+    'URL:' + (joinLink || eventPageUrl),
     'ORGANIZER;CN=Health Matters Clinic:mailto:events@healthmatters.clinic',
     'STATUS:CONFIRMED',
     'UID:hmc-' + payload.eventId + '-' + Utilities.getUuid() + '@healthmatters.clinic',
@@ -2603,371 +2595,6 @@ function setupSheets() {
   Logger.log('All required sheets are ready!');
 }
 
-// ========================================
-// RESTORE ORIGINAL EVENTS - Run this once!
-// ========================================
-function restoreOriginalEvents() {
-  var events = [
-    {
-      id: 'dec-17-2025',
-      title: 'Unstoppable Community Event',
-      date: '2025-12-17',
-      dateDisplay: 'December 17, 2025',
-      time: '5:00 PM - 7:00 PM',
-      location: 'Inglewood',
-      city: 'Inglewood',
-      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
-      program: 'Community Wellness',
-      lat: 33.9719,
-      lng: -118.2108,
-      description: 'Join us for an evening of connection, resources, and community support.',
-      saveTheDate: false
-    },
-    {
-      id: 'dec-19-2025',
-      title: 'Community Health & Wellness Event',
-      date: '2025-12-19',
-      dateDisplay: 'Friday, December 19, 2025',
-      time: '12:00 PM - 4:00 PM',
-      location: 'Compton',
-      city: 'Compton',
-      address: 'Gym Basketball Courts, 11251 Compton Ave, Compton, CA 90059',
-      program: 'Community Fair',
-      lat: 33.8962,
-      lng: -118.2207,
-      description: 'Free health screenings, wellness resources, and community support.',
-      saveTheDate: true
-    },
-    {
-      id: 'jan-09-2026',
-      title: 'Unstoppable Workshop: Social Connections',
-      date: '2026-01-09',
-      dateDisplay: 'Friday, January 9, 2026',
-      time: '10:15 AM - 11:45 AM',
-      location: 'Palmdale',
-      city: 'Palmdale',
-      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
-      program: 'Unstoppable Workshop',
-      lat: 34.5801,
-      lng: -118.1164,
-      description: 'Build authentic connections and community in a safe, welcoming space.',
-      saveTheDate: false
-    },
-    {
-      id: 'jan-10-2026',
-      title: 'Community Walk & Run',
-      date: '2026-01-10',
-      dateDisplay: 'Saturday, January 10, 2026',
-      time: '8:00 AM',
-      location: 'Inglewood',
-      city: 'Inglewood',
-      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
-      program: 'Community Walk & Run',
-      lat: 33.9719,
-      lng: -118.2108,
-      description: 'Join our monthly community walk and run. Community building through movement.',
-      saveTheDate: false
-    },
-    {
-      id: 'jan-21-2026',
-      title: 'Unstoppable Wellness Meetup',
-      date: '2026-01-21',
-      dateDisplay: 'Wednesday, January 21, 2026',
-      time: '6:00 PM - 7:15 PM',
-      location: 'Inglewood',
-      city: 'Inglewood',
-      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
-      program: 'Unstoppable Wellness Meetup',
-      lat: 33.9719,
-      lng: -118.2108,
-      description: 'Safe space for authentic healing conversations. Set-up at 5:30 PM.',
-      saveTheDate: false
-    },
-    {
-      id: 'feb-06-2026',
-      title: 'Unstoppable Workshop: Community Advocacy & Empowerment',
-      date: '2026-02-06',
-      dateDisplay: 'Friday, February 6, 2026',
-      time: '10:15 AM - 11:45 AM',
-      location: 'Palmdale',
-      city: 'Palmdale',
-      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
-      program: 'Unstoppable Workshop',
-      lat: 34.5801,
-      lng: -118.1164,
-      description: 'Learn about advocacy and empower yourself and your community.',
-      saveTheDate: false
-    },
-    {
-      id: 'feb-14-2026',
-      title: 'Community Walk & Run',
-      date: '2026-02-14',
-      dateDisplay: 'Saturday, February 14, 2026',
-      time: '8:00 AM',
-      location: 'Inglewood',
-      city: 'Inglewood',
-      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
-      program: 'Community Walk & Run',
-      lat: 33.9719,
-      lng: -118.2108,
-      description: 'Join our monthly community walk and run.',
-      saveTheDate: false
-    },
-    {
-      id: 'feb-18-2026',
-      title: 'Unstoppable Wellness Meetup',
-      date: '2026-02-18',
-      dateDisplay: 'Wednesday, February 18, 2026',
-      time: '6:00 PM - 7:15 PM',
-      location: 'Inglewood',
-      city: 'Inglewood',
-      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
-      program: 'Unstoppable Wellness Meetup',
-      lat: 33.9719,
-      lng: -118.2108,
-      description: 'Safe space for authentic healing conversations.',
-      saveTheDate: false
-    },
-    {
-      id: 'mar-06-2026',
-      title: 'Unstoppable Workshop: Mental Health Awareness',
-      date: '2026-03-06',
-      dateDisplay: 'Friday, March 6, 2026',
-      time: '10:15 AM - 11:45 AM',
-      location: 'Palmdale',
-      city: 'Palmdale',
-      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
-      program: 'Unstoppable Workshop',
-      lat: 34.5801,
-      lng: -118.1164,
-      description: 'Explore mental health awareness and destigmatize mental wellness.',
-      saveTheDate: false
-    },
-    {
-      id: 'mar-14-2026',
-      title: 'Community Walk & Run',
-      date: '2026-03-14',
-      dateDisplay: 'Saturday, March 14, 2026',
-      time: '8:00 AM',
-      location: 'Inglewood',
-      city: 'Inglewood',
-      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
-      program: 'Community Walk & Run',
-      lat: 33.9719,
-      lng: -118.2108,
-      description: 'Join our monthly community walk and run.',
-      saveTheDate: false
-    },
-    {
-      id: 'mar-18-2026',
-      title: 'Unstoppable Wellness Meetup',
-      date: '2026-03-18',
-      dateDisplay: 'Wednesday, March 18, 2026',
-      time: '6:00 PM - 7:15 PM',
-      location: 'Inglewood',
-      city: 'Inglewood',
-      address: '123 W. Manchester Blvd, Inglewood, CA 90301',
-      program: 'Unstoppable Wellness Meetup',
-      lat: 33.9719,
-      lng: -118.2108,
-      description: 'Safe space for authentic healing conversations.',
-      saveTheDate: false
-    },
-    {
-      id: 'mar-27-2026',
-      title: 'Unstoppable Workshop: Access to Healthcare',
-      date: '2026-03-27',
-      dateDisplay: 'Friday, March 27, 2026',
-      time: '10:15 AM - 11:45 AM',
-      location: 'Palmdale',
-      city: 'Palmdale',
-      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
-      program: 'Unstoppable Workshop',
-      lat: 34.5801,
-      lng: -118.1164,
-      description: 'Navigate healthcare access and resources in your community.',
-      saveTheDate: false
-    },
-    {
-      id: 'mar-28-2026',
-      title: '5K Walk + Health Fair',
-      date: '2026-03-28',
-      dateDisplay: 'Saturday, March 28, 2026',
-      time: 'TBD',
-      location: 'East Los Angeles',
-      city: 'East Los Angeles',
-      address: 'East Los Angeles, CA',
-      program: 'Community Fair',
-      lat: 34.0233,
-      lng: -118.2013,
-      description: 'Community health event with 5K walk and health screenings.',
-      saveTheDate: true
-    },
-    {
-      id: 'may-08-2026',
-      title: 'Unstoppable Workshop: Cultural Competence & Inclusion',
-      date: '2026-05-08',
-      dateDisplay: 'Friday, May 8, 2026',
-      time: '10:15 AM - 11:45 AM',
-      location: 'Palmdale',
-      city: 'Palmdale',
-      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
-      program: 'Unstoppable Workshop',
-      lat: 34.5801,
-      lng: -118.1164,
-      description: 'Celebrate cultural diversity and build inclusive communities.',
-      saveTheDate: false
-    },
-    {
-      id: 'jun-05-2026',
-      title: 'Unstoppable Workshop: Physical Well-being',
-      date: '2026-06-05',
-      dateDisplay: 'Friday, June 5, 2026',
-      time: '10:15 AM - 11:45 AM',
-      location: 'Palmdale',
-      city: 'Palmdale',
-      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
-      program: 'Unstoppable Workshop',
-      lat: 34.5801,
-      lng: -118.1164,
-      description: 'Explore physical health, movement, and wellness practices.',
-      saveTheDate: false
-    },
-    {
-      id: 'jun-06-2026',
-      title: 'Health + Resources Fair',
-      date: '2026-06-06',
-      dateDisplay: 'Saturday, June 6, 2026',
-      time: 'TBD',
-      location: 'Lynwood',
-      city: 'Lynwood',
-      address: 'Lynwood, CA',
-      program: 'Community Fair',
-      lat: 33.9229,
-      lng: -118.2114,
-      description: 'Community health and resources fair.',
-      saveTheDate: true
-    },
-    {
-      id: 'jul-10-2026',
-      title: 'Unstoppable Workshop: Financial Wellness',
-      date: '2026-07-10',
-      dateDisplay: 'Friday, July 10, 2026',
-      time: '10:15 AM - 11:45 AM',
-      location: 'Palmdale',
-      city: 'Palmdale',
-      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
-      program: 'Unstoppable Workshop',
-      lat: 34.5801,
-      lng: -118.1164,
-      description: 'Build financial literacy and economic empowerment.',
-      saveTheDate: false
-    },
-    {
-      id: 'aug-07-2026',
-      title: 'Unstoppable Workshop: Environmental Health',
-      date: '2026-08-07',
-      dateDisplay: 'Friday, August 7, 2026',
-      time: '10:15 AM - 11:45 AM',
-      location: 'Palmdale',
-      city: 'Palmdale',
-      address: '2072 E. Palmdale Blvd, Palmdale, CA 93550',
-      program: 'Unstoppable Workshop',
-      lat: 34.5801,
-      lng: -118.1164,
-      description: 'Understand environmental health and community sustainability.',
-      saveTheDate: false
-    },
-    {
-      id: 'aug-08-2026',
-      title: 'Back to School Wellness Event',
-      date: '2026-08-08',
-      dateDisplay: 'Saturday, August 8, 2026',
-      time: 'TBD',
-      location: 'Huntington Park',
-      city: 'Huntington Park',
-      address: 'Huntington Park, CA',
-      program: 'Community Fair',
-      lat: 33.9773,
-      lng: -118.2272,
-      description: 'Back to school health and wellness fair.',
-      saveTheDate: true
-    },
-    {
-      id: 'dec-12-2026',
-      title: 'Toy Distribution',
-      date: '2026-12-12',
-      dateDisplay: 'Saturday, December 12, 2026',
-      time: 'TBD',
-      location: 'Huntington Park',
-      city: 'Huntington Park',
-      address: 'Huntington Park, CA',
-      program: 'Community Fair',
-      lat: 33.9773,
-      lng: -118.2272,
-      description: 'Holiday toy distribution event.',
-      saveTheDate: true
-    }
-  ];
-
-  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  var sheet = ss.getSheetByName('Events');
-
-  if (!sheet) {
-    sheet = ss.insertSheet('Events');
-    sheet.appendRow([
-      'id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
-      'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-      'isPromoted', 'isSponsored', 'createdAt', 'rsvpMode', 'hostOrg', 'rsvpContact'
-    ]);
-  }
-
-  // Clear existing data (keep headers)
-  var lastRow = sheet.getLastRow();
-  if (lastRow > 1) {
-    sheet.deleteRows(2, lastRow - 1);
-  }
-
-  // Add all events
-  // The restored seeds leave rsvpMode blank on purpose. This is a break-glass restore,
-  // and a blank reads as "never set", which EventOps flags for review, rather than
-  // asserting an owner for events nobody has looked at since the restore.
-  var headers = ['id', 'title', 'date', 'dateDisplay', 'time', 'location', 'city', 'address',
-    'program', 'lat', 'lng', 'description', 'saveTheDate', 'flyerUrl', 'websiteUrl',
-    'isPromoted', 'isSponsored', 'createdAt', 'rsvpMode', 'hostOrg', 'rsvpContact'];
-
-  var rows = [];
-  for (var i = 0; i < events.length; i++) {
-    var event = events[i];
-    var row = [];
-    for (var j = 0; j < headers.length; j++) {
-      var header = headers[j];
-      var value = event[header];
-      if (value === undefined || value === null) {
-        row.push('');
-      } else if (typeof value === 'boolean') {
-        row.push(value ? 'TRUE' : 'FALSE');
-      } else {
-        row.push(value);
-      }
-    }
-    rows.push(row);
-  }
-
-  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
-
-  // IMPORTANT: Format columns as plain text to prevent auto-conversion
-  // Column 1 = id, Column 3 = date, Column 4 = dateDisplay, Column 5 = time, Column 14 = flyerUrl
-  sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@');  // id
-  sheet.getRange(2, 3, rows.length, 1).setNumberFormat('@');  // date
-  sheet.getRange(2, 4, rows.length, 1).setNumberFormat('@');  // dateDisplay
-  sheet.getRange(2, 5, rows.length, 1).setNumberFormat('@');  // time
-  sheet.getRange(2, 14, rows.length, 1).setNumberFormat('@'); // flyerUrl
-
-  Logger.log('=== RESTORED ' + events.length + ' ORIGINAL EVENTS ===');
-  Logger.log('Events restored successfully!');
-}
-
 
 // ========================================
 // TESTING FUNCTIONS
@@ -3019,7 +2646,7 @@ function sendEventReminders() {
           var parsedDate = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
           eventDateNorm = Utilities.formatDate(parsedDate, 'UTC', 'yyyy-MM-dd');
         } else {
-          // Try parsing display dates like "Saturday, May 9, 2026"
+          // Try parsing display dates like "Saturday, March 7, 2026"
           var parsed = new Date(String(eventDateRaw));
           if (!isNaN(parsed.getTime())) {
             eventDateNorm = Utilities.formatDate(parsed, 'UTC', 'yyyy-MM-dd');
@@ -3065,7 +2692,6 @@ function sendEventReminders() {
       '<div style="text-align:center;margin:0 0 8px;">' +
       '<a href="' + checkinUrl + '" style="display:inline-block;background:#233dff;color:#fff;padding:14px 44px;border-radius:30px;text-decoration:none;font-family:Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;">' +
         (es ? 'Check-in el Día del Evento' : 'Check-in on Event Day') + '</a></div>' +
-      '<p style="text-align:center;font-size:12px;color:#999;margin:0 0 28px;">' + (es ? 'Abre a las 7:15 AM el día del evento' : 'Opens at 7:15 AM on event day') + '</p>' +
       '</div>' +
       '<div style="background:#f5f3ef;padding:20px;border-top:1px solid #e5e5e5;text-align:center;">' +
       '<p style="color:#666;font-size:13px;margin:0;">' + (es ? '¿Preguntas?' : 'Questions?') + ' <a href="mailto:events@healthmatters.clinic" style="color:#233dff;font-weight:600;">events@healthmatters.clinic</a></p>' +
@@ -3094,8 +2720,14 @@ function sendEventReminders() {
   Logger.log('sendEventReminders: sent ' + sent + ' reminder(s) for ' + tomorrowStr);
 }
 
-var TEST_EVENT   = 'event-1772063101013';
+var TEST_EVENT   = 'test-event-000';
 var TEST_PREFIX  = 'TEST_';
+
+// Today, in the format the RSVPs sheet stores. Check-in only opens the day before an
+// event, so a fixed past date made the check-in test fail by construction.
+function testDateDisplay() {
+  return Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy');
+}
 
 // Master runner — runs all tests in sequence and logs a summary
 function runAllTests() {
@@ -3137,7 +2769,7 @@ function testSheetWrite() {
   var before = sheet.getLastRow();
   sheet.appendRow([
     TEST_PREFIX + 'direct-write',
-    TEST_EVENT, 'TEST EVENT', 'Saturday, May 9, 2026',
+    TEST_EVENT, 'TEST EVENT', testDateDisplay(),
     TEST_PREFIX + 'DirectWrite', TEST_EMAIL, '4049046355',
     'email', 'No', 'No', '', '', 'en', 'test', 'test-token-direct', 'test', '', '', '', ''
   ]);
@@ -3149,8 +2781,8 @@ function testSheetWrite() {
 function testRSVPFlow() {
   var payload = {
     eventId:    TEST_EVENT,
-    eventTitle: 'TEST Live Unstoppable',
-    eventDate:  'Saturday, May 9, 2026',
+    eventTitle: 'TEST Event',
+    eventDate:  testDateDisplay(),
     name:       TEST_PREFIX + 'RSVPFlow User',
     email:      TEST_EMAIL,
     phone:      '4049046355',
@@ -3175,8 +2807,8 @@ function testRSVPFlow() {
 function testDuplicateGuard() {
   var payload = {
     eventId:    TEST_EVENT,
-    eventTitle: 'TEST Live Unstoppable',
-    eventDate:  'Saturday, May 9, 2026',
+    eventTitle: 'TEST Event',
+    eventDate:  testDateDisplay(),
     name:       TEST_PREFIX + 'RSVPFlow User',
     email:      TEST_EMAIL,
     phone:      '4049046355',
@@ -3205,8 +2837,8 @@ function testConfirmationEmail() {
   var payload = {
     name: TEST_PREFIX + 'Confirmation',
     email: TEST_EMAIL,
-    eventTitle: 'TEST Live Unstoppable',
-    eventDate: 'Saturday, May 9, 2026',
+    eventTitle: 'TEST Event',
+    eventDate: testDateDisplay(),
     eventId: TEST_EVENT
   };
   sendRSVPConfirmationEmail(payload, 'test-checkin-token-000');
@@ -3245,7 +2877,7 @@ function testSheetQuota() {
   for (var i = 0; i < 5; i++) {
     sheet.appendRow([
       TEST_PREFIX + 'quota-' + i,
-      TEST_EVENT, 'TEST', 'Saturday, May 9, 2026',
+      TEST_EVENT, 'TEST', testDateDisplay(),
       TEST_PREFIX + 'QuotaTest' + i, TEST_EMAIL, '4049046355',
       'email', 'No', 'No', '', '', 'en', 'test', 'test-token-quota-' + i, 'test', '', '', '', ''
     ]);
@@ -3270,81 +2902,6 @@ function cleanupTestData() {
   }
   toDelete.forEach(function(row) { sheet.deleteRow(row); });
   Logger.log('Cleaned up ' + toDelete.length + ' test row(s).');
-}
-
-// =============================================
-// ONE-TIME CORRECTION EMAIL — run once from GAS editor
-// Sends an apology to real attendees who received a wrong or duplicate
-// confirmation email due to the processEventbriteEmails trigger bug.
-// =============================================
-function sendCorrectionEmails() {
-  var ss    = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  var sheet = ss.getSheetByName('RSVPs');
-  if (!sheet) { Logger.log('RSVPs sheet not found'); return; }
-
-  var data = sheet.getDataRange().getValues();
-  // Headers (0-indexed): 0=Timestamp,1=Event,2=EventId,3=EventDate,
-  //   4=Name,5=Email,...,14=CheckinToken,15=Status
-  // Skip header row (i=0)
-
-  var TEST_PATTERN = /load.?test|warmtest|test\.invalid/i;
-
-  var EVENT_LABELS = {
-    'event-1772063101013': { name: 'MOVE: Live Unstoppable Walk/Run',   date: 'May 9, 2026' },
-    'event-1772064063990': { name: 'HEAL: Unstoppable Wellness Meetup', date: 'Wednesday, May 20, 2026', time: '5:45 PM to 7:15 PM', venue: 'Curtis Tucker Center, 123 W Manchester Blvd, Inglewood, CA 90301' },
-    'event-1773943614235': { name: 'TRANSFORM: Unstoppable Experience', date: 'Tuesday, May 27, 2026',  time: '7:00 PM to 8:00 PM', venue: 'Virtual on Zoom' }
-  };
-
-  var sent = 0;
-  var skipped = 0;
-
-  for (var i = 1; i < data.length; i++) {
-    var row    = data[i];
-    var email  = String(row[5] || '').trim();
-    var name   = String(row[4] || '').trim();
-    var eventId = String(row[1] || '').trim();
-    var status = String(row[15] || '').trim();
-
-    // Skip blank rows, test data, already-cancelled, and already-sent correction
-    if (!email || TEST_PATTERN.test(email)) { skipped++; continue; }
-    if (status === 'correction-sent')        { skipped++; continue; }
-
-    var firstName = name.split(' ')[0] || 'there';
-    var info = EVENT_LABELS[eventId];
-
-    // Only send for HEAL and TRANSFORM (real upcoming events that were affected)
-    if (!info || eventId === 'event-1772063101013') { skipped++; continue; }
-
-    var subject = 'Correction: Your ' + info.name + ' Registration';
-
-    var body = 'Hi ' + firstName + ',\n\n' +
-      'We owe you an apology. You recently received a confirmation email that contained incorrect event details. ' +
-      'That message was sent in error due to a technical issue on our end, and we are sorry for the confusion.\n\n' +
-      'Your registration is confirmed for:\n\n' +
-      info.name + '\n' +
-      info.date + '\n' +
-      info.time + '\n' +
-      info.venue + '\n\n' +
-      'We look forward to seeing you there. If you have any questions, please reply to this email or reach us at events@healthmatters.clinic.\n\n' +
-      'Thank you for your patience and support.\n\n' +
-      'Health Matters Clinic\n' +
-      'events@healthmatters.clinic';
-
-    try {
-      GmailApp.sendEmail(email, subject, body, {
-        from: 'events@healthmatters.clinic',
-        name: 'Health Matters Clinic'
-      });
-      sheet.getRange(i + 1, 16).setValue('correction-sent');
-      Logger.log('Sent correction to ' + email + ' for ' + info.name);
-      sent++;
-      Utilities.sleep(500); // avoid Gmail rate limits
-    } catch(err) {
-      Logger.log('Failed to send to ' + email + ': ' + err);
-    }
-  }
-
-  Logger.log('Done. Sent: ' + sent + ', Skipped: ' + skipped);
 }
 
 // ========================================
@@ -3513,444 +3070,4 @@ function processEventbriteEmails() {
   } else {
     Logger.log('[processEventbriteEmails] WARNING: _runEventbriteSync not found. Add eventbrite-rsvp-sync.gs to the GAS project and redeploy.');
   }
-}
-
-// ========================================
-// GIVEAWAY ENTRY HANDLER
-// ========================================
-
-/**
- * Writes a giveaway entry to the "Giveaway" sheet.
- * Deduplicates by email: if the email already exists, updates the row.
- * Required: name, email
- * Optional: eventsAttended, calMHSASurveyCompleted, starRating, comment
- */
-function handleGiveawayEntry(params) {
-  try {
-    var name  = String(params.name  || '').trim();
-    var email = String(params.email || '').trim().toLowerCase();
-    if (!name || !email) {
-      return { success: false, error: 'Name and email are required.' };
-    }
-
-    var ss    = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-    var sheet = ss.getSheetByName('Giveaway');
-    if (!sheet) {
-      sheet = ss.insertSheet('Giveaway');
-      sheet.appendRow(['Timestamp', 'Name', 'Email', 'Events Attended', 'CalMHSA Survey', 'Star Rating', 'Comment']);
-    }
-
-    var ts = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
-    var eventsAttended       = String(params.eventsAttended       || '');
-    var calMHSASurveyCompleted = String(params.calMHSASurveyCompleted || '');
-    var starRating           = String(params.starRating           || '');
-    var comment              = String(params.comment              || '');
-
-    // Dedup: scan existing rows for matching email
-    var lastRow = sheet.getLastRow();
-    if (lastRow > 1) {
-      var data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
-      for (var i = 0; i < data.length; i++) {
-        if (String(data[i][2]).trim().toLowerCase() === email) {
-          // Update existing row (row index is i+2 because data starts at row 2)
-          var rowNum = i + 2;
-          sheet.getRange(rowNum, 1, 1, 7).setValues([[ts, name, email, eventsAttended, calMHSASurveyCompleted, starRating, comment]]);
-          SpreadsheetApp.flush();
-          return { success: true, updated: true };
-        }
-      }
-    }
-
-    // New entry
-    sheet.appendRow([ts, name, email, eventsAttended, calMHSASurveyCompleted, starRating, comment]);
-    SpreadsheetApp.flush();
-    return { success: true };
-  } catch (err) {
-    Logger.log('Giveaway entry error: ' + err);
-    return { success: false, error: String(err) };
-  }
-}
-
-// ========================================
-// GIVEAWAY EMAIL BLAST
-// ========================================
-
-/**
- * Sends one giveaway invitation email per unique attendee email across all three
- * Unstoppable Season event IDs. Run manually from the GAS editor.
- *
- * Event IDs:
- *   MOVE      event-1772063101013
- *   HEAL      event-1772064063990
- *   TRANSFORM event-1773943614235
- *
- * Marks each sent RSVPs row with 'giveaway-sent' in column 18 to prevent re-sending.
- * Logs the total count when done.
- */
-function sendGiveawayFormToAllRSVPs() {
-  var TARGET_EVENT_IDS = [
-    'event-1772063101013',
-    'event-1772064063990',
-    'event-1773943614235'
-  ];
-  var GIVEAWAY_URL = 'https://teamhmc.github.io/take-action-la/#giveaway';
-  var GIVEAWAY_SENT_MARKER = 'giveaway-sent';
-  var SKIP_STATUSES = ['cancelled'];
-
-  var ss    = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  var sheet = ss.getSheetByName('RSVPs');
-  if (!sheet || sheet.getLastRow() < 2) {
-    Logger.log('[sendGiveawayFormToAllRSVPs] No RSVPs found.');
-    return;
-  }
-
-  // RSVPs columns (1-indexed):
-  // 1=Timestamp, 2=Event ID, 3=Event Title, 4=Event Date, 5=Name,
-  // 6=Email, 7=Phone, 8=Contact Method, 9=SMS Consent, 10=Is Minor,
-  // 11=Minor Name, 12=Needs, 13=Language, 14=Source, 15=Checkin Token,
-  // 16=Status, 17=Checked In At, 18=T-Shirt Size (repurposed as blast marker)
-  //
-  // Column 18 (T-Shirt Size) is used to store the 'giveaway-sent' marker.
-  // This is a safe field to reuse: t-shirt deadline has passed and no new
-  // size selections are expected for Unstoppable Season 2026.
-
-  var numCols = Math.max(sheet.getLastColumn(), 18);
-  var data    = sheet.getDataRange().getValues(); // includes header row
-
-  // Collect qualifying rows: correct event ID, not cancelled, has email,
-  // not already sent, not a test email
-  var sentEmails = {};  // deduplicate across events
-  var rowsToSend = []; // { rowIndex (1-based), email, firstName }
-
-  for (var i = 1; i < data.length; i++) {
-    var row      = data[i];
-    var eventId  = String(row[1] || '').trim();
-    var email    = String(row[5] || '').trim().toLowerCase();
-    var status   = String(row[15] || '').trim().toLowerCase();
-    var marker   = String(row[17] || '').trim().toLowerCase();
-    var name     = String(row[4] || '').trim();
-
-    // Filter: must be one of the three target events
-    if (TARGET_EVENT_IDS.indexOf(eventId) === -1) continue;
-
-    // Filter: skip cancelled
-    if (SKIP_STATUSES.indexOf(status) !== -1) continue;
-
-    // Filter: must have a real email
-    if (!email || email.indexOf('@') === -1) continue;
-
-    // Filter: skip test emails
-    if (email.indexOf('test') !== -1 && email.indexOf('@healthmatters.clinic') === -1) continue;
-    if (email === 'test@test.com' || email === 'test@example.com') continue;
-
-    // Filter: already sent
-    if (marker === GIVEAWAY_SENT_MARKER) continue;
-
-    // Deduplicate: only send one email per unique address across all events
-    if (sentEmails[email]) continue;
-    sentEmails[email] = true;
-
-    rowsToSend.push({ rowIndex: i + 1, email: email, name: name });
-  }
-
-  Logger.log('[sendGiveawayFormToAllRSVPs] Sending to ' + rowsToSend.length + ' unique attendees.');
-
-  var sentCount = 0;
-  for (var j = 0; j < rowsToSend.length; j++) {
-    var rec       = rowsToSend[j];
-    var firstName = rec.name.split(' ')[0] || 'there';
-
-    try {
-      var htmlBody =
-        '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
-        '<body style="font-family:Inter,Arial,sans-serif;margin:0;padding:20px;background:#f5f3ef;">' +
-        '<div style="max-width:600px;margin:0 auto;background:#080808;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.08);">' +
-        // Header
-        '<div style="background:#233dff;padding:28px 32px;text-align:center;">' +
-        '<img src="' + CONFIG.LOGO_URL + '" alt="Health Matters Clinic" style="width:52px;height:52px;border-radius:10px;margin-bottom:14px;background:#fff;padding:4px;">' +
-        '<h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;letter-spacing:.01em;">Health Matters Clinic</h1>' +
-        '<p style="margin:8px 0 0;color:rgba(255,255,255,.8);font-size:14px;">Unstoppable Season 2026</p>' +
-        '</div>' +
-        // Body
-        '<div style="padding:40px 36px;">' +
-        '<p style="font-size:18px;font-weight:700;color:#fff;margin:0 0 16px;">Hi ' + firstName + ',</p>' +
-        '<p style="font-size:15px;color:rgba(255,255,255,.75);line-height:1.7;margin:0 0 20px;">Thank you for attending one or more Unstoppable Season events this May. Your presence made this season what it was.</p>' +
-        '<p style="font-size:15px;color:rgba(255,255,255,.75);line-height:1.7;margin:0 0 28px;">As a thank you, you are eligible to enter our MacBook Neo drawing. Fill out the form, rate your experience, and you will be entered for a chance to win.</p>' +
-        // Blue highlight box
-        '<div style="background:rgba(35,61,255,.15);border:1px solid rgba(35,61,255,.35);border-radius:12px;padding:22px 24px;margin:0 0 32px;">' +
-        '<p style="font-size:14px;font-weight:700;color:rgba(255,255,255,.9);margin:0 0 6px;letter-spacing:.04em;text-transform:uppercase;">Drawing Details</p>' +
-        '<p style="font-size:14px;color:rgba(255,255,255,.65);line-height:1.65;margin:0;">Prize: MacBook Neo<br>Entry deadline: May 27, 2026<br>Winner announced: May 30, 2026<br>One entry per person</p>' +
-        '</div>' +
-        // CTA button
-        '<div style="text-align:center;margin:0 0 32px;">' +
-        '<a href="' + GIVEAWAY_URL + '" style="display:inline-block;background:#233dff;color:#fff;padding:16px 48px;border-radius:100px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:.03em;border:1.5px solid rgba(255,255,255,.25);">Enter the Giveaway</a>' +
-        '</div>' +
-        '<p style="font-size:14px;color:rgba(255,255,255,.45);line-height:1.65;margin:0 0 6px;">Fill out the short form, tell us which events you attended, rate your experience, and you are entered.</p>' +
-        '<p style="font-size:14px;color:rgba(255,255,255,.45);margin:0 0 32px;">Questions? Reply to this email.</p>' +
-        '<p style="font-size:14px;color:rgba(255,255,255,.55);margin:0;">Thank you for being part of something bigger.<br><strong style="color:#fff;">Health Matters Clinic</strong></p>' +
-        '</div>' +
-        // Footer
-        '<div style="border-top:1px solid rgba(255,255,255,.06);padding:20px 32px;text-align:center;">' +
-        '<p style="color:rgba(255,255,255,.3);font-size:12px;margin:0;">Health Matters Clinic · events@healthmatters.clinic<br>In crisis? Call or text <strong>988</strong>.</p>' +
-        '</div>' +
-        '</div></body></html>';
-
-      var plainBody =
-        'Hi ' + firstName + ',\n\n' +
-        'Thank you for attending Unstoppable Season events this May. Your presence made this season what it was.\n\n' +
-        'You are eligible to enter our MacBook Neo drawing. Fill out the short form and you are entered.\n\n' +
-        'Enter the Giveaway:\n' + GIVEAWAY_URL + '\n\n' +
-        'Drawing details:\n' +
-        '  Prize: MacBook Neo\n' +
-        '  Entry deadline: May 27, 2026\n' +
-        '  Winner announced: May 30, 2026\n' +
-        '  One entry per person\n\n' +
-        'Questions? Reply to this email.\n\n' +
-        'Thank you for being part of something bigger.\n' +
-        'Health Matters Clinic\n\n' +
-        'In crisis? Call or text 988.';
-
-      MailApp.sendEmail({
-        to: rec.email,
-        subject: 'Enter to Win the MacBook Neo — Your Unstoppable Season Entry',
-        htmlBody: htmlBody,
-        body: plainBody,
-        name: 'Health Matters Clinic Events',
-        replyTo: 'events@healthmatters.clinic'
-      });
-
-      // Mark the row as sent in column 18
-      sheet.getRange(rec.rowIndex, 18).setValue(GIVEAWAY_SENT_MARKER);
-      sentCount++;
-
-      // Flush every 20 sends to reduce risk of losing progress on quota error
-      if (sentCount % 20 === 0) SpreadsheetApp.flush();
-
-    } catch (mailErr) {
-      Logger.log('[sendGiveawayFormToAllRSVPs] Failed to send to ' + rec.email + ': ' + mailErr);
-    }
-  }
-
-  SpreadsheetApp.flush();
-  Logger.log('[sendGiveawayFormToAllRSVPs] Done. Sent: ' + sentCount + ' of ' + rowsToSend.length + ' queued.');
-}
-
-// ========================================
-// MACBOOK GIVEAWAY DRAWING
-// ========================================
-
-/**
- * drawMacBookWinner()
- *
- * Selects a winner for the MacBook giveaway based on verified attendance
- * and post-event survey completion for the three Unstoppable Season events:
- *
- *   MOVE      event-1773943614157  — May 9, 2026
- *   HEAL      event-1773943614220  — May 20, 2026
- *   TRANSFORM event-1773943614235  — May 27, 2026
- *
- * Eligibility rules:
- *   - 1 entry per qualifying event
- *   - To qualify for an event: must be checked in (RSVPs.Status === 'checked-in')
- *     AND must have a completed survey/giveaway form entry (Giveaway sheet, by email)
- *   - Maximum 3 entries per person (one per event)
- *
- * Survey cross-reference:
- *   The post-event Feedback sheet does NOT store attendee email, only name and
- *   a free-text event label. The Giveaway sheet (written by handleGiveawayEntry)
- *   stores email and eventsAttended, making it the authoritative source for
- *   linking survey completion to a verified email address.
- *   A person qualifies as having completed a survey if they appear in the
- *   Giveaway sheet with a non-empty eventsAttended value.
- *
- * Output:
- *   - Logs the winner's name and email to the GAS logger
- *   - Writes the full pool and result to a "Giveaway Drawing" sheet
- *   - Does NOT send any email — admin reviews the sheet first
- *
- * Run manually from the GAS editor after May 27, 2026.
- * Announce winner by May 30, 2026.
- */
-function drawMacBookWinner() {
-  var GIVEAWAY_EVENT_IDS = [
-    'event-1773943614157',  // MOVE — May 9
-    'event-1773943614220',  // HEAL — May 20
-    'event-1773943614235'   // TRANSFORM — May 27
-  ];
-
-  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-
-  // ------------------------------------------------------------------
-  // 1. Read RSVPs sheet — find checked-in rows for the three events
-  // ------------------------------------------------------------------
-  // RSVPs columns (0-indexed):
-  //   1 = Event ID
-  //   4 = Name
-  //   5 = Email
-  //  15 = Status  ('checked-in' means physically attended + QR scanned)
-  // ------------------------------------------------------------------
-  var rsvpSheet = ss.getSheetByName('RSVPs');
-  if (!rsvpSheet || rsvpSheet.getLastRow() < 2) {
-    Logger.log('[drawMacBookWinner] ERROR: RSVPs sheet is empty or missing.');
-    return;
-  }
-
-  var rsvpData = rsvpSheet.getDataRange().getValues();
-
-  // Map: email (lowercase) -> Set of event IDs where they checked in
-  var checkedInMap = {};  // { email: { 'event-id': true, ... } }
-
-  for (var i = 1; i < rsvpData.length; i++) {
-    var row     = rsvpData[i];
-    var eventId = String(row[1] || '').trim();
-    var name    = String(row[4] || '').trim();
-    var email   = String(row[5] || '').trim().toLowerCase();
-    var status  = String(row[15] || '').trim().toLowerCase();
-
-    if (!email || GIVEAWAY_EVENT_IDS.indexOf(eventId) === -1) continue;
-    if (status !== 'checked-in') continue;
-
-    if (!checkedInMap[email]) {
-      checkedInMap[email] = { name: name, events: {} };
-    }
-    checkedInMap[email].events[eventId] = true;
-  }
-
-  Logger.log('[drawMacBookWinner] Checked-in attendees across all 3 events: ' + Object.keys(checkedInMap).length);
-
-  // ------------------------------------------------------------------
-  // 2. Read Giveaway sheet — find people who completed the form/survey
-  // ------------------------------------------------------------------
-  // Giveaway columns (0-indexed):
-  //   0 = Timestamp
-  //   1 = Name
-  //   2 = Email
-  //   3 = Events Attended (non-empty means survey submitted)
-  //   4 = CalMHSA Survey
-  // ------------------------------------------------------------------
-  var giveawaySheet = ss.getSheetByName('Giveaway');
-  var surveyEmails = {};  // Set of emails that completed the giveaway form
-
-  if (giveawaySheet && giveawaySheet.getLastRow() > 1) {
-    var giveawayData = giveawaySheet.getRange(2, 1, giveawaySheet.getLastRow() - 1, 5).getValues();
-    for (var g = 0; g < giveawayData.length; g++) {
-      var gEmail         = String(giveawayData[g][2] || '').trim().toLowerCase();
-      var gEventsField   = String(giveawayData[g][3] || '').trim();
-      if (gEmail && gEventsField) {
-        surveyEmails[gEmail] = true;
-      }
-    }
-  }
-
-  Logger.log('[drawMacBookWinner] Giveaway form submissions with events attended: ' + Object.keys(surveyEmails).length);
-
-  // ------------------------------------------------------------------
-  // 3. Cross-reference: qualify only those with check-in AND survey
-  //    Each qualifying event = 1 entry (max 3 entries per person)
-  // ------------------------------------------------------------------
-  // entryPool: flat array of { email, name, eventId } — one item per entry
-  var entryPool = [];
-  var qualifiedPeople = [];
-
-  var emails = Object.keys(checkedInMap);
-  for (var e = 0; e < emails.length; e++) {
-    var personEmail  = emails[e];
-    var personRecord = checkedInMap[personEmail];
-
-    // Must have completed the post-event form
-    if (!surveyEmails[personEmail]) continue;
-
-    var personEvents = Object.keys(personRecord.events);
-    var entries = 0;
-    for (var ev = 0; ev < personEvents.length; ev++) {
-      entryPool.push({
-        email:   personEmail,
-        name:    personRecord.name,
-        eventId: personEvents[ev]
-      });
-      entries++;
-    }
-
-    qualifiedPeople.push({
-      email:   personEmail,
-      name:    personRecord.name,
-      entries: entries
-    });
-  }
-
-  Logger.log('[drawMacBookWinner] Qualified entrants: ' + qualifiedPeople.length + ' people, ' + entryPool.length + ' total entries.');
-
-  if (entryPool.length === 0) {
-    Logger.log('[drawMacBookWinner] No qualifying entries found. Drawing cannot proceed.');
-    _writeGiveawayDrawingSheet(ss, qualifiedPeople, entryPool, null, 'No qualifying entries found.');
-    return;
-  }
-
-  // ------------------------------------------------------------------
-  // 4. Random weighted draw — pick one entry from the pool at random
-  // ------------------------------------------------------------------
-  var winnerIndex   = Math.floor(Math.random() * entryPool.length);
-  var winningEntry  = entryPool[winnerIndex];
-  var winnerName    = winningEntry.name;
-  var winnerEmail   = winningEntry.email;
-  var winnerEntries = checkedInMap[winnerEmail] ? Object.keys(checkedInMap[winnerEmail].events).length : 1;
-
-  Logger.log('[drawMacBookWinner] *** WINNER: ' + winnerName + ' (' + winnerEmail + ') — ' + winnerEntries + ' entr' + (winnerEntries === 1 ? 'y' : 'ies') + ' ***');
-
-  // ------------------------------------------------------------------
-  // 5. Write results to "Giveaway Drawing" sheet (create if needed)
-  // ------------------------------------------------------------------
-  var note = 'Winner selected ' + Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST';
-  _writeGiveawayDrawingSheet(ss, qualifiedPeople, entryPool, winningEntry, note);
-
-  Logger.log('[drawMacBookWinner] Results written to "Giveaway Drawing" sheet. DO NOT send email until admin review.');
-}
-
-/**
- * Internal helper — writes the drawing pool and winner to the "Giveaway Drawing" sheet.
- */
-function _writeGiveawayDrawingSheet(ss, qualifiedPeople, entryPool, winner, note) {
-  var drawSheet = ss.getSheetByName('Giveaway Drawing');
-  if (!drawSheet) {
-    drawSheet = ss.insertSheet('Giveaway Drawing');
-  } else {
-    drawSheet.clearContents();
-  }
-
-  // Section 1: drawing metadata
-  drawSheet.appendRow(['MACBOOK GIVEAWAY DRAWING']);
-  drawSheet.appendRow(['Run at', Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'M/d/yyyy h:mm a') + ' PST']);
-  drawSheet.appendRow(['Note', note || '']);
-  drawSheet.appendRow([]);
-
-  // Section 2: winner
-  drawSheet.appendRow(['--- WINNER ---']);
-  if (winner) {
-    drawSheet.appendRow(['Name',   winner.name]);
-    drawSheet.appendRow(['Email',  winner.email]);
-    drawSheet.appendRow(['Winning entry event', winner.eventId]);
-  } else {
-    drawSheet.appendRow(['No winner selected.']);
-  }
-  drawSheet.appendRow([]);
-
-  // Section 3: qualified entrants pool
-  drawSheet.appendRow(['--- QUALIFIED ENTRANTS (' + qualifiedPeople.length + ' people, ' + entryPool.length + ' total entries) ---']);
-  drawSheet.appendRow(['Name', 'Email', 'Entries']);
-  for (var i = 0; i < qualifiedPeople.length; i++) {
-    var p = qualifiedPeople[i];
-    drawSheet.appendRow([p.name, p.email, p.entries]);
-  }
-  drawSheet.appendRow([]);
-
-  // Section 4: full entry pool (one row per entry — shows weighting)
-  drawSheet.appendRow(['--- FULL ENTRY POOL (one row per entry) ---']);
-  drawSheet.appendRow(['Name', 'Email', 'Event ID']);
-  for (var j = 0; j < entryPool.length; j++) {
-    var entry = entryPool[j];
-    drawSheet.appendRow([entry.name, entry.email, entry.eventId]);
-  }
-
-  SpreadsheetApp.flush();
-  Logger.log('[drawMacBookWinner] Giveaway Drawing sheet written with ' + entryPool.length + ' entry rows.');
 }
