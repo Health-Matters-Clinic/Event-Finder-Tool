@@ -810,7 +810,10 @@
 // =============================================
 // CONFIG
 // =============================================
-var GAS_URL = 'https://script.google.com/macros/s/AKfycbxPpn0Q8jiyZ5ftR1uLcb3BJwPI-C2zyEdm1xJT-7iX3dDIYIV5kZwR_nrsl2PC7ExSvg/exec';
+// The same deployment the Event Finder app itself calls, so the check-in page, the
+// feedback step and the app always run the same version of the script. This page
+// used to call a second deployment that stayed on an older version of the code.
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbzPUzjEIQhwEO5uD55EK1IHKKHh3RabUtAGyNcNkx_1KpefWm21_FOuRrZknDWyGU1J1g/exec';
 
 // =============================================
 // URL PARAMS (read before the event details load)
