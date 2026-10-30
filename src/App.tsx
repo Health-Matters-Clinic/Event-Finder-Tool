@@ -1045,7 +1045,12 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex flex-1 overflow-hidden relative flex-col md:flex-row min-h-0">
+      {/* On desktop the page grows to the length of the event list so the Webflow iframe
+          can size itself to it. The map used to stretch with it, so Leaflet framed the pins
+          in the middle of a page-tall box and scrolling showed empty map. It is now a
+          viewport-height panel pinned to the top. The overflow-visible is what lets
+          sticky work; overflow-hidden on this element makes it the scroll container. */}
+      <main className="flex flex-1 overflow-hidden md:overflow-visible relative flex-col md:flex-row min-h-0">
         <div className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center gap-3">
           <button
             onClick={() => setMobileView('map')}
@@ -1086,7 +1091,7 @@ const App: React.FC = () => {
         </div>
 
         <div
-          className={`flex-1 relative bg-[#e8e6e0] min-h-0 h-[50vh] md:h-auto ${
+          className={`flex-1 relative bg-[#e8e6e0] min-h-0 h-[50vh] md:h-[min(calc(100dvh-72px),900px)] md:sticky md:top-0 md:self-start ${
             mobileView === 'map' ? 'block' : 'hidden'
           } md:block`}
         >
