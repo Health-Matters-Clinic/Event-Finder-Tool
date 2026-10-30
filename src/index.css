@@ -62,6 +62,15 @@ body {
   top: 100%;
   width: 100%;
 }
+/* For labels that can be long, such as a host organization name on a Register
+   button. The default keeps the label on one line for the roll-up hover; this lets
+   it wrap inside the pill instead of running off the edge. */
+.pill-btn-wrap .pill-label {
+  white-space: normal;
+}
+.pill-btn-wrap .pill-clip {
+  min-width: 0;
+}
 .pill-btn:hover .pill-label {
   transform: translateY(-100%);
 }

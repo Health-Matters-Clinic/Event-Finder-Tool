@@ -1164,7 +1164,7 @@ const App: React.FC = () => {
                     <img
                       src={selectedEvent.flyerUrl}
                       alt={`${selectedEvent.title} flyer`}
-                      className="w-full rounded-xl border border-gray-200 shadow-sm max-h-[45vw] sm:max-h-none object-cover object-top"
+                      className="w-full h-auto rounded-xl border border-gray-200 shadow-sm object-contain"
                       onError={(e) => (e.currentTarget.style.display = 'none')}
                     />
                   </div>
@@ -1293,18 +1293,19 @@ const App: React.FC = () => {
                     </div>
                   ) : resolveRsvpMode(selectedEvent) === 'external' ? (
                     selectedEvent.websiteUrl ? (
-                      <a
+                      // An anchor styled as the button, not a button inside an anchor.
+                      // The host name can be long, so the label wraps and the height grows.
+                      <Button
                         href={selectedEvent.websiteUrl.startsWith('http') ? selectedEvent.websiteUrl : `https://${selectedEvent.websiteUrl}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => trackExternalRsvp(selectedEvent, 'register')}
+                        className="w-full justify-center min-h-12 h-auto text-center pill-btn-wrap"
                       >
-                        <Button className="w-full justify-center h-12">
-                          {lang === 'es'
-                            ? `Registrarse con ${hostLabel(selectedEvent, lang)}`
-                            : `RSVP with ${hostLabel(selectedEvent, lang)}`}
-                        </Button>
-                      </a>
+                        {lang === 'es'
+                          ? `Registrarse con ${hostLabel(selectedEvent, lang)}`
+                          : `RSVP with ${hostLabel(selectedEvent, lang)}`}
+                      </Button>
                     ) : selectedEvent.rsvpContact ? (
                       // No registration page, but a real way to reach the host. A dead
                       // button would be worse than the contact details themselves.

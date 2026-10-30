@@ -4,6 +4,11 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'outline' | 'ghost';
   dotClassName?: string;
   showDot?: boolean;
+  /** Renders a real link with the same look. A button nested in an anchor is invalid
+      HTML and iOS Safari does not reliably follow it. */
+  href?: string;
+  target?: string;
+  rel?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -12,6 +17,9 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   dotClassName = '',
   showDot = true,
+  href,
+  target,
+  rel,
   ...props
 }) => {
   // Base styles, font-normal text-base leading-[1.2] per design spec
@@ -33,11 +41,9 @@ export const Button: React.FC<ButtonProps> = ({
   // 6px dot, white on primary and #0f0f0f on outline, matching the site spec
   const dotColor = variant === 'primary' ? 'bg-white' : 'bg-[#0f0f0f]';
 
-  return (
-    <button
-      className={`${variant !== 'ghost' ? baseStyles : ''} ${variants[variant]} ${className}`}
-      {...props}
-    >
+  const classes = `${variant !== 'ghost' ? baseStyles : ''} ${variants[variant]} ${className}`;
+  const inner = (
+    <>
       {showDot && variant !== 'ghost' && (
         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor} ${dotClassName}`} />
       )}
@@ -49,6 +55,26 @@ export const Button: React.FC<ButtonProps> = ({
           <span className="pill-label pill-label-alt" aria-hidden="true">{children}</span>
         </span>
       )}
+    </>
+  );
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        target={target}
+        rel={rel}
+        className={classes}
+        onClick={props.onClick as unknown as React.MouseEventHandler<HTMLAnchorElement>}
+      >
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <button className={classes} {...props}>
+      {inner}
     </button>
   );
 };
