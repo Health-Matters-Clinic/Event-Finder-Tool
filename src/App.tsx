@@ -181,7 +181,7 @@ const trackExternalRsvp = (e: ClinicEvent, label: 'register' | 'more_info'): voi
 };
 
 const DEFAULT_CENTER: [number, number] = [33.9719, -118.2108];
-const PUBLIC_EVENTFINDER_URL = 'https://www.healthmatters.clinic/resources/eventfinder';
+const PUBLIC_EVENTFINDER_URL = 'https://eventfinder.healthmatters.clinic/';
 
 const mergeEventData = (base: ClinicEvent, incoming: ClinicEvent): ClinicEvent => {
   const merged = { ...base, ...incoming };
