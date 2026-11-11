@@ -294,7 +294,7 @@ function sendFirestoreRSVPs() {
 
   attendees.forEach(function(a) {
     var firstName = (a.name || '').split(' ')[0] || 'there';
-    var checkinUrl = a.token ? PORTAL_CHECKIN + encodeURIComponent(a.token) : 'https://www.healthmatters.clinic/resources/eventfinder';
+    var checkinUrl = a.token ? PORTAL_CHECKIN + encodeURIComponent(a.token) : 'https://eventfinder.healthmatters.clinic';
 
     var subject = 'Today is Live Unstoppable: Issa Rae + Spencer Paysinger';
 

@@ -109,7 +109,7 @@ const PROGRAM_COLORS: Record<string, string> = {
   'Panel': '#a21caf',
 };
 
-const SHARE_BASE_URL = 'https://www.healthmatters.clinic/resources/eventfinder?event=';
+const SHARE_BASE_URL = 'https://eventfinder.healthmatters.clinic/?event=';
 
 // Get default date (2 weeks from now), in local time. See todayStr() below
 // for why toISOString() is the wrong tool for a local calendar date.
