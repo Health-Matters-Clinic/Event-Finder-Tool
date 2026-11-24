@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { partnerRequestDate, partnerRequestDateLabel } from '../utils/partnerDate';
 import { Button } from './Button';
 import { ClinicEvent, EventSession, Language } from '../types';
 import { STORAGE_KEYS, GOOGLE_APPS_SCRIPT_URL, PORTAL_API_URL, hashPasscode, postGasJson, AdBanner } from '../config';
@@ -3423,7 +3424,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500 mt-2">
                         {req.proposedDate && (
-                          <div><span className="font-semibold text-gray-700">Date:</span> {req.proposedDate}</div>
+                          <div><span className="font-semibold text-gray-700">Date:</span> {partnerRequestDateLabel(req.proposedDate)}</div>
                         )}
                         {req.eventTime && (
                           <div><span className="font-semibold text-gray-700">Time:</span> {req.eventTime}</div>
@@ -3468,16 +3469,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                               setApprovingId(req.id);
                               setRejectingId(null);
                               // Pre-fill form from request data
-                              // Try to parse proposedDate (e.g. "5/9/2026" or "2026-05-09") into YYYY-MM-DD
-                              let isoDate = '';
-                              if (req.proposedDate) {
-                                const slash = req.proposedDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-                                if (slash) {
-                                  isoDate = `${slash[3]}-${slash[1].padStart(2, '0')}-${slash[2].padStart(2, '0')}`;
-                                } else if (/^\d{4}-\d{2}-\d{2}$/.test(req.proposedDate)) {
-                                  isoDate = req.proposedDate;
-                                }
-                              }
+                              // The sheet hands the date back as a timestamp, a slash date or YYYY-MM-DD
+                              const isoDate = partnerRequestDate(req.proposedDate);
                               setApproveFormData({
                                 title: req.eventTitle,
                                 date: isoDate,
