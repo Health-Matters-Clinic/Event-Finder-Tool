@@ -725,7 +725,7 @@ const App: React.FC = () => {
         maxZoom: 16,
         pane: 'overlayPane',
       }).addTo(mapRef.current);
-      L.control.zoom({ position: 'bottomright' }).addTo(mapRef.current);
+      L.control.zoom({ position: 'topright' }).addTo(mapRef.current);
     }
   }, []);
 
@@ -1091,7 +1091,7 @@ const App: React.FC = () => {
         </div>
 
         <div
-          className={`flex-1 relative bg-[#e8e6e0] min-h-0 h-[50vh] md:h-[min(calc(100dvh-72px),900px)] md:sticky md:top-0 md:self-start ${
+          className={`flex-1 relative bg-[#e8e6e0] min-h-0 h-[50vh] md:h-[100dvh] md:sticky md:top-0 md:self-start ${
             mobileView === 'map' ? 'block' : 'hidden'
           } md:block`}
         >
