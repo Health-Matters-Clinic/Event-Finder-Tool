@@ -203,6 +203,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ lang, onClose }) => 
                   <input
                     name="proposedDate"
                     type="date"
+                    min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)}
                     value={formData.proposedDate}
                     onChange={handleChange}
                     required
