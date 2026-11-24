@@ -691,6 +691,15 @@ const App: React.FC = () => {
       });
   }, [events, filters, locationSearch]);
 
+  // Escape closes the event window, as it does for any dialog. Without it a keyboard
+  // user had to tab to the X.
+  useEffect(() => {
+    if (!selectedEvent) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedEvent(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedEvent]);
+
   useEffect(() => {
     if (selectedEvent && listRefs.current[selectedEvent.id]) {
       listRefs.current[selectedEvent.id]?.scrollIntoView({
@@ -1005,7 +1014,7 @@ const App: React.FC = () => {
         {/* Right: Compact buttons */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Language Toggle */}
-          <div className="flex bg-white border border-black rounded-full overflow-hidden h-9">
+          <div className="flex bg-white border border-black rounded-full overflow-hidden h-11 sm:h-9">
             <button
               onClick={() => setLang('en')}
               aria-label="Switch to English"
@@ -1039,7 +1048,7 @@ const App: React.FC = () => {
           {/* Partner Events Button */}
           <Button
             variant="outline"
-            className="h-9 px-4"
+            className="h-11 sm:h-9 px-4"
             showDot={false}
             style={{ fontSize: '11px', fontWeight: 600, borderWidth: '1px', textTransform: 'uppercase', letterSpacing: '0.06em' }}
             onClick={() => setIsPartnerOpen(true)}
@@ -1103,6 +1112,9 @@ const App: React.FC = () => {
         </div>
         {selectedEvent && (
             <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={selectedEvent.title}
               className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/40"
               onClick={() => setSelectedEvent(null)}
             >
