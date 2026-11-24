@@ -290,11 +290,11 @@ const sanitizeEvents = (raw: any[]): ClinicEvent[] => {
 /**
  * The backend's events, merged over the bundled list.
  *
- * The bundled list is what fills the Past Events tab: the portal's events feed only
- * returns events from today onward (its `all` parameter is declared and never applied),
- * so without this list that tab is empty. It is also the floor that keeps a partial
- * backend response from wiping the calendar. Remove it once the feed can serve past
- * events.
+ * The feed is asked for every event (`?all=true`), finished ones included, so the Past
+ * Events tab shows what an admin added. The bundled list is the floor underneath: it
+ * keeps older events that were never in the feed, and keeps a partial backend response
+ * from wiping the calendar. An event in both is merged by title and date, not doubled.
+ * Before the portal honored `all`, this list was the only thing that filled the tab.
  */
 const mergeWithBundledEvents = (raw: any[]): ClinicEvent[] => {
   const bundled = sanitizeEvents(EVENTS);
@@ -518,7 +518,7 @@ const App: React.FC = () => {
       try {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 12000);
-        const response = await fetch(`${PORTAL_API_URL}/api/public/events`, { signal: controller.signal });
+        const response = await fetch(`${PORTAL_API_URL}/api/public/events?all=true`, { signal: controller.signal });
         clearTimeout(tid);
         if (response.ok) {
           const events = await response.json();
@@ -672,18 +672,22 @@ const App: React.FC = () => {
         return monthMatch && programMatch && locationMatch && archivalMatch && ceMatch;
       })
       .sort((a, b) => {
-        // Promoted events always come first
-        if (a.isPromoted && !b.isPromoted) return -1;
-        if (!a.isPromoted && b.isPromoted) return 1;
-
-        // Then sponsored events
-        if (a.isSponsored && !b.isSponsored) return -1;
-        if (!a.isSponsored && b.isSponsored) return 1;
+        // Promoted events always come first, then sponsored ones. Not on the Past tab:
+        // a promotion that ran in May should not sit above last week.
+        if (!filters.showPast) {
+          if (a.isPromoted && !b.isPromoted) return -1;
+          if (!a.isPromoted && b.isPromoted) return 1;
+          if (a.isSponsored && !b.isSponsored) return -1;
+          if (!a.isSponsored && b.isSponsored) return 1;
+        }
 
         // Then sort by date (handle ISO date strings)
         const dateA = a.date && a.date.includes('T') ? a.date.split('T')[0] : (a.date || '');
         const dateB = b.date && b.date.includes('T') ? b.date.split('T')[0] : (b.date || '');
-        return new Date(dateA).getTime() - new Date(dateB).getTime();
+        // Upcoming runs soonest first. Past runs newest first, so the last thing that
+        // happened is at the top instead of buried under the oldest.
+        const byDate = new Date(dateA).getTime() - new Date(dateB).getTime();
+        return filters.showPast ? -byDate : byDate;
       });
   }, [events, filters, locationSearch]);
 
